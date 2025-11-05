@@ -1,18 +1,20 @@
 import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <Stack
+    <AuthProvider>
+      <Stack
       screenOptions={{
         headerStyle: {
           backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7',
         },
         headerTintColor: colorScheme === 'dark' ? '#FFFFFF' : '#000000',
       }}
-    >
+      >
       {/* This is the Login page. It's the default and has no header. */}
       <Stack.Screen
         name="index"
@@ -26,10 +28,12 @@ export default function RootLayout() {
       />
 
       {/* These are other pages that can be opened from anywhere */}
+      <Stack.Screen name="mainpage" options={{ title: 'Main Page' }} />
       <Stack.Screen name="register" options={{ title: 'Register' }} />
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />
       <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />
-    </Stack>
+      </Stack>
+    </AuthProvider>
   );
 }

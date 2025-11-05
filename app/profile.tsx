@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Button, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Button, Image, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
 import { API_URL } from './config';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ProfileScreen() {
   const [id, setId] = useState('');
@@ -10,12 +11,13 @@ export default function ProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme);
+  const { user: authUser } = useAuth();
 
   async function fetchUser() {
     if (!id) { Alert.alert('Validation', 'Please enter a username'); return; }
     setLoading(true);
     try {
-  const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(id)}`);
+      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(id)}`);
       const data = await res.json();
       if (!res.ok) {
         Alert.alert('Error', data.error || 'Failed to fetch user');
@@ -28,6 +30,12 @@ export default function ProfileScreen() {
     } finally { setLoading(false); }
   }
 
+  useEffect(() => {
+    if (authUser?.username) {
+      setId(authUser.username);
+    }
+  }, [authUser?.username]);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>View Account</Text>
@@ -36,6 +44,9 @@ export default function ProfileScreen() {
 
       {user && (
         <View style={styles.card}>
+          {user.avatarUrl ? (
+            <Image source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }} style={{ width: 100, height: 100, borderRadius: 50, alignSelf: 'center', marginBottom: 12 }} />
+          ) : null}
           <Text style={styles.field}>ID: {user.id}</Text>
           <Text style={styles.field}>Username: {user.username}</Text>
           <Text style={styles.field}>Email: {user.email}</Text>

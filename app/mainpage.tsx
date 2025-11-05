@@ -115,11 +115,6 @@ export default function MainPage() {
           <IconSymbol name="pencil" size={28} color="#2b6cb0" />
           <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>Edit</ThemedText>
         </Pressable>
-
-        <Pressable style={[styles.actionCard]} onPress={() => router.push('/delete-account') }>
-          <IconSymbol name="trash" size={28} color="#e53e3e" />
-          <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>Danger</ThemedText>
-        </Pressable>
       </ScrollView>
 
     </ThemedView>

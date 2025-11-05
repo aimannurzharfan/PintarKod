@@ -1,12 +1,11 @@
-import React, { useEffect } from 'react';
-import { Alert, Platform, Pressable, View, StyleSheet, useColorScheme } from 'react-native';
-import { Image } from 'react-native';
-import { ActionSheetIOS } from 'react-native';
-import { useRouter, useNavigation } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigation, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
+import { ActionSheetIOS, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, useColorScheme, View } from 'react-native';
+import { API_URL } from './config';
 
 export default function MainPage() {
   const { user, logout } = useAuth();
@@ -84,14 +83,56 @@ export default function MainPage() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Welcome{user?.username ? `, ${user.username}` : ''}!</ThemedText>
-      <ThemedText>Use the user icon at the top-right to view or edit your profile, or logout.</ThemedText>
+      <View style={styles.headerCard}>
+        {user?.avatarUrl ? (
+          <Image
+            source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <IconSymbol size={36} name="person.fill" color="#fff" />
+          </View>
+        )}
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <ThemedText type="title">Hello{user?.username ? `, ${user.username}` : '!'}</ThemedText>
+          <ThemedText type="subtitle">Welcome Back!</ThemedText>
+        </View>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.actionsRow} contentContainerStyle={{ gap: 12 }}>
+        <Pressable style={[styles.actionCard]} onPress={() => router.push('/(tabs)/explore') }>
+          <IconSymbol name="magnifyingglass" size={28} color="#2b6cb0" />
+          <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>Explore</ThemedText>
+        </Pressable>
+
+        <Pressable style={[styles.actionCard]} onPress={() => router.push('/profile') }>
+          <IconSymbol name="person.2.fill" size={28} color="#2b6cb0" />
+          <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>My Profile</ThemedText>
+        </Pressable>
+
+        <Pressable style={[styles.actionCard]} onPress={() => router.push('/edit-profile') }>
+          <IconSymbol name="pencil" size={28} color="#2b6cb0" />
+          <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>Edit</ThemedText>
+        </Pressable>
+
+        <Pressable style={[styles.actionCard]} onPress={() => router.push('/delete-account') }>
+          <IconSymbol name="trash" size={28} color="#e53e3e" />
+          <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>Danger</ThemedText>
+        </Pressable>
+      </ScrollView>
+
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, justifyContent: 'center' },
+  headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 12 },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#DDD' },
+  avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center' },
+  actionsRow: { marginTop: 18 },
+  actionCard: { width: 110, height: 110, borderRadius: 12, backgroundColor: 'rgba(43,108,176,0.06)', alignItems: 'center', justifyContent: 'center', padding: 12 },
 });
 
 

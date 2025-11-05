@@ -1,11 +1,32 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Serve uploaded files
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
+// Multer storage for avatars
+const storage = multer.diskStorage({
+  destination: function (_req, _file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const safe = (req.params.username || 'user').replace(/[^a-zA-Z0-9-_]/g, '_');
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `${safe}_${Date.now()}${ext}`);
+  }
+});
+const upload = multer({ storage });
 
 const prisma = new PrismaClient();
 
@@ -126,6 +147,27 @@ app.put('/api/users/:username', async (req, res) => {
     res.json(safe);
   } catch (err) {
     console.error('Update user error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Upload/update avatar
+app.put('/api/users/:username/avatar', upload.single('avatar'), async (req, res) => {
+  try {
+    const { username } = req.params;
+    if (!username) return res.status(400).json({ error: 'Invalid username' });
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Missing avatar file' });
+
+    const user = await prisma.user.findUnique({ where: { username } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const publicUrl = `/uploads/${path.basename(file.path)}`;
+    const updated = await prisma.user.update({ where: { username }, data: { avatarUrl: publicUrl } });
+    const { password: _pw, ...safe } = updated;
+    res.json(safe);
+  } catch (err) {
+    console.error('Avatar upload error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

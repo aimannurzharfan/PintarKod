@@ -1,18 +1,18 @@
-import { Tabs, useRouter } from 'expo-router';
-import React from 'react';
-import { Platform, Pressable, View } from 'react-native';
-import { ActionSheetIOS, Alert } from 'react-native';
-
-import { HapticTab } from '@/components/haptic-tab';
+import React, { useEffect } from 'react';
+import { Alert, Platform, Pressable, View, StyleSheet, useColorScheme } from 'react-native';
+import { Image } from 'react-native';
+import { ActionSheetIOS } from 'react-native';
+import { useRouter, useNavigation } from 'expo-router';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function MainPage() {
   const { user, logout } = useAuth();
+  const colorScheme = useColorScheme();
   const router = useRouter();
+  const navigation = useNavigation();
 
   function openMenu() {
     const username = user?.username;
@@ -48,18 +48,22 @@ export default function TabLayout() {
     }
   }
 
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: true,
-        headerRight: () => (
-          <Pressable
-            onPress={openMenu}
-            hitSlop={12}
-            style={{ paddingHorizontal: 12 }}
-            accessibilityLabel="Open account menu"
-          >
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Main Page',
+      headerRight: () => (
+        <Pressable
+          onPress={openMenu}
+          hitSlop={12}
+          style={{ paddingHorizontal: 12 }}
+          accessibilityLabel="Open account menu"
+        >
+          {user?.avatarUrl ? (
+            <Image
+              source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }}
+              style={{ width: 28, height: 28, borderRadius: 14 }}
+            />
+          ) : (
             <View
               style={{
                 width: 28,
@@ -72,24 +76,22 @@ export default function TabLayout() {
             >
               <IconSymbol size={18} name="person.fill" color="#fff" />
             </View>
-          </Pressable>
-        ),
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-    </Tabs>
+          )}
+        </Pressable>
+      ),
+    });
+  }, [navigation, colorScheme, user?.username]);
+
+  return (
+    <ThemedView style={styles.container}>
+      <ThemedText type="title">Welcome{user?.username ? `, ${user.username}` : ''}!</ThemedText>
+      <ThemedText>Use the user icon at the top-right to view or edit your profile, or logout.</ThemedText>
+    </ThemedView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20, justifyContent: 'center' },
+});
+
+

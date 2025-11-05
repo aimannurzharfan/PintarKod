@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Button, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
@@ -8,6 +9,7 @@ export default function Index() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { setUser } = useAuth();
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme);
 
@@ -27,9 +29,9 @@ export default function Index() {
       if (!res.ok) {
         Alert.alert('Error', data.error || 'Invalid email or password');
       } else {
-        const username = data.user && data.user.username;
-        if (username) {
-          router.push(`/profile?username=${encodeURIComponent(username)}`);
+        if (data.user) {
+          setUser(data.user);
+          router.replace('/mainpage');
         } else {
           Alert.alert('Error', 'Missing user data');
         }

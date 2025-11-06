@@ -1,3 +1,4 @@
+import { AIChatbot } from '@/components/ai-chatbot';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -14,6 +15,7 @@ export default function MainPage() {
   const navigation = useNavigation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
 
   function openMenu() {
     setShowProfileMenu(true);
@@ -239,6 +241,18 @@ export default function MainPage() {
         </Pressable>
       </Modal>
 
+      {/* Floating Chat Bubble */}
+      <Pressable
+        style={styles.floatingChatButton}
+        onPress={() => setShowChatbot(true)}
+        accessibilityLabel="Open AI Chatbot"
+      >
+        <IconSymbol name="message.fill" size={28} color="#FFFFFF" />
+      </Pressable>
+
+      {/* AI Chatbot Modal */}
+      <AIChatbot visible={showChatbot} onClose={() => setShowChatbot(false)} />
+
     </ThemedView>
   );
 }
@@ -342,6 +356,22 @@ const styles = StyleSheet.create({
     sidebarLogout: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
   headerMenuButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#2b6cb0', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   headerMenuSmall: { width: 30, height: 30, borderRadius: 6, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+  floatingChatButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
 });
 
 

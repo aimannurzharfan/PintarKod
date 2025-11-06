@@ -3,8 +3,8 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigation, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
-import { ActionSheetIOS, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, useColorScheme, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { API_URL } from './config';
 
 export default function MainPage() {
@@ -12,39 +12,44 @@ export default function MainPage() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const navigation = useNavigation();
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   function openMenu() {
-    const username = user?.username;
-    const view = () => username && router.push(`/profile?username=${encodeURIComponent(username)}`);
-    const edit = () => username && router.push(`/edit-profile?username=${encodeURIComponent(username)}`);
-    const doLogout = () => { logout(); router.replace('/'); };
+    setShowProfileMenu(true);
+  }
 
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Cancel', 'View Profile', 'Edit Profile', 'Logout'],
-          destructiveButtonIndex: 3,
-          cancelButtonIndex: 0,
-          userInterfaceStyle: colorScheme === 'dark' ? 'dark' : 'light',
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) view();
-          else if (buttonIndex === 2) edit();
-          else if (buttonIndex === 3) doLogout();
-        }
-      );
-    } else {
-      Alert.alert(
-        'Account',
-        user?.username ? `@${user.username}` : 'Account',
-        [
-          { text: 'View Profile', onPress: view },
-          { text: 'Edit Profile', onPress: edit },
-          { text: 'Logout', style: 'destructive', onPress: doLogout },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
+  function closeMenu() {
+    setShowProfileMenu(false);
+  }
+
+  function handleViewProfile() {
+    closeMenu();
+    const username = user?.username;
+    if (username) {
+      router.push(`/profile?username=${encodeURIComponent(username)}`);
     }
+  }
+
+  function handleEditProfile() {
+    closeMenu();
+    const username = user?.username;
+    if (username) {
+      router.push(`/edit-profile?username=${encodeURIComponent(username)}`);
+    }
+  }
+
+  function handleDeleteAccount() {
+    closeMenu();
+    const username = user?.username;
+    if (username) {
+      router.push(`/delete-account?username=${encodeURIComponent(username)}`);
+    }
+  }
+
+  function handleLogout() {
+    closeMenu();
+    logout();
+    router.replace('/');
   }
 
   useEffect(() => {
@@ -117,6 +122,76 @@ export default function MainPage() {
         </Pressable>
       </ScrollView>
 
+      <Modal
+        visible={showProfileMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeMenu}
+      >
+        <Pressable style={styles.modalOverlay} onPress={closeMenu}>
+          <Pressable style={[styles.modalContent, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF' }]} onPress={(e) => e.stopPropagation()}>
+            {/* User Info Section */}
+            <View style={[styles.userInfoSection, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
+              {user?.avatarUrl ? (
+                <Image
+                  source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }}
+                  style={styles.profileMenuAvatar}
+                />
+              ) : (
+                <View style={styles.profileMenuAvatarPlaceholder}>
+                  <IconSymbol size={40} name="person.fill" color="#fff" />
+                </View>
+              )}
+              <View style={styles.userInfoText}>
+                <Text style={[styles.userName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+                  {user?.email || user?.username || 'User'}
+                </Text>
+                <Text style={[styles.userUsername, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                  @{user?.username || 'username'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Menu Options List */}
+            <View style={styles.menuOptions}>
+              <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleViewProfile}>
+                <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+                  View Profile
+                </Text>
+                <IconSymbol name="chevron.right" size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+              </Pressable>
+
+              <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleEditProfile}>
+                <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+                  Edit Profile
+                </Text>
+                <IconSymbol name="chevron.right" size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+              </Pressable>
+
+              <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleDeleteAccount}>
+                <Text style={[styles.menuItemText, { color: '#b00' }]}>
+                  Delete Account
+                </Text>
+                <IconSymbol name="chevron.right" size={18} color="#b00" />
+              </Pressable>
+
+              <Pressable style={styles.menuItem} onPress={handleLogout}>
+                <Text style={[styles.menuItemText, { color: '#b00' }]}>
+                  Logout
+                </Text>
+                <IconSymbol name="chevron.right" size={18} color="#b00" />
+              </Pressable>
+            </View>
+
+            <Pressable style={styles.closeButton} onPress={closeMenu}>
+              <Text style={[styles.closeButtonText, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                Cancel
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     </ThemedView>
   );
 }
@@ -128,6 +203,70 @@ const styles = StyleSheet.create({
   avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center' },
   actionsRow: { marginTop: 18 },
   actionCard: { width: 110, height: 110, borderRadius: 12, backgroundColor: 'rgba(43,108,176,0.06)', alignItems: 'center', justifyContent: 'center', padding: 12 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  userInfoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    marginBottom: 20,
+  },
+  profileMenuAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#DDD',
+  },
+  profileMenuAvatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#888',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInfoText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  userUsername: {
+    fontSize: 14,
+  },
+  menuOptions: {
+    marginBottom: 20,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  menuItemText: {
+    fontSize: 16,
+  },
+  closeButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 16,
+  },
 });
 
 

@@ -68,7 +68,12 @@ export default function EditProfileScreen() {
     if (!usernameParam) { Alert.alert('Error', 'Missing username'); return; }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') { Alert.alert('Permission required', 'Please allow photo library access'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.9 });
+    const result = await ImagePicker.launchImageLibraryAsync({ 
+      mediaTypes: ['images'], 
+      allowsEditing: true, 
+      aspect: [1, 1], 
+      quality: 0.9 
+    });
     if (result.canceled) return;
     const asset = result.assets[0];
     if (!asset) return;
@@ -114,7 +119,10 @@ export default function EditProfileScreen() {
       <View style={{ height: 12 }} />
       <TextInput placeholder="Username" value={formUsername} onChangeText={setFormUsername} style={styles.input} placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} />
       <TextInput placeholder="Email" value={email} onChangeText={setEmail} style={styles.input} autoCapitalize="none" placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} />
-      <TextInput placeholder="Role" value={role} onChangeText={setRole} style={styles.input} placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} />
+      <View style={styles.readOnlyField}>
+        <Text style={[styles.fieldLabel, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>Role:</Text>
+        <Text style={[styles.fieldValue, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>{role || 'N/A'}</Text>
+      </View>
       <Button title={loading ? 'Saving...' : 'Save'} onPress={handleSave} disabled={loading} />
     </View>
   );
@@ -123,5 +131,24 @@ export default function EditProfileScreen() {
 const getStyles = (colorScheme: any) => StyleSheet.create({
   container: { flex: 1, padding: 20, justifyContent: 'center', backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7' },
   input: { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000', borderColor: colorScheme === 'dark' ? '#555' : '#CCC', borderWidth: 1, padding: 10, marginBottom: 12, borderRadius: 8 },
-  title: { fontSize: 24, fontWeight: '600', marginBottom: 20, textAlign: 'center', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }
+  title: { fontSize: 24, fontWeight: '600', marginBottom: 20, textAlign: 'center', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' },
+  readOnlyField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F5F5F5',
+    borderColor: colorScheme === 'dark' ? '#555' : '#CCC',
+    borderWidth: 1,
+    padding: 10,
+    marginBottom: 12,
+    borderRadius: 8,
+  },
+  fieldLabel: {
+    fontWeight: '600',
+    marginRight: 8,
+    fontSize: 16,
+  },
+  fieldValue: {
+    fontSize: 16,
+    flex: 1,
+  },
 });

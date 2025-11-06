@@ -13,9 +13,18 @@ export default function MainPage() {
   const router = useRouter();
   const navigation = useNavigation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   function openMenu() {
     setShowProfileMenu(true);
+  }
+
+  function openSidebar() {
+    setShowSidebar(true);
+  }
+
+  function closeSidebar() {
+    setShowSidebar(false);
   }
 
   function closeMenu() {
@@ -55,6 +64,16 @@ export default function MainPage() {
   useEffect(() => {
     navigation.setOptions({
       title: 'Main Page',
+      headerLeft: () => (
+        <Pressable
+          onPress={openSidebar}
+          hitSlop={8}
+          style={styles.headerMenuSmall}
+          accessibilityLabel="Open menu"
+        >
+          <IconSymbol name="line.horizontal.3" size={18} color="#000" />
+        </Pressable>
+      ),
       headerRight: () => (
         <Pressable
           onPress={openMenu}
@@ -106,10 +125,6 @@ export default function MainPage() {
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.actionsRow} contentContainerStyle={{ gap: 12 }}>
-        <Pressable style={[styles.actionCard]} onPress={() => router.push('/(tabs)/explore') }>
-          <IconSymbol name="magnifyingglass" size={28} color="#2b6cb0" />
-          <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>Explore</ThemedText>
-        </Pressable>
 
         <Pressable style={[styles.actionCard]} onPress={() => router.push('/profile') }>
           <IconSymbol name="person.2.fill" size={28} color="#2b6cb0" />
@@ -121,6 +136,38 @@ export default function MainPage() {
           <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>Edit</ThemedText>
         </Pressable>
       </ScrollView>
+
+      {/* Sidebar modal (left) */}
+      <Modal
+        visible={showSidebar}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeSidebar}
+      >
+        <Pressable style={styles.sidebarOverlay} onPress={closeSidebar}>
+          <Pressable style={[styles.sidebarContent, { backgroundColor: colorScheme === 'dark' ? '#111' : '#fff' }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sidebarHeader}>
+              <Text style={[styles.sidebarTitle, { color: colorScheme === 'dark' ? '#fff' : '#000' }]}>Menu</Text>
+            </View>
+            <View style={styles.sidebarList}>
+              <Pressable style={styles.sidebarItem} onPress={() => { closeSidebar(); router.push('/profile' as any); }}>
+                <Text style={[styles.sidebarItemText, { color: colorScheme === 'dark' ? '#fff' : '#000' }]}>My Account</Text>
+              </Pressable>
+              <Pressable style={styles.sidebarItem} onPress={() => { closeSidebar(); router.push('/forum' as any); }}>
+                <Text style={[styles.sidebarItemText, { color: colorScheme === 'dark' ? '#fff' : '#000' }]}>Forum</Text>
+              </Pressable>
+              <Pressable style={styles.sidebarItem} onPress={() => { closeSidebar(); router.push('/games' as any); }}>
+                <Text style={[styles.sidebarItemText, { color: colorScheme === 'dark' ? '#fff' : '#000' }]}>Games</Text>
+              </Pressable>
+            </View>
+
+            <View style={{ flex: 1 }} />
+            <Pressable style={styles.sidebarLogout} onPress={() => { closeSidebar(); handleLogout(); }}>
+              <Text style={[styles.sidebarItemText, { color: '#e53e3e', fontWeight: '600' }]}>Logout</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={showProfileMenu}
@@ -267,6 +314,34 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
   },
+  /* Sidebar styles */
+  sidebarOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'flex-start',
+  },
+  sidebarContent: {
+    width: 260,
+    height: '100%',
+    paddingTop: 40,
+    paddingHorizontal: 14,
+    paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+  sidebarHeader: {
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)'
+  },
+  sidebarTitle: { fontSize: 20, fontWeight: '700' },
+  sidebarList: { marginTop: 12 },
+  sidebarItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.04)' },
+  sidebarItemText: { marginLeft: 8, fontSize: 16 },
+    sidebarLogout: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
+  headerMenuButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#2b6cb0', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  headerMenuSmall: { width: 30, height: 30, borderRadius: 6, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
 });
 
 

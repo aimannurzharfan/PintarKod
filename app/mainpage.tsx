@@ -67,6 +67,11 @@ export default function MainPage() {
     router.replace('/');
   }
 
+  const userAvatarUri = useMemo(
+    () => resolveAvatarUri(user?.profileImage ?? undefined, user?.avatarUrl ?? undefined),
+    [user?.profileImage, user?.avatarUrl]
+  );
+
   useEffect(() => {
     navigation.setOptions({
       title: 'Main Page',
@@ -77,29 +82,29 @@ export default function MainPage() {
           style={{ paddingHorizontal: 12 }}
           accessibilityLabel="Open account menu"
         >
-            {user?.avatarUrl ? (
-              <Image
-                source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }}
-                style={{ width: 28, height: 28, borderRadius: 14 }}
-              />
-            ) : (
-              <View
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: '#888',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <IconSymbol size={18} name="person.fill" color="#fff" />
-              </View>
-            )}
+          {userAvatarUri ? (
+            <Image
+              source={{ uri: userAvatarUri }}
+              style={{ width: 28, height: 28, borderRadius: 14 }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: '#888',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IconSymbol size={18} name="person.fill" color="#fff" />
+            </View>
+          )}
           </Pressable>
       ),
     });
-  }, [navigation, colorScheme, user?.username]);
+  }, [navigation, colorScheme, user?.username, userAvatarUri]);
 
   const CTA_BUTTONS = useMemo(() => {
     if (user?.role !== 'Teacher') {
@@ -125,8 +130,6 @@ export default function MainPage() {
       },
     ];
   }, [user?.role, colorScheme]);
-
-  const userAvatarUri = resolveAvatarUri(user?.profileImage ?? undefined, user?.avatarUrl ?? undefined);
 
   return (
     <ThemedView style={styles.container}>

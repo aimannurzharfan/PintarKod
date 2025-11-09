@@ -1,6 +1,6 @@
 import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Image, Platform, Pressable, View } from 'react-native';
 import { ActionSheetIOS, Alert } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -8,11 +8,24 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_URL } from '@/config';
+
+const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
+  if (profileImage) {
+    return profileImage.startsWith('data:') ? profileImage : `data:image/jpeg;base64,${profileImage}`;
+  }
+  if (!avatarUrl) return undefined;
+  if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
+    return avatarUrl;
+  }
+  return `${API_URL}${avatarUrl}`;
+};
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user, logout } = useAuth();
   const router = useRouter();
+  const avatarUri = resolveAvatarUri(user?.profileImage ?? undefined, user?.avatarUrl ?? undefined);
 
   function openMenu() {
     const username = user?.username;
@@ -60,18 +73,25 @@ export default function TabLayout() {
             style={{ paddingHorizontal: 12 }}
             accessibilityLabel="Open account menu"
           >
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: '#888',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <IconSymbol size={18} name="person.fill" color="#fff" />
-            </View>
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={{ width: 28, height: 28, borderRadius: 14 }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: '#888',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <IconSymbol size={18} name="person.fill" color="#fff" />
+              </View>
+            )}
           </Pressable>
         ),
         tabBarButton: HapticTab,

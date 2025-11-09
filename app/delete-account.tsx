@@ -1,9 +1,9 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, Button, Image, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme, Pressable, ActivityIndicator, Modal } from 'react-native';
-import { API_URL } from './config';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Button, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
+import { API_URL } from './config';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();

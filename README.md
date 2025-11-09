@@ -21,11 +21,11 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 2. Start the app
 
    ```bash
-   npx run start:server
+   npm run start:server
    ```
 
       ```bash
-   npx run start
+   npm run start
    ```
 
 ## Learn more

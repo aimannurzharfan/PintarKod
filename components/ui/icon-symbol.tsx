@@ -23,7 +23,7 @@ const MAPPING = {
   'person.fill': 'person',
   'person.2.fill': 'people',
   'pencil': 'edit',
-  'line.horizontal.3': 'menu',
+  // removed mapping for 'line.horizontal.3' (sidebar menu) since sidebar was removed
 } as IconMapping;
 
 /**

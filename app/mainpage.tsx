@@ -66,26 +66,26 @@ export default function MainPage() {
           style={{ paddingHorizontal: 12 }}
           accessibilityLabel="Open account menu"
         >
-          {user?.avatarUrl ? (
-            <Image
-              source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }}
-              style={{ width: 28, height: 28, borderRadius: 14 }}
-            />
-          ) : (
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: '#888',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <IconSymbol size={18} name="person.fill" color="#fff" />
-            </View>
-          )}
-        </Pressable>
+            {user?.avatarUrl ? (
+              <Image
+                source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }}
+                style={{ width: 28, height: 28, borderRadius: 14 }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: '#888',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <IconSymbol size={18} name="person.fill" color="#fff" />
+              </View>
+            )}
+          </Pressable>
       ),
     });
   }, [navigation, colorScheme, user?.username]);
@@ -167,15 +167,26 @@ export default function MainPage() {
                 <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
                   Edit Profile
                 </Text>
-                <IconSymbol name="chevron.right" size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
-              </Pressable>
+              <IconSymbol name="chevron.right" size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+            </Pressable>
 
-              <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleDeleteAccount}>
-                <Text style={[styles.menuItemText, { color: '#b00' }]}>
-                  Delete Account
-                </Text>
-                <IconSymbol name="chevron.right" size={18} color="#b00" />
-              </Pressable>
+            {user?.role === 'Teacher' && (
+              <>
+                <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => { closeMenu(); router.push('/register' as any); }}>
+                  <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+                    Register New User
+                  </Text>
+                  <IconSymbol name="chevron.right" size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+                </Pressable>
+
+                <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleDeleteAccount}>
+                  <Text style={[styles.menuItemText, { color: '#b00' }]}>
+                    Delete Account
+                  </Text>
+                  <IconSymbol name="chevron.right" size={18} color="#b00" />
+                </Pressable>
+              </>
+            )}
 
               <Pressable style={styles.menuItem} onPress={handleLogout}>
                 <Text style={[styles.menuItemText, { color: '#b00' }]}>
@@ -281,8 +292,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
   },
-  headerMenuButton: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#2b6cb0', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  headerMenuSmall: { width: 30, height: 30, borderRadius: 6, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+  /* header menu styles removed (sidebar/menu was removed) */
   floatingChatButton: {
     position: 'absolute',
     bottom: 20,

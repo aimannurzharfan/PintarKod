@@ -63,7 +63,8 @@ export default function Index() {
       />
       <Button title={loading ? 'Logging in...' : 'Login'} onPress={handleLogin} disabled={loading} />
       <View style={{ height: 12 }} />
-      <Link href="/register" style={styles.link}>Register Account</Link>
+      {/* use router.push to avoid strict href types until route file is added */}
+      <Text onPress={() => router.push('/forgot-password' as any)} style={styles.link}>Forgot Password</Text>
     </View>
   );
 }

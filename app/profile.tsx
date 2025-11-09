@@ -5,6 +5,17 @@ import { API_URL } from './config';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
+const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
+  if (profileImage) {
+    return profileImage.startsWith('data:') ? profileImage : `data:image/jpeg;base64,${profileImage}`;
+  }
+  if (!avatarUrl) return undefined;
+  if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
+    return avatarUrl;
+  }
+  return `${API_URL}${avatarUrl}`;
+};
+
 export default function ProfileScreen() {
   const [searchId, setSearchId] = useState('');
   const [searchedUser, setSearchedUser] = useState(null as any);
@@ -59,6 +70,9 @@ export default function ProfileScreen() {
     } finally { setLoading(false); }
   }
 
+  const currentAvatarUri = currentUser ? resolveAvatarUri(currentUser.profileImage, currentUser.avatarUrl) : undefined;
+  const searchedAvatarUri = searchedUser ? resolveAvatarUri(searchedUser.profileImage, searchedUser.avatarUrl) : undefined;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Profile</Text>
@@ -72,11 +86,8 @@ export default function ProfileScreen() {
           </Text>
         ) : currentUser ? (
           <View style={styles.card}>
-            {currentUser.avatarUrl ? (
-              <Image
-                source={{ uri: currentUser.avatarUrl.startsWith('http') ? currentUser.avatarUrl : `${API_URL}${currentUser.avatarUrl}` }}
-                style={styles.profileImage}
-              />
+            {currentAvatarUri ? (
+              <Image source={{ uri: currentAvatarUri }} style={styles.profileImage} />
             ) : (
               <View style={styles.profileImagePlaceholder}>
                 <IconSymbol size={50} name="person.fill" color="#fff" />
@@ -128,11 +139,8 @@ export default function ProfileScreen() {
 
         {searchedUser && (
           <View style={styles.card}>
-            {searchedUser.avatarUrl ? (
-              <Image
-                source={{ uri: searchedUser.avatarUrl.startsWith('http') ? searchedUser.avatarUrl : `${API_URL}${searchedUser.avatarUrl}` }}
-                style={styles.profileImage}
-              />
+            {searchedAvatarUri ? (
+              <Image source={{ uri: searchedAvatarUri }} style={styles.profileImage} />
             ) : (
               <View style={styles.profileImagePlaceholder}>
                 <IconSymbol size={50} name="person.fill" color="#fff" />

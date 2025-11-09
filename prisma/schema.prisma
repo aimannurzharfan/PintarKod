@@ -14,6 +14,7 @@ model User {
   password  String
   role      String   @default("Student") // or Teacher
   avatarUrl String?
+  profileImage String? @db.LongText
   className String?  // Text field for class name (e.g., "Educator" for Teachers, or class name for Students)
   classId   Int?
   class     Class?   @relation(fields: [classId], references: [id])

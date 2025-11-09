@@ -4,9 +4,20 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigation, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, Modal, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { API_URL } from './config';
+
+const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
+  if (profileImage) {
+    return profileImage.startsWith('data:') ? profileImage : `data:image/jpeg;base64,${profileImage}`;
+  }
+  if (!avatarUrl) return undefined;
+  if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
+    return avatarUrl;
+  }
+  return `${API_URL}${avatarUrl}`;
+};
 
 export default function MainPage() {
   const { user, logout } = useAuth();
@@ -90,14 +101,38 @@ export default function MainPage() {
     });
   }, [navigation, colorScheme, user?.username]);
 
+  const CTA_BUTTONS = useMemo(() => {
+    if (user?.role !== 'Teacher') {
+      return [];
+    }
+
+    return [
+      {
+        key: 'register',
+        label: 'Register Student',
+        description: 'Create new student accounts instantly.',
+        icon: colorScheme === 'dark' ? 'person.badge.plus' : 'person.badge.plus',
+        gradient: ['#6EE7B7', '#3B82F6'],
+        onPress: () => router.push('/register' as any),
+      },
+      {
+        key: 'delete',
+        label: 'Remove Student',
+        description: 'Search and delete student accounts securely.',
+        icon: colorScheme === 'dark' ? 'trash.circle.fill' : 'trash.circle.fill',
+        gradient: ['#F87171', '#EF4444'],
+        onPress: handleDeleteAccount,
+      },
+    ];
+  }, [user?.role, colorScheme]);
+
+  const userAvatarUri = resolveAvatarUri(user?.profileImage ?? undefined, user?.avatarUrl ?? undefined);
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.headerCard}>
-        {user?.avatarUrl ? (
-          <Image
-            source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }}
-            style={styles.avatar}
-          />
+        {userAvatarUri ? (
+          <Image source={{ uri: userAvatarUri }} style={styles.avatar} />
         ) : (
           <View style={styles.avatarPlaceholder}>
             <IconSymbol size={36} name="person.fill" color="#fff" />
@@ -109,18 +144,38 @@ export default function MainPage() {
         </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.actionsRow} contentContainerStyle={{ gap: 12 }}>
-
-        <Pressable style={[styles.actionCard]} onPress={() => router.push('/profile') }>
-          <IconSymbol name="person.2.fill" size={28} color="#2b6cb0" />
-          <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>My Profile</ThemedText>
-        </Pressable>
-
-        <Pressable style={[styles.actionCard]} onPress={() => router.push('/edit-profile') }>
-          <IconSymbol name="pencil" size={28} color="#2b6cb0" />
-          <ThemedText type="defaultSemiBold" style={{ marginTop: 8 }}>Edit</ThemedText>
-        </Pressable>
-      </ScrollView>
+      {CTA_BUTTONS.length > 0 && (
+        <View style={styles.ctaSection}>
+          {CTA_BUTTONS.map((button) => (
+            <Pressable key={button.key} style={({ pressed }) => [
+              styles.ctaCard,
+              {
+                opacity: pressed ? 0.9 : 1,
+              },
+            ]} onPress={button.onPress}>
+              <View style={[
+                styles.ctaIconWrapper,
+                {
+                  backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                },
+              ]}>
+                <IconSymbol name={button.icon} size={30} color={colorScheme === 'dark' ? '#FFFFFF' : '#111827'} />
+              </View>
+              <View style={styles.ctaTextWrapper}>
+                <Text style={[styles.ctaTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#0F172A' }]}>
+                  {button.label}
+                </Text>
+                <Text style={[styles.ctaSubtitle, { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' }]}>
+                  {button.description}
+                </Text>
+              </View>
+              <View style={styles.ctaChevron}>
+                <IconSymbol name="chevron.right" size={20} color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'} />
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {/* Sidebar removed */}
 
@@ -134,11 +189,8 @@ export default function MainPage() {
           <Pressable style={[styles.modalContent, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF' }]} onPress={(e) => e.stopPropagation()}>
             {/* User Info Section */}
             <View style={[styles.userInfoSection, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
-              {user?.avatarUrl ? (
-                <Image
-                  source={{ uri: user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_URL}${user.avatarUrl}` }}
-                  style={styles.profileMenuAvatar}
-                />
+              {userAvatarUri ? (
+                <Image source={{ uri: userAvatarUri }} style={styles.profileMenuAvatar} />
               ) : (
                 <View style={styles.profileMenuAvatarPlaceholder}>
                   <IconSymbol size={40} name="person.fill" color="#fff" />
@@ -222,12 +274,43 @@ export default function MainPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: 'center' },
+  container: { flex: 1, padding: 20 },
   headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 12 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#DDD' },
   avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center' },
-  actionsRow: { marginTop: 18 },
-  actionCard: { width: 110, height: 110, borderRadius: 12, backgroundColor: 'rgba(43,108,176,0.06)', alignItems: 'center', justifyContent: 'center', padding: 12 },
+  ctaSection: { marginTop: 24, gap: 16 },
+  ctaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: 'rgba(59,130,246,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.15)',
+  },
+  ctaIconWrapper: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  ctaTextWrapper: {
+    flex: 1,
+  },
+  ctaTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  ctaSubtitle: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  ctaChevron: {
+    marginLeft: 12,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

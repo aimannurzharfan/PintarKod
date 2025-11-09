@@ -5,6 +5,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Image, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
 
+const resolveAvatarPreview = (profileImage?: string | null, avatarUrl?: string | null) => {
+  if (profileImage) {
+    return profileImage.startsWith('data:') ? profileImage : `data:image/jpeg;base64,${profileImage}`;
+  }
+  if (!avatarUrl) return undefined;
+  if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
+    return avatarUrl;
+  }
+  return `${API_URL}${avatarUrl}`;
+};
+
 export default function EditProfileScreen() {
   const { username: usernameParam } = useLocalSearchParams();
   const router = useRouter();
@@ -15,7 +26,7 @@ export default function EditProfileScreen() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
   const { user, setUser } = useAuth();
   const [originalUsername, setOriginalUsername] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<{ username?: string; email?: string; password?: string; general?: string }>({});
@@ -34,7 +45,7 @@ export default function EditProfileScreen() {
           setOriginalUsername(data.username);
           setEmail(data.email);
           setRole(data.role);
-          setAvatarUrl(data.avatarUrl);
+          setAvatarPreview(resolveAvatarPreview(data.profileImage, data.avatarUrl));
         } else {
           Alert.alert('Error', data.error || 'Failed to load user');
         }
@@ -88,7 +99,14 @@ export default function EditProfileScreen() {
         setSuccessMessage('Profile updated');
         // If current user updated self, sync auth context (except password)
         if (user && (user.username === target)) {
-          setUser({ ...user, username: data.username, email: data.email, role: data.role, avatarUrl: data.avatarUrl });
+          setUser({
+            ...user,
+            username: data.username,
+            email: data.email,
+            role: data.role,
+            avatarUrl: data.avatarUrl,
+            profileImage: data.profileImage ?? null,
+          });
         }
         // Update original username for further edits
         setOriginalUsername(data.username);
@@ -102,40 +120,49 @@ export default function EditProfileScreen() {
   }
 
   async function pickAndUploadAvatar() {
-    if (!usernameParam) { Alert.alert('Error', 'Missing username'); return; }
+    const targetUsername = (usernameParam as string) || user?.username;
+    if (!targetUsername) {
+      Alert.alert('Error', 'Unable to determine which profile to update.');
+      return;
+    }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') { Alert.alert('Permission required', 'Please allow photo library access'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ 
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
-      allowsEditing: true, 
-      aspect: [1, 1], 
-      quality: 0.9 
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.9,
+      base64: true,
     });
     if (result.canceled) return;
     const asset = result.assets[0];
     if (!asset) return;
+    if (!asset.base64) {
+      Alert.alert('Error', 'Failed to read image data.');
+      return;
+    }
 
     try {
       setLoading(true);
-      const form = new FormData();
-      const uri = asset.uri;
-      const filename = uri.split('/').pop() || 'avatar.jpg';
-      const file: any = { uri, name: filename, type: 'image/jpeg' };
-      form.append('avatar', file);
-
-      const target = (usernameParam as string) || user?.username;
-      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(target as string)}/avatar`, {
+      const target = targetUsername;
+      const dataUri = asset.base64.startsWith('data:')
+        ? asset.base64
+        : `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`;
+      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(target)}/avatar`, {
         method: 'PUT',
-        body: form as any,
-        headers: { 'Accept': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: dataUri }),
       });
       const data = await res.json();
       if (!res.ok) {
         setErrors({ general: data.error || 'Failed to upload avatar' });
       } else {
-        setAvatarUrl(data.avatarUrl);
+        setAvatarPreview(resolveAvatarPreview(data.profileImage, data.avatarUrl));
         if (user && (user.username === target)) {
-          setUser({ ...user, avatarUrl: data.avatarUrl });
+          setUser({
+            ...user,
+            avatarUrl: data.avatarUrl,
+            profileImage: data.profileImage ?? null,
+          });
         }
         setSuccessMessage('Profile picture updated');
         setTimeout(() => setSuccessMessage(null), 1200);
@@ -151,8 +178,8 @@ export default function EditProfileScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Edit Profile</Text>
-      {avatarUrl ? (
-        <Image source={{ uri: avatarUrl.startsWith('http') ? avatarUrl : `${API_URL}${avatarUrl}` }} style={{ width: 100, height: 100, borderRadius: 50, alignSelf: 'center', marginBottom: 16 }} />
+      {avatarPreview ? (
+        <Image source={{ uri: avatarPreview }} style={{ width: 100, height: 100, borderRadius: 50, alignSelf: 'center', marginBottom: 16 }} />
       ) : null}
       <Button title="Change Profile Picture" onPress={pickAndUploadAvatar} disabled={loading} />
       <View style={{ height: 12 }} />

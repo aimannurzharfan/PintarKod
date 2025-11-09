@@ -5,6 +5,17 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
 import { API_URL } from './config';
 
+const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
+  if (profileImage) {
+    return profileImage.startsWith('data:') ? profileImage : `data:image/jpeg;base64,${profileImage}`;
+  }
+  if (!avatarUrl) return undefined;
+  if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
+    return avatarUrl;
+  }
+  return `${API_URL}${avatarUrl}`;
+};
+
 export default function DeleteAccountScreen() {
   const router = useRouter();
   const { user: currentUser } = useAuth();
@@ -13,11 +24,22 @@ export default function DeleteAccountScreen() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [allStudents, setAllStudents] = useState<any[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [confirmUsername, setConfirmUsername] = useState('');
   const [searching, setSearching] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const StudentAvatar = ({ profileImage, avatarUrl }: { profileImage?: string | null; avatarUrl?: string | null }) => {
+    const uri = resolveAvatarUri(profileImage, avatarUrl);
+    if (!uri) {
+      return (
+        <View style={styles.studentAvatarPlaceholder}>
+          <IconSymbol size={24} name="person.fill" color="#fff" />
+        </View>
+      );
+    }
+    return <Image source={{ uri }} style={styles.studentAvatar} />;
+  };
 
   // Verify current user is a teacher
   useEffect(() => {
@@ -25,32 +47,7 @@ export default function DeleteAccountScreen() {
       Alert.alert('Access Denied', 'Only teachers can access this feature');
       router.back();
     }
-    // if teacher, fetch all students to show immediately
-    if (currentUser?.role === 'Teacher') {
-      fetchAllStudents();
-    }
   }, [currentUser, router]);
-
-  // fetch list of all students
-  const fetchAllStudents = async () => {
-    setSearching(true);
-    try {
-      // Use search endpoint with empty query to get all students
-      const res = await fetch(`${API_URL}/api/users/search?q=&role=Student`);
-      const data = await res.json();
-      if (res.ok) {
-        setAllStudents(data);
-        setSearchResults(data);
-      } else {
-        Alert.alert('Error', data.error || 'Failed to load students');
-      }
-    } catch (err) {
-      console.error(err);
-      Alert.alert('Error', 'Network error');
-    } finally {
-      setSearching(false);
-    }
-  };
 
   // Search students function
   const searchStudents = async (query: string) => {
@@ -117,6 +114,7 @@ export default function DeleteAccountScreen() {
             autoCapitalize="none"
             placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'}
             returnKeyType="search"
+            onSubmitEditing={() => searchStudents(searchQuery)}
           />
           <Pressable 
             onPress={() => searchStudents(searchQuery)}
@@ -137,16 +135,7 @@ export default function DeleteAccountScreen() {
         ) : selectedStudent ? (
           <View style={styles.studentCard}>
             <View style={styles.studentInfo}>
-              {selectedStudent.avatarUrl ? (
-                <Image
-                  source={{ uri: selectedStudent.avatarUrl.startsWith('http') ? selectedStudent.avatarUrl : `${API_URL}${selectedStudent.avatarUrl}` }}
-                  style={styles.studentAvatar}
-                />
-              ) : (
-                <View style={styles.studentAvatarPlaceholder}>
-                  <IconSymbol size={24} name="person.fill" color="#fff" />
-                </View>
-              )}
+              <StudentAvatar profileImage={selectedStudent.profileImage} avatarUrl={selectedStudent.avatarUrl} />
               <View style={styles.studentDetails}>
                 <Text style={[styles.studentName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
                   {selectedStudent.username}
@@ -175,26 +164,17 @@ export default function DeleteAccountScreen() {
               <IconSymbol name="trash" size={18} color="#fff" />
             </Pressable>
           </View>
-        ) : (
+        ) : searchResults.length > 0 ? (
           // show list fallback if searchResults available
           searchResults.map((student) => (
             <View key={student.username} style={styles.studentCard}>
               <View style={styles.studentInfo}>
-                {student.avatarUrl ? (
-                  <Image
-                    source={{ uri: student.avatarUrl.startsWith('http') ? student.avatarUrl : `${API_URL}${student.avatarUrl}` }}
-                    style={styles.studentAvatar}
-                  />
-                ) : (
-                  <View style={styles.studentAvatarPlaceholder}>
-                    <IconSymbol size={24} name="person.fill" color="#fff" />
-                  </View>
-                )}
+                <StudentAvatar profileImage={student.profileImage} avatarUrl={student.avatarUrl} />
                 <View style={styles.studentDetails}>
                   <Text style={[styles.studentName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
                     {student.username}
                   </Text>
-                  <Text style={[styles.studentEmail, { color: colorScheme === 'dark' ? '#999' : '#666' }]}> 
+                  <Text style={[styles.studentEmail, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
                     {student.email}
                   </Text>
                 </View>
@@ -210,7 +190,11 @@ export default function DeleteAccountScreen() {
               </Pressable>
             </View>
           ))
-        )}
+        ) : searchQuery.trim().length > 0 ? (
+          <Text style={[styles.studentMeta, { textAlign: 'center', color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+            No students found for that username.
+          </Text>
+        ) : null}
       </View>
 
       {/* Delete action + confirmation modal */}

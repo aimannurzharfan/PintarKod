@@ -2,31 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve uploaded files
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
-
-// Multer storage for avatars
-const storage = multer.diskStorage({
-  destination: function (_req, _file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const safe = (req.params.username || 'user').replace(/[^a-zA-Z0-9-_]/g, '_');
-    const ext = path.extname(file.originalname) || '.jpg';
-    cb(null, `${safe}_${Date.now()}${ext}`);
-  }
-});
-const upload = multer({ storage });
 
 const prisma = new PrismaClient();
 
@@ -132,6 +119,47 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Search users (supports role and partial username match)
+app.get('/api/users/search', async (req, res) => {
+  try {
+    const { q = '', role } = req.query;
+
+    const searchTerm = typeof q === 'string' ? q.trim() : '';
+    const roleFilter = typeof role === 'string' ? role.trim() : '';
+
+    const whereClause = {};
+
+    if (roleFilter) {
+      whereClause.role = roleFilter;
+    }
+
+    if (searchTerm) {
+      whereClause.username = {
+        contains: searchTerm,
+      };
+    }
+
+    const users = await prisma.user.findMany({
+      where: whereClause,
+      orderBy: { username: 'asc' },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        avatarUrl: true,
+        profileImage: true,
+        createdAt: true,
+      },
+    });
+
+    res.json(users);
+  } catch (err) {
+    console.error('Search users error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // View account by username
 app.get('/api/users/:username', async (req, res) => {
   try {
@@ -189,19 +217,31 @@ app.put('/api/users/:username', async (req, res) => {
   }
 });
 
-// Upload/update avatar
-app.put('/api/users/:username/avatar', upload.single('avatar'), async (req, res) => {
+// Upload/update avatar (accepts base64 data URI)
+app.put('/api/users/:username/avatar', async (req, res) => {
   try {
     const { username } = req.params;
+    const { imageBase64 } = req.body || {};
+
     if (!username) return res.status(400).json({ error: 'Invalid username' });
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: 'Missing avatar file' });
+    if (!imageBase64 || typeof imageBase64 !== 'string' || !imageBase64.trim()) {
+      return res.status(400).json({ error: 'Missing image data' });
+    }
 
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const publicUrl = `/uploads/${path.basename(file.path)}`;
-    const updated = await prisma.user.update({ where: { username }, data: { avatarUrl: publicUrl } });
+    const normalizedDataUri = imageBase64.startsWith('data:')
+      ? imageBase64
+      : `data:image/jpeg;base64,${imageBase64}`;
+
+    const updated = await prisma.user.update({
+      where: { username },
+      data: {
+        avatarUrl: null,
+        profileImage: normalizedDataUri,
+      }
+    });
     const { password: _pw, ...safe } = updated;
     res.json(safe);
   } catch (err) {

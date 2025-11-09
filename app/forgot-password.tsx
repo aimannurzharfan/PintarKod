@@ -1,6 +1,6 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Button, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
-import { useRouter } from 'expo-router';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');

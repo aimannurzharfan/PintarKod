@@ -36,10 +36,33 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role, className } = req.body;
+    
+    // Debug logging
+    console.log('Registration request received:');
+    console.log('  username:', username);
+    console.log('  email:', email);
+    console.log('  role:', role);
+    console.log('  className:', className);
+    console.log('  role type:', typeof role);
+    console.log('  role value:', JSON.stringify(role));
+    
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'username, email and password are required' });
     }
+
+    // Validate role if provided
+    if (role && role !== 'Student' && role !== 'Teacher') {
+      return res.status(400).json({ error: 'role must be either "Student" or "Teacher"' });
+    }
+
+    // Determine final role (default to Student if not provided)
+    // Check for empty string, null, undefined, or falsy values
+    let finalRole = 'Student';
+    if (role && typeof role === 'string' && role.trim() !== '') {
+      finalRole = role.trim();
+    }
+    console.log('  finalRole (after processing):', finalRole);
 
     // Check existing user by email or username
     const existing = await prisma.user.findFirst({
@@ -57,13 +80,28 @@ app.post('/api/register', async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
 
+    const userData = {
+      username,
+      email,
+      password: hashed,
+      role: finalRole
+    };
+
+    // Add className if provided (text field for class name)
+    if (className && typeof className === 'string' && className.trim() !== '') {
+      userData.className = className.trim();
+    }
+
+    console.log('  Creating user with data:', JSON.stringify(userData, null, 2));
+    
     const user = await prisma.user.create({
-      data: {
-        username,
-        email,
-        password: hashed
-      }
+      data: userData,
+      include: { class: true }
     });
+
+    console.log('  User created successfully:');
+    console.log('    - role:', user.role);
+    console.log('    - className:', user.className);
 
     // remove password before returning
     const { password: _pw, ...userSafe } = user;
@@ -185,6 +223,44 @@ app.delete('/api/users/:username', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Delete user error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get all classes
+app.get('/api/classes', async (req, res) => {
+  try {
+    const classes = await prisma.class.findMany({
+      orderBy: { name: 'asc' }
+    });
+    res.json(classes);
+  } catch (err) {
+    console.error('Get classes error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create a new class
+app.post('/api/classes', async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Class name is required' });
+    }
+
+    const classData = await prisma.class.create({
+      data: {
+        name,
+        description: description || null
+      }
+    });
+
+    res.status(201).json(classData);
+  } catch (err) {
+    console.error('Create class error', err);
+    if (err.code === 'P2002') {
+      return res.status(409).json({ error: 'Class with this name already exists' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });

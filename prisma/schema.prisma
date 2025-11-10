@@ -18,6 +18,8 @@ model User {
   className String?  // Text field for class name (e.g., "Educator" for Teachers, or class name for Students)
   classId   Int?
   class     Class?   @relation(fields: [classId], references: [id])
+  forumThreads  ForumThread[]
+  forumComments ForumComment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -27,6 +29,29 @@ model Class {
   name      String   @unique
   description String?
   students  User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ForumThread {
+  id        Int            @id @default(autoincrement())
+  title     String
+  content   String         @db.Text
+  attachment String?       @db.LongText
+  authorId  Int
+  author    User           @relation(fields: [authorId], references: [id])
+  comments  ForumComment[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model ForumComment {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  threadId  Int
+  thread    ForumThread @relation(fields: [threadId], references: [id])
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

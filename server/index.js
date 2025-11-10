@@ -524,6 +524,60 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
   }
 });
 
+app.delete('/api/forum/threads/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { authorId } = req.body || {};
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid thread id' });
+    }
+    const authorIdNum = Number(authorId);
+    if (!Number.isInteger(authorIdNum)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+    const thread = await prisma.forumThread.findUnique({ where: { id } });
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+    if (thread.authorId !== authorIdNum) {
+      return res.status(403).json({ error: 'You can only delete threads you created' });
+    }
+    await prisma.forumThread.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete thread error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/forum/comments/:commentId', async (req, res) => {
+  try {
+    const commentId = Number(req.params.commentId);
+    const { authorId } = req.body || {};
+    if (!Number.isInteger(commentId)) {
+      return res.status(400).json({ error: 'Invalid comment id' });
+    }
+    const authorIdNum = Number(authorId);
+    if (!Number.isInteger(authorIdNum)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+    const existing = await prisma.forumComment.findUnique({
+      where: { id: commentId },
+    });
+    if (!existing) return res.status(404).json({ error: 'Comment not found' });
+    if (existing.authorId !== authorIdNum) {
+      return res.status(403).json({ error: 'You can only delete comments you created' });
+    }
+    await prisma.forumComment.delete({ where: { id: commentId } });
+    await prisma.forumThread.update({
+      where: { id: existing.threadId },
+      data: { updatedAt: new Date() }
+    });
+    res.json({ success: true, threadId: existing.threadId });
+  } catch (err) {
+    console.error('Delete comment error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);

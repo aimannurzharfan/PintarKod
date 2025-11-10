@@ -415,7 +415,7 @@ app.put('/api/forum/threads/:id', async (req, res) => {
 
     const thread = await prisma.forumThread.findUnique({ where: { id } });
     if (!thread) return res.status(404).json({ error: 'Thread not found' });
-    if (thread.authorId !== authorIdNum) {
+    if (Number(thread.authorId) !== Number(authorIdNum)) {
       return res.status(403).json({ error: 'You can only edit threads you created' });
     }
 
@@ -527,17 +527,16 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
 app.delete('/api/forum/threads/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { authorId } = req.body || {};
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'Invalid thread id' });
     }
-    const authorIdNum = Number(authorId);
+    const authorIdNum = Number(req.query.authorId ?? req.body?.authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
     }
     const thread = await prisma.forumThread.findUnique({ where: { id } });
     if (!thread) return res.status(404).json({ error: 'Thread not found' });
-    if (thread.authorId !== authorIdNum) {
+    if (Number(thread.authorId) !== Number(authorIdNum)) {
       return res.status(403).json({ error: 'You can only delete threads you created' });
     }
     await prisma.forumThread.delete({ where: { id } });

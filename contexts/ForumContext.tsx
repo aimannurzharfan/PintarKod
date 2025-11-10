@@ -345,10 +345,8 @@ export function ForumProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       try {
-        const res = await fetch(`${API_URL}/api/forum/threads/${threadIdNum}`, {
+        const res = await fetch(`${API_URL}/api/forum/threads/${threadIdNum}?authorId=${Number(authorId)}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ authorId }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));

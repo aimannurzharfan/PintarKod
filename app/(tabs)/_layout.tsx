@@ -1,14 +1,13 @@
-import { Tabs, useRouter } from 'expo-router';
-import React from 'react';
-import { Image, Platform, Pressable, View } from 'react-native';
-import { ActionSheetIOS, Alert } from 'react-native';
-
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_URL } from '@/config';
+import { Tabs, useRouter } from 'expo-router';
+import React from 'react';
+import { Image, Platform, Pressable, View } from 'react-native';
+import { ActionSheetIOS, Alert } from 'react-native';
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {

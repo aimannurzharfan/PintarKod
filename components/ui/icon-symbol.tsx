@@ -6,7 +6,7 @@ import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
 type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
-type IconSymbolName = keyof typeof MAPPING;
+export type IconSymbolName = keyof typeof MAPPING;
 
 /**
  * Add your SF Symbols to Material Icons mappings here.
@@ -23,6 +23,12 @@ const MAPPING = {
   'person.fill': 'person',
   'person.2.fill': 'people',
   'pencil': 'edit',
+  'text.bubble.fill': 'forum',
+  'clock.fill': 'schedule',
+  'photo.on.rectangle': 'photo-library',
+  'xmark.circle.fill': 'cancel',
+  'person.badge.plus': 'person-add',
+  'trash.circle.fill': 'delete',
   // removed mapping for 'line.horizontal.3' (sidebar menu) since sidebar was removed
 } as IconMapping;
 

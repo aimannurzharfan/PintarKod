@@ -305,6 +305,225 @@ app.post('/api/classes', async (req, res) => {
   }
 });
 
+const forumThreadInclude = {
+  author: {
+    select: { id: true, username: true, email: true }
+  },
+  comments: {
+    include: {
+      author: {
+        select: { id: true, username: true, email: true }
+      }
+    },
+    orderBy: { createdAt: 'asc' }
+  }
+};
+
+app.get('/api/forum/threads', async (req, res) => {
+  try {
+    const { q = '' } = req.query;
+    const searchTerm = typeof q === 'string' ? q.trim() : '';
+    const whereClause = searchTerm
+      ? {
+          OR: [
+            { title: { contains: searchTerm } },
+            { content: { contains: searchTerm } },
+            {
+              comments: {
+                some: {
+                  content: { contains: searchTerm }
+                }
+              }
+            }
+          ]
+        }
+      : undefined;
+
+    const threads = await prisma.forumThread.findMany({
+      where: whereClause,
+      include: forumThreadInclude,
+      orderBy: { updatedAt: 'desc' }
+    });
+    res.json(threads);
+  } catch (err) {
+    console.error('List threads error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/forum/threads/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid thread id' });
+    }
+    const thread = await prisma.forumThread.findUnique({
+      where: { id },
+      include: forumThreadInclude
+    });
+    if (!thread) {
+      return res.status(404).json({ error: 'Thread not found' });
+    }
+    res.json(thread);
+  } catch (err) {
+    console.error('Get thread error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/forum/threads', async (req, res) => {
+  try {
+    const { title, content, authorId, attachment } = req.body || {};
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content are required' });
+    }
+    const authorIdNum = Number(authorId);
+    if (!Number.isInteger(authorIdNum)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+
+    const thread = await prisma.forumThread.create({
+      data: {
+        title,
+        content,
+        authorId: authorIdNum,
+        attachment: attachment && typeof attachment === 'string' ? attachment : null
+      },
+      include: forumThreadInclude
+    });
+    res.status(201).json(thread);
+  } catch (err) {
+    console.error('Create thread error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/forum/threads/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid thread id' });
+    }
+    const { title, content, authorId, attachment } = req.body || {};
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content are required' });
+    }
+    const authorIdNum = Number(authorId);
+    if (!Number.isInteger(authorIdNum)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+
+    const thread = await prisma.forumThread.findUnique({ where: { id } });
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+    if (thread.authorId !== authorIdNum) {
+      return res.status(403).json({ error: 'You can only edit threads you created' });
+    }
+
+    const data = {
+      title,
+      content
+    };
+
+    if (typeof attachment !== 'undefined') {
+      data.attachment =
+        attachment && typeof attachment === 'string' ? attachment : null;
+    }
+
+    const updated = await prisma.forumThread.update({
+      where: { id },
+      data,
+      include: forumThreadInclude
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Update thread error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/forum/threads/:id/comments', async (req, res) => {
+  try {
+    const threadId = Number(req.params.id);
+    if (!Number.isInteger(threadId)) {
+      return res.status(400).json({ error: 'Invalid thread id' });
+    }
+    const { content, authorId } = req.body || {};
+    if (!content) {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+    const authorIdNum = Number(authorId);
+    if (!Number.isInteger(authorIdNum)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+
+    const thread = await prisma.forumThread.findUnique({ where: { id: threadId } });
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+
+    const comment = await prisma.forumComment.create({
+      data: {
+        content,
+        threadId,
+        authorId: authorIdNum
+      },
+      include: {
+        author: { select: { id: true, username: true, email: true } },
+        thread: false
+      }
+    });
+    await prisma.forumThread.update({
+      where: { id: threadId },
+      data: { updatedAt: new Date() }
+    });
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error('Create comment error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/forum/comments/:commentId', async (req, res) => {
+  try {
+    const commentId = Number(req.params.commentId);
+    if (!Number.isInteger(commentId)) {
+      return res.status(400).json({ error: 'Invalid comment id' });
+    }
+    const { content, authorId } = req.body || {};
+    if (!content) {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+    const authorIdNum = Number(authorId);
+    if (!Number.isInteger(authorIdNum)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+    const existing = await prisma.forumComment.findUnique({
+      where: { id: commentId },
+      include: {
+        author: { select: { id: true, username: true, email: true } }
+      }
+    });
+    if (!existing) return res.status(404).json({ error: 'Comment not found' });
+    if (existing.authorId !== authorIdNum) {
+      return res.status(403).json({ error: 'You can only edit comments you created' });
+    }
+
+    const updated = await prisma.forumComment.update({
+      where: { id: commentId },
+      data: { content },
+      include: {
+        author: { select: { id: true, username: true, email: true } }
+      }
+    });
+    await prisma.forumThread.update({
+      where: { id: existing.threadId },
+      data: { updatedAt: new Date() }
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Update comment error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);

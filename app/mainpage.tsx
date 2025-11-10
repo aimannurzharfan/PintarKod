@@ -1,12 +1,15 @@
 import { AIChatbot } from '@/components/ai-chatbot';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useForum } from '@/contexts/ForumContext';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { API_URL } from './config';
+
+const CHEVRON_RIGHT = 'chevron.right' as IconSymbolName;
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -21,6 +24,7 @@ const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | nul
 
 export default function MainPage() {
   const { user, logout } = useAuth();
+  const { error: forumError } = useForum();
   const colorScheme = useColorScheme();
   const router = useRouter();
   const navigation = useNavigation();
@@ -106,30 +110,45 @@ export default function MainPage() {
     });
   }, [navigation, colorScheme, user?.username, userAvatarUri]);
 
-  const CTA_BUTTONS = useMemo(() => {
-    if (user?.role !== 'Teacher') {
-      return [];
-    }
+  const discussionCards = useMemo(
+    () => [
+      {
+        key: 'forum-view',
+        title: 'Discussion Forum',
+        description: 'See what the community is talking about right now.',
+        onPress: () => router.push('/forum' as any),
+      },
+    ],
+    [router]
+  );
 
-    return [
-      {
-        key: 'register',
-        label: 'Register Student',
-        description: 'Create new student accounts instantly.',
-        icon: colorScheme === 'dark' ? 'person.badge.plus' : 'person.badge.plus',
-        gradient: ['#6EE7B7', '#3B82F6'],
-        onPress: () => router.push('/register' as any),
-      },
-      {
-        key: 'delete',
-        label: 'Remove Student',
-        description: 'Search and delete student accounts securely.',
-        icon: colorScheme === 'dark' ? 'trash.circle.fill' : 'trash.circle.fill',
-        gradient: ['#F87171', '#EF4444'],
-        onPress: handleDeleteAccount,
-      },
-    ];
-  }, [user?.role, colorScheme]);
+  type CtaButton = {
+    key: string;
+    label: string;
+    description: string;
+    icon: IconSymbolName;
+    onPress: () => void;
+  };
+
+  const CTA_BUTTONS: CtaButton[] =
+    user?.role !== 'Teacher'
+      ? []
+      : [
+          {
+            key: 'register',
+            label: 'Register Student',
+            description: 'Create new student accounts instantly.',
+            icon: 'person.badge.plus' as IconSymbolName,
+            onPress: () => router.push('/register' as any),
+          },
+          {
+            key: 'delete',
+            label: 'Remove Student',
+            description: 'Search and delete student accounts securely.',
+            icon: 'trash.circle.fill' as IconSymbolName,
+            onPress: handleDeleteAccount,
+          },
+        ];
 
   return (
     <ThemedView style={styles.container}>
@@ -162,7 +181,7 @@ export default function MainPage() {
                   backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
                 },
               ]}>
-                <IconSymbol name={button.icon} size={30} color={colorScheme === 'dark' ? '#FFFFFF' : '#111827'} />
+              <IconSymbol name={button.icon} size={30} color={colorScheme === 'dark' ? '#FFFFFF' : '#111827'} />
               </View>
               <View style={styles.ctaTextWrapper}>
                 <Text style={[styles.ctaTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#0F172A' }]}>
@@ -173,12 +192,63 @@ export default function MainPage() {
                 </Text>
               </View>
               <View style={styles.ctaChevron}>
-                <IconSymbol name="chevron.right" size={20} color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'} />
+                <IconSymbol name={CHEVRON_RIGHT} size={20} color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'} />
               </View>
             </Pressable>
           ))}
         </View>
       )}
+
+      <View style={styles.discussionSection}>
+        {discussionCards.map((card) => (
+          <Pressable
+            key={card.key}
+            style={({ pressed }) => [
+              styles.discussionRow,
+              {
+                backgroundColor: colorScheme === 'dark' ? 'rgba(21,33,52,0.9)' : '#F5F9FF',
+                borderColor: colorScheme === 'dark' ? 'rgba(59,130,246,0.32)' : 'rgba(59,130,246,0.18)',
+                transform: [{ scale: pressed ? 0.985 : 1 }],
+              },
+            ]}
+            onPress={card.onPress}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.discussionRowTitle,
+                  { color: colorScheme === 'dark' ? '#FFFFFF' : '#0F172A' },
+                ]}
+              >
+                {card.title}
+              </Text>
+              <Text
+                style={[
+                  styles.discussionRowSubtitle,
+                  { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' },
+                ]}
+              >
+                {card.description}
+              </Text>
+            </View>
+            <IconSymbol
+              name={CHEVRON_RIGHT}
+              size={18}
+              color={colorScheme === 'dark' ? '#A5B4FC' : '#1D4ED8'}
+            />
+          </Pressable>
+        ))}
+        {forumError ? (
+          <Text
+            style={[
+              styles.discussionError,
+              { color: colorScheme === 'dark' ? '#FCA5A5' : '#DC2626' },
+            ]}
+          >
+            Note: live forum data is currently unavailable; you may see a sample discussion when you continue.
+          </Text>
+        ) : null}
+      </View>
 
       {/* Sidebar removed */}
 
@@ -215,14 +285,14 @@ export default function MainPage() {
                 <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
                   View Profile
                 </Text>
-                <IconSymbol name="chevron.right" size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+                <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
               </Pressable>
 
               <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleEditProfile}>
                 <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
                   Edit Profile
                 </Text>
-              <IconSymbol name="chevron.right" size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+              <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
             </Pressable>
 
             {user?.role === 'Teacher' && (
@@ -231,14 +301,14 @@ export default function MainPage() {
                   <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
                     Register New User
                   </Text>
-                  <IconSymbol name="chevron.right" size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+                <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
                 </Pressable>
 
                 <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleDeleteAccount}>
                   <Text style={[styles.menuItemText, { color: '#b00' }]}>
                     Delete Account
                   </Text>
-                  <IconSymbol name="chevron.right" size={18} color="#b00" />
+                  <IconSymbol name={CHEVRON_RIGHT} size={18} color="#b00" />
                 </Pressable>
               </>
             )}
@@ -247,7 +317,7 @@ export default function MainPage() {
                 <Text style={[styles.menuItemText, { color: '#b00' }]}>
                   Logout
                 </Text>
-                <IconSymbol name="chevron.right" size={18} color="#b00" />
+                <IconSymbol name={CHEVRON_RIGHT} size={18} color="#b00" />
               </Pressable>
             </View>
 
@@ -313,6 +383,33 @@ const styles = StyleSheet.create({
   },
   ctaChevron: {
     marginLeft: 12,
+  },
+  discussionSection: { marginTop: 32, gap: 14 },
+  discussionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+    gap: 16,
+  },
+  discussionRowTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  discussionRowSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  discussionError: {
+    marginTop: 8,
+    fontSize: 12,
   },
   modalOverlay: {
     flex: 1,

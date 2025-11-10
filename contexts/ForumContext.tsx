@@ -67,6 +67,8 @@ type ForumContextValue = {
   updateThread: (input: UpdateThreadInput) => Promise<ForumThread | undefined>;
   addComment: (input: CreateCommentInput) => Promise<ForumComment | undefined>;
   updateComment: (input: UpdateCommentInput) => Promise<ForumComment | undefined>;
+  deleteThread: (threadId: string, authorId: number | null) => Promise<boolean>;
+  deleteComment: (threadId: string, commentId: string, authorId: number | null) => Promise<boolean>;
   getThreadById: (id: string) => ForumThread | undefined;
   fetchThreadById: (id: string) => Promise<ForumThread | undefined>;
 };
@@ -333,6 +335,86 @@ export function ForumProvider({ children }: { children: React.ReactNode }) {
     [normalizeComment]
   );
 
+  const deleteThread = useCallback(
+    async (threadId: string, authorId: number | null) => {
+      if (authorId == null) return false;
+      const threadIdNum = Number(threadId);
+      const isNumericId = Number.isInteger(threadIdNum);
+      if (!isNumericId) {
+        setThreads((prev) => prev.filter((thread) => thread.id !== threadId));
+        return true;
+      }
+      try {
+        const res = await fetch(`${API_URL}/api/forum/threads/${threadIdNum}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ authorId }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Unable to delete thread');
+        }
+        setThreads((prev) => prev.filter((thread) => thread.id !== threadIdNum.toString()));
+        return true;
+      } catch (err) {
+        console.error('Delete thread error:', err);
+        return false;
+      }
+    },
+    []
+  );
+
+  const deleteComment = useCallback(
+    async (threadId: string, commentId: string, authorId: number | null) => {
+      if (authorId == null) return false;
+      const commentIdNum = Number(commentId);
+      const threadIdNum = Number(threadId);
+      const isCommentNumeric = Number.isInteger(commentIdNum);
+      const isThreadNumeric = Number.isInteger(threadIdNum);
+      if (!isCommentNumeric || !isThreadNumeric) {
+        const threadKey = isThreadNumeric ? String(threadIdNum) : threadId;
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.id === threadKey
+              ? {
+                  ...thread,
+                  comments: thread.comments.filter((comment) => comment.id !== commentId),
+                }
+              : thread
+          )
+        );
+        return true;
+      }
+      const threadKey = String(threadIdNum);
+      try {
+        const res = await fetch(`${API_URL}/api/forum/comments/${commentIdNum}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ authorId }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Unable to delete comment');
+        }
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.id === threadKey
+              ? {
+                  ...thread,
+                  comments: thread.comments.filter((comment) => comment.id !== commentId),
+                }
+              : thread
+          )
+        );
+        return true;
+      } catch (err) {
+        console.error('Delete comment error:', err);
+        return false;
+      }
+    },
+    []
+  );
+
   const getThreadByIdInternal = useCallback(
     (id: string) => threads.find((thread) => thread.id === id),
     [threads]
@@ -348,6 +430,8 @@ export function ForumProvider({ children }: { children: React.ReactNode }) {
       updateThread,
       addComment,
       updateComment,
+      deleteThread,
+      deleteComment,
       getThreadById: getThreadByIdInternal,
       fetchThreadById,
     }),
@@ -360,6 +444,8 @@ export function ForumProvider({ children }: { children: React.ReactNode }) {
       updateThread,
       addComment,
       updateComment,
+      deleteThread,
+      deleteComment,
       getThreadByIdInternal,
       fetchThreadById,
     ]

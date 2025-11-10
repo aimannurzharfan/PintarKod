@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AIChatbot } from '@/components/ai-chatbot';
 import { useAuth } from '@/contexts/AuthContext';
 import { ForumComment, ForumThread, useForum } from '@/contexts/ForumContext';
 import { Image } from 'expo-image';
@@ -24,7 +25,15 @@ export default function ForumThreadScreen() {
   const { id, action } = useLocalSearchParams<{ id?: string; action?: string }>();
   const threadId = typeof id === 'string' ? id : undefined;
 
-  const { addComment, updateComment, updateThread, getThreadById, fetchThreadById } = useForum();
+  const {
+    addComment,
+    updateComment,
+    updateThread,
+    deleteThread,
+    deleteComment,
+    getThreadById,
+    fetchThreadById
+  } = useForum();
   const { user } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -53,6 +62,7 @@ export default function ForumThreadScreen() {
   const [threadContent, setThreadContent] = useState(thread?.content ?? '');
   const [threadAttachment, setThreadAttachment] = useState<string | null>(thread?.attachment ?? null);
   const [pickingThreadAttachment, setPickingThreadAttachment] = useState(false);
+const [showChatbot, setShowChatbot] = useState(false);
 
   useEffect(() => {
     setThreadTitle(thread?.title ?? '');
@@ -220,6 +230,56 @@ export default function ForumThreadScreen() {
     }
   }
 
+  function confirmDeleteThread() {
+    if (user?.id == null) {
+      Alert.alert('Sign in required', 'Please log in before deleting your thread.');
+      return;
+    }
+    Alert.alert(
+      'Delete thread',
+      'This will remove the discussion and all replies. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deleteThread(thread.id, Number(user.id));
+            if (success) {
+              router.replace('/forum');
+            } else {
+              Alert.alert('Delete failed', 'Could not delete this thread. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  }
+
+  function confirmDeleteComment(comment: ForumComment) {
+    if (user?.id == null) {
+      Alert.alert('Sign in required', 'Please log in before deleting your reply.');
+      return;
+    }
+    Alert.alert(
+      'Delete reply',
+      'This will remove your comment permanently. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deleteComment(thread.id, comment.id, Number(user.id));
+            if (!success) {
+              Alert.alert('Delete failed', 'Could not delete this comment. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.wrapper}
@@ -230,10 +290,16 @@ export default function ForumThreadScreen() {
           <View style={styles.threadHeader}>
             <Text style={styles.threadTitle}>{thread.title}</Text>
             {canManage(thread, user?.id, user?.username, user?.email) && (
-              <Pressable style={styles.editButton} onPress={openThreadEditor}>
-                <IconSymbol name="pencil" size={16} color="#2563EB" />
-                <Text style={styles.editButtonText}>Edit</Text>
-              </Pressable>
+              <View style={styles.threadHeaderActions}>
+                <Pressable style={styles.editButton} onPress={openThreadEditor}>
+                  <IconSymbol name="pencil" size={16} color="#2563EB" />
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </Pressable>
+                <Pressable style={styles.deleteButton} onPress={confirmDeleteThread}>
+                  <IconSymbol name="trash.circle.fill" size={16} color="#DC2626" />
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </Pressable>
+              </View>
             )}
           </View>
           <Text style={styles.threadMeta}>
@@ -273,13 +339,22 @@ export default function ForumThreadScreen() {
               </View>
               <Text style={styles.commentBody}>{comment.content}</Text>
               {canManageComment(comment, user?.id, user?.username, user?.email) && (
-                <Pressable
-                  style={styles.commentAction}
-                  onPress={() => openEditComment(comment)}
-                >
-                  <IconSymbol name="square.and.pencil" size={14} color="#2563EB" />
-                  <Text style={styles.commentActionText}>Edit</Text>
-                </Pressable>
+                <View style={styles.commentActions}>
+                  <Pressable
+                    style={styles.commentAction}
+                    onPress={() => openEditComment(comment)}
+                  >
+                    <IconSymbol name="square.and.pencil" size={14} color="#2563EB" />
+                    <Text style={styles.commentActionText}>Edit</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.commentDeleteAction}
+                    onPress={() => confirmDeleteComment(comment)}
+                  >
+                    <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
+                    <Text style={styles.commentDeleteText}>Delete</Text>
+                  </Pressable>
+                </View>
               )}
             </View>
           ))
@@ -425,6 +500,7 @@ export default function ForumThreadScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
     </KeyboardAvoidingView>
   );
 }
@@ -503,6 +579,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+    alignItems: 'center',
+  },
+  threadHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   threadTitle: {
     flex: 1,
@@ -521,6 +603,20 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: '#2563EB',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+  },
+  deleteButtonText: {
+    color: '#DC2626',
     fontWeight: '600',
     fontSize: 13,
   },
@@ -607,12 +703,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginTop: 0,
+  },
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginTop: 10,
   },
   commentActionText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#2563EB',
+  },
+  commentDeleteAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  commentDeleteText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   composer: {
     position: 'absolute',
@@ -780,6 +892,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 15,
+  },
+  floatingChatButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 96,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   loadingContainer: {
     flex: 1,

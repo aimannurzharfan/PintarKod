@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AIChatbot } from '@/components/ai-chatbot';
 import { useAuth } from '@/contexts/AuthContext';
 import { ForumThread, useForum } from '@/contexts/ForumContext';
 import { Image } from 'expo-image';
@@ -24,7 +25,15 @@ type FilterMode = 'all' | 'mine';
 
 export default function ForumScreen() {
   const colorScheme = useColorScheme();
-  const { threads, createThread, updateThread, loading, error, refresh } = useForum();
+  const {
+    threads,
+    createThread,
+    updateThread,
+    deleteThread: removeThread,
+    loading,
+    error,
+    refresh
+  } = useForum();
   const { user } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams<{ action?: string }>();
@@ -40,6 +49,7 @@ export default function ForumScreen() {
   const [formContent, setFormContent] = useState('');
   const [formAttachment, setFormAttachment] = useState<string | null>(null);
   const [pickingAttachment, setPickingAttachment] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
 
   const sortedThreads = useMemo(
     () =>
@@ -178,6 +188,30 @@ export default function ForumScreen() {
     }
   }
 
+  function confirmDeleteThread(thread: ForumThread) {
+    if (user?.id == null) {
+      Alert.alert('Sign in required', 'Please log in before deleting your thread.');
+      return;
+    }
+    Alert.alert(
+      'Delete thread',
+      'This will remove the discussion and all of its replies. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await removeThread(thread.id, Number(user.id));
+            if (!success) {
+              Alert.alert('Delete failed', 'Could not delete this thread. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -263,26 +297,38 @@ export default function ForumScreen() {
                   {item.title}
                 </Text>
                 {canManageThread(item, user?.id, user?.username, user?.email) && (
-                  <Pressable
-                    style={[
-                      styles.editPill,
-                      colorScheme === 'dark' && styles.editPillDark,
-                    ]}
-                    onPress={(event) => {
-                      event.stopPropagation();
-                      openThreadComposer(item);
-                    }}
-                  >
-                    <IconSymbol name="pencil" size={14} color={colorScheme === 'dark' ? '#BFDBFE' : '#2563EB'} />
-                    <Text
+                  <View style={styles.threadActions}>
+                    <Pressable
                       style={[
-                        styles.editPillText,
-                        colorScheme === 'dark' && styles.editPillTextDark,
+                        styles.editPill,
+                        colorScheme === 'dark' && styles.editPillDark,
                       ]}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        openThreadComposer(item);
+                      }}
                     >
-                      Edit
-                    </Text>
-                  </Pressable>
+                      <IconSymbol name="pencil" size={14} color={colorScheme === 'dark' ? '#BFDBFE' : '#2563EB'} />
+                      <Text
+                        style={[
+                          styles.editPillText,
+                          colorScheme === 'dark' && styles.editPillTextDark,
+                        ]}
+                      >
+                        Edit
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.deletePill}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        confirmDeleteThread(item);
+                      }}
+                    >
+                      <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
+                      <Text style={styles.deletePillText}>Delete</Text>
+                    </Pressable>
+                  </View>
                 )}
               </View>
 
@@ -476,6 +522,16 @@ export default function ForumScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Pressable
+        style={styles.floatingChatButton}
+        onPress={() => setShowChatbot(true)}
+        accessibilityLabel="Open AI chatbot"
+      >
+        <IconSymbol name="message.fill" size={28} color="#FFFFFF" />
+      </Pressable>
+
+      <AIChatbot visible={showChatbot} onClose={() => setShowChatbot(false)} />
     </KeyboardAvoidingView>
   );
 }
@@ -670,6 +726,25 @@ const styles = StyleSheet.create({
   editPillTextDark: {
     color: '#DBEAFE',
   },
+  threadActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deletePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  deletePillText: {
+    color: '#DC2626',
+    fontWeight: '600',
+    fontSize: 13,
+  },
   threadInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -736,6 +811,22 @@ const styles = StyleSheet.create({
   errorLink: {
     color: '#60A5FA',
     fontWeight: '600',
+  },
+  floatingChatButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalOverlay: {
     flex: 1,

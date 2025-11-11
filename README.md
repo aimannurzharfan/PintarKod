@@ -9,10 +9,12 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    [Node.js (v18 or higher, recommend LTS version)](https://nodejs.org/en)
     
    [MySQL Server & Workbench (v8.0 or higher)](https://dev.mysql.com/downloads/workbench/)
-   [create a database named pintarkod]
    
    [Android Studio (Used to run the Android Emulator)](https://developer.android.com/studio)
    
+## Database 
+
+   create a database name ```bash pintarkod```
 
 ## Before Running
 

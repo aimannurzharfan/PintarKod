@@ -47,6 +47,7 @@ export default function ForumThreadScreen() {
     () => (threadId ? getThreadById(threadId) : undefined),
     [threadId, getThreadById]
   );
+  const isEditingThread = Boolean(thread);
 
   useEffect(() => {
     if (!threadId) return;
@@ -451,7 +452,7 @@ const [showChatbot, setShowChatbot] = useState(false);
         <Pressable style={styles.modalOverlay} onPress={closeThreadEditor}>
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.modalTitle}>
-              {editingThread
+              {isEditingThread
                 ? t('forum_list.modal_edit_title')
                 : t('forum_list.modal_create_title')}
             </Text>
@@ -538,7 +539,7 @@ const [showChatbot, setShowChatbot] = useState(false);
               </Pressable>
               <Pressable style={styles.modalPrimary} onPress={submitThreadEdit}>
                 <Text style={styles.modalPrimaryText}>
-                  {editingThread ? t('forum_list.modal_save') : t('forum_list.modal_publish')}
+                  {isEditingThread ? t('forum_list.modal_save') : t('forum_list.modal_publish')}
                 </Text>
               </Pressable>
             </View>

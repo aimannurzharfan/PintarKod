@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
@@ -12,8 +13,96 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve uploaded files
 const uploadsDir = path.join(__dirname, '..', 'uploads');
+const learningMaterialDir = path.join(uploadsDir, 'learning-materials');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(learningMaterialDir)) fs.mkdirSync(learningMaterialDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
+
+const LEARNING_MATERIAL_TOPICS = new Set([
+  'STRATEGI_PENYELESAIAN_MASALAH',
+  'ALGORITMA',
+  'PEMBOLEH_UBAH_PEMALAR_JENIS_DATA',
+  'STRUKTUR_KAWALAN',
+  'AMALAN_TERBAIK_PENGATURCARAAN',
+  'STRUKTUR_DATA_MODULAR',
+  'PEMBANGUNAN_APLIKASI',
+]);
+
+const LEARNING_MATERIAL_TYPES = new Set(['NOTES', 'VIDEO', 'EXERCISE']);
+const ALLOWED_FILE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'application/pdf',
+]);
+
+const mimeExtensionMap = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'application/pdf': 'pdf',
+};
+
+function ensureLearningMaterialDir() {
+  if (!fs.existsSync(learningMaterialDir)) {
+    fs.mkdirSync(learningMaterialDir, { recursive: true });
+  }
+}
+
+function extractMimeAndData(base64String, fallbackMime) {
+  if (!base64String) return { mime: null, data: null };
+  if (base64String.startsWith('data:')) {
+    const matches = /^data:(.+);base64,(.+)$/.exec(base64String);
+    if (!matches) return { mime: null, data: null };
+    return { mime: matches[1], data: matches[2] };
+  }
+  return { mime: fallbackMime ?? null, data: base64String };
+}
+
+function getExtension(name, mime) {
+  if (name) {
+    const existing = path.extname(name).replace('.', '');
+    if (existing) return existing;
+  }
+  if (mime && mimeExtensionMap[mime]) {
+    return mimeExtensionMap[mime];
+  }
+  return 'bin';
+}
+
+function deleteFileIfExists(fileUrl) {
+  if (!fileUrl) return;
+  const relativePath = fileUrl.replace('/uploads/', '');
+  const absolutePath = path.join(uploadsDir, relativePath);
+  if (absolutePath.startsWith(uploadsDir) && fs.existsSync(absolutePath)) {
+    try {
+      fs.unlinkSync(absolutePath);
+    } catch (err) {
+      console.warn('Failed to delete file', absolutePath, err.message);
+    }
+  }
+}
+
+function saveBase64File(fileData) {
+  if (!fileData || typeof fileData !== 'object') return null;
+  const { base64, type: providedType, name } = fileData;
+  if (!base64) return null;
+  const { mime, data } = extractMimeAndData(base64, providedType);
+  if (!mime || !data) {
+    throw new Error('Invalid file data');
+  }
+  if (!ALLOWED_FILE_MIME_TYPES.has(mime)) {
+    throw new Error('Unsupported file type');
+  }
+  ensureLearningMaterialDir();
+  const extension = getExtension(name, mime);
+  const uniqueId = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(12).toString('hex');
+  const filename = `${Date.now()}-${uniqueId}.${extension}`;
+  const filePath = path.join(learningMaterialDir, filename);
+  fs.writeFileSync(filePath, Buffer.from(data, 'base64'));
+  return `/uploads/learning-materials/${filename}`;
+}
 
 const prisma = new PrismaClient();
 
@@ -573,6 +662,263 @@ app.delete('/api/forum/comments/:commentId', async (req, res) => {
     res.json({ success: true, threadId: existing.threadId });
   } catch (err) {
     console.error('Delete comment error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const learningMaterialInclude = {
+  author: {
+    select: { id: true, username: true, email: true, role: true },
+  },
+};
+
+function normalizeLearningMaterial(material) {
+  return {
+    ...material,
+    id: Number(material.id),
+    authorId: Number(material.authorId),
+    author: undefined,
+    authorName: material.author?.username || material.author?.email || 'Unknown',
+  };
+}
+
+app.get('/api/learning-materials', async (req, res) => {
+  try {
+    const { q = '', topic = '', type = '' } = req.query;
+    const filters = {};
+    const searchTerm = typeof q === 'string' ? q.trim() : '';
+    const topicFilter = typeof topic === 'string' ? topic.trim().toUpperCase() : '';
+    const typeFilter = typeof type === 'string' ? type.trim().toUpperCase() : '';
+
+    if (topicFilter) {
+      if (!LEARNING_MATERIAL_TOPICS.has(topicFilter)) {
+        return res.status(400).json({ error: 'Invalid topic filter' });
+      }
+      filters.topic = topicFilter;
+    }
+    if (typeFilter) {
+      if (!LEARNING_MATERIAL_TYPES.has(typeFilter)) {
+        return res.status(400).json({ error: 'Invalid type filter' });
+      }
+      filters.materialType = typeFilter;
+    }
+
+    const whereClause = Object.keys(filters).length ? { ...filters } : undefined;
+    if (searchTerm) {
+      Object.assign(whereClause || filters, {
+        OR: [
+          { title: { contains: searchTerm } },
+          { description: { contains: searchTerm } },
+        ],
+      });
+    }
+
+    const materials = await prisma.learningMaterial.findMany({
+      where: whereClause,
+      include: learningMaterialInclude,
+      orderBy: { updatedAt: 'desc' },
+    });
+    res.json(materials.map(normalizeLearningMaterial));
+  } catch (err) {
+    console.error('List learning materials error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/learning-materials/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid material id' });
+    }
+    const material = await prisma.learningMaterial.findUnique({
+      where: { id },
+      include: learningMaterialInclude,
+    });
+    if (!material) {
+      return res.status(404).json({ error: 'Learning material not found' });
+    }
+    res.json(normalizeLearningMaterial(material));
+  } catch (err) {
+    console.error('Get learning material error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/learning-materials', async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      topic,
+      materialType,
+      authorId,
+      fileData,
+      videoUrl,
+    } = req.body || {};
+
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+    if (!topic || !LEARNING_MATERIAL_TOPICS.has(String(topic).toUpperCase())) {
+      return res.status(400).json({ error: 'Valid topic is required' });
+    }
+    if (!materialType || !LEARNING_MATERIAL_TYPES.has(String(materialType).toUpperCase())) {
+      return res.status(400).json({ error: 'Valid material type is required' });
+    }
+    const authorIdNum = Number(authorId);
+    if (!Number.isInteger(authorIdNum)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+
+    const author = await prisma.user.findUnique({ where: { id: authorIdNum } });
+    if (!author || author.role !== 'Teacher') {
+      return res.status(403).json({ error: 'Only teachers can upload learning materials' });
+    }
+
+    let storedFileUrl = null;
+    if (materialType !== 'VIDEO' && fileData) {
+      try {
+        storedFileUrl = saveBase64File(fileData);
+      } catch (err) {
+        return res.status(400).json({ error: err.message || 'Failed to process file upload' });
+      }
+    }
+
+    const material = await prisma.learningMaterial.create({
+      data: {
+        title,
+        description: description || null,
+        topic: String(topic).toUpperCase(),
+        materialType: String(materialType).toUpperCase(),
+        authorId: authorIdNum,
+        fileUrl: storedFileUrl,
+        videoUrl: materialType === 'VIDEO' ? (videoUrl || null) : null,
+      },
+      include: learningMaterialInclude,
+    });
+    res.status(201).json(normalizeLearningMaterial(material));
+  } catch (err) {
+    console.error('Create learning material error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/learning-materials/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid material id' });
+    }
+
+    const {
+      title,
+      description,
+      topic,
+      materialType,
+      authorId,
+      fileData,
+      videoUrl,
+      removeFile,
+    } = req.body || {};
+
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+    if (!topic || !LEARNING_MATERIAL_TOPICS.has(String(topic).toUpperCase())) {
+      return res.status(400).json({ error: 'Valid topic is required' });
+    }
+    if (!materialType || !LEARNING_MATERIAL_TYPES.has(String(materialType).toUpperCase())) {
+      return res.status(400).json({ error: 'Valid material type is required' });
+    }
+    const authorIdNum = Number(authorId);
+    if (!Number.isInteger(authorIdNum)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+
+    const existing = await prisma.learningMaterial.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Learning material not found' });
+    }
+    if (existing.authorId !== authorIdNum) {
+      return res.status(403).json({ error: 'You can only update your own learning materials' });
+    }
+
+    let storedFileUrl = existing.fileUrl;
+    if (materialType !== 'VIDEO') {
+      if (fileData) {
+        try {
+          const newFileUrl = saveBase64File(fileData);
+          if (storedFileUrl && storedFileUrl !== newFileUrl) {
+            deleteFileIfExists(storedFileUrl);
+          }
+          storedFileUrl = newFileUrl;
+        } catch (err) {
+          return res.status(400).json({ error: err.message || 'Failed to process file upload' });
+        }
+      } else if (removeFile) {
+        deleteFileIfExists(storedFileUrl);
+        storedFileUrl = null;
+      }
+    } else {
+      if (storedFileUrl) {
+        deleteFileIfExists(storedFileUrl);
+      }
+      storedFileUrl = null;
+    }
+
+    const updated = await prisma.learningMaterial.update({
+      where: { id },
+      data: {
+        title,
+        description: description || null,
+        topic: String(topic).toUpperCase(),
+        materialType: String(materialType).toUpperCase(),
+        fileUrl: storedFileUrl,
+        videoUrl: String(materialType).toUpperCase() === 'VIDEO' ? (videoUrl || null) : null,
+      },
+      include: learningMaterialInclude,
+    });
+    res.json(normalizeLearningMaterial(updated));
+  } catch (err) {
+    console.error('Update learning material error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/learning-materials/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const authorId = Number(req.body?.authorId ?? req.query?.authorId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid material id' });
+    }
+    if (!Number.isInteger(authorId)) {
+      return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+
+    const existing = await prisma.learningMaterial.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Learning material not found' });
+    }
+    if (existing.authorId !== authorId) {
+      return res.status(403).json({ error: 'You can only delete your own learning materials' });
+    }
+
+    if (existing.fileUrl) {
+      deleteFileIfExists(existing.fileUrl);
+    }
+
+    await prisma.learningMaterial.delete({
+      where: { id },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete learning material error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

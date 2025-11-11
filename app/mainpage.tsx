@@ -118,6 +118,12 @@ export default function MainPage() {
         description: 'See what the community is talking about right now.',
         onPress: () => router.push('/forum' as any),
       },
+      {
+        key: 'learning-materials',
+        title: 'Learning Materials',
+        description: 'Browse lessons, notes, and exercises prepared by teachers.',
+        onPress: () => router.push('/learning-materials' as any),
+      },
     ],
     [router]
   );

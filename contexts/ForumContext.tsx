@@ -14,6 +14,7 @@ export type ForumComment = {
   content: string;
   authorId: string;
   authorName: string;
+  authorRole?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -96,6 +97,7 @@ const FALLBACK_THREADS: ForumThread[] = [
           'reduce = count the total studs. Students grasp it quickly!',
         authorId: '0',
         authorName: 'Aina (Teacher)',
+        authorRole: 'Teacher',
         createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
         updatedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
       },
@@ -115,6 +117,7 @@ export function ForumProvider({ children }: { children: React.ReactNode }) {
       content: comment.content,
       authorId: comment.authorId != null ? String(comment.authorId) : '',
       authorName: comment.author?.username || comment.author?.email || 'Unknown user',
+      authorRole: comment.author?.role ?? comment.authorRole ?? null,
       createdAt: comment.createdAt,
       updatedAt: comment.updatedAt,
     };

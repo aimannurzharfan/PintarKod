@@ -1,88 +1,94 @@
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, Button, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
-import { API_URL } from './config';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useColorScheme,
+} from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { API_URL } from './config';
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Student');
-  const [className, setClassName] = useState(''); // Text input for class name
+  const [className, setClassName] = useState('');
   const [loading, setLoading] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
 
   const { user } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme);
+  const styles = useMemo(() => getStyles(colorScheme), [colorScheme]);
+  const { t } = useTranslation();
   const isTeacher = user?.role === 'Teacher';
+  const placeholderColor = colorScheme === 'dark' ? '#94A3B8' : '#64748B';
 
-  // When role changes to Teacher, automatically set className to "Educator"
   useEffect(() => {
     if (isTeacher && role === 'Teacher') {
-      setClassName('Educator');
+      setClassName(t('register.class_placeholder_teacher'));
     } else if (isTeacher && role === 'Student') {
-      setClassName(''); // Clear className when switching to Student
+      setClassName('');
     }
-  }, [role, isTeacher]);
+  }, [role, isTeacher, t]);
 
   async function handleRegister() {
-    if (!username || !email || !password) {
-      Alert.alert('Validation', 'Please fill all fields');
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      Alert.alert(t('register.title'), t('register.validation'));
       return;
     }
 
-    // If teacher is registering, role and className are required
     if (isTeacher) {
       if (!role || (role !== 'Student' && role !== 'Teacher')) {
-        Alert.alert('Validation', 'Please select a valid role for the user');
+        Alert.alert(t('register.title'), t('register.validation_role'));
         return;
       }
-      if (!className || className.trim() === '') {
-        Alert.alert('Validation', 'Please enter a class name');
+      if (!className.trim()) {
+        Alert.alert(t('register.title'), t('register.validation_class'));
         return;
       }
     }
 
     setLoading(true);
     try {
-      const payload: any = { username, email, password };
-      
-      // Only include role and className if user is a teacher
+      const payload: Record<string, string> = {
+        username: username.trim(),
+        email: email.trim(),
+        password,
+      };
+
       if (isTeacher) {
-        // Always include role when teacher is registering
         payload.role = role;
-        // Include className (text field)
-        if (className && className.trim() !== '') {
+        if (className.trim()) {
           payload.className = className.trim();
         }
       }
 
-      // Debug logging
-      console.log('=== REGISTRATION DEBUG ===');
-      console.log('isTeacher:', isTeacher);
-      console.log('user object:', JSON.stringify(user, null, 2));
-      console.log('role state:', role);
-      console.log('className:', className);
-      console.log('Registration payload:', JSON.stringify(payload, null, 2));
-      console.log('========================');
-
       const res = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        Alert.alert('Error', data.error || 'Registration failed');
+        Alert.alert(t('register.title'), data.error || t('register.error'));
       } else {
-        // On successful registration
-        Alert.alert('Success', 'User registered successfully', [
+        Alert.alert(t('register.success_title'), t('register.success'), [
           {
-            text: 'OK',
+            text: t('common.ok'),
             onPress: () => {
               setUsername('');
               setEmail('');
@@ -90,230 +96,385 @@ export default function RegisterScreen() {
               setRole('Student');
               setClassName('');
               if (isTeacher) {
-                router.back(); // Go back to previous screen for teachers
+                router.back();
               } else {
-                router.push('/'); // Go to login for regular users
+                router.push('/');
               }
-            }
-          }
+            },
+          },
         ]);
       }
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Network error');
+      Alert.alert(t('register.title'), t('register.network'));
     } finally {
       setLoading(false);
     }
   }
 
-  // Debug: Log current state
-  React.useEffect(() => {
-    console.log('Register screen - isTeacher:', isTeacher);
-    console.log('Register screen - user:', user);
-    console.log('Register screen - current role state:', role);
-    console.log('Register screen - className:', className);
-  }, [isTeacher, user, role, className]);
+  const roleLabel = role === 'Teacher' ? t('register.role_teacher') : t('register.role_student');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.title}>{isTeacher ? 'Register New User' : 'Register'}</Text>
-      {isTeacher && (
-        <Text style={[styles.debugText, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-          Current role selection: {role}
-        </Text>
-      )}
-      
-      <TextInput 
-        placeholder="Username" 
-        value={username} 
-        onChangeText={setUsername} 
-        style={styles.input} 
-        placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} 
-      />
-      
-      <TextInput 
-        placeholder="Email" 
-        value={email} 
-        onChangeText={setEmail} 
-        style={styles.input} 
-        autoCapitalize="none" 
-        placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} 
-      />
-      
-      <TextInput 
-        placeholder="Password" 
-        value={password} 
-        onChangeText={setPassword} 
-        style={styles.input} 
-        secureTextEntry 
-        placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} 
-      />
-
-      {/* Role selector - only for teachers */}
-      {isTeacher && (
-        <>
-          <Text style={styles.label}>Role</Text>
-          <Pressable
-            style={styles.selectButton}
-            onPress={() => setShowRoleModal(true)}
-          >
-            <Text style={[styles.selectButtonText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-              {role}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.select({ ios: 'padding', android: undefined })}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          style={styles.flex}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>
+              {isTeacher ? t('register.title') : t('tabs.register')}
             </Text>
-            <Text style={[styles.selectButtonArrow, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>▼</Text>
-          </Pressable>
+            <View style={styles.form}>
+              <View style={styles.field}>
+                <Text style={styles.label}>{t('register.username')}</Text>
+                <TextInput
+                  placeholder={t('register.username')}
+                  placeholderTextColor={placeholderColor}
+                  value={username}
+                  onChangeText={setUsername}
+                  style={styles.input}
+                  autoCapitalize="words"
+                  textContentType="name"
+                />
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.label}>{t('register.email')}</Text>
+                <TextInput
+                  placeholder={t('register.email')}
+                  placeholderTextColor={placeholderColor}
+                  value={email}
+                  onChangeText={setEmail}
+                  style={styles.input}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                />
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.label}>{t('register.password')}</Text>
+                <TextInput
+                  placeholder={t('register.password')}
+                  placeholderTextColor={placeholderColor}
+                  value={password}
+                  onChangeText={setPassword}
+                  style={styles.input}
+                  secureTextEntry
+                  textContentType="password"
+                />
+              </View>
 
-          {/* Class text input - for both Students and Teachers */}
-          <Text style={styles.label}>Class *</Text>
-          <TextInput
-            placeholder={role === 'Teacher' ? 'Educator' : 'Enter class name'}
-            value={className}
-            onChangeText={setClassName}
-            style={styles.input}
-            placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'}
-            editable={role === 'Student'} // Only editable for Students, auto-filled for Teachers
-          />
-          {role === 'Teacher' && (
-            <Text style={[styles.hintText, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-              Class is automatically set to "Educator" for Teachers
-            </Text>
-          )}
-        </>
-      )}
+              {isTeacher && (
+                <>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>{t('register.role')}</Text>
+                    <Pressable
+                      onPress={() => setShowRoleModal(true)}
+                      style={({ pressed }) => [
+                        styles.selectControl,
+                        pressed && styles.selectControlPressed,
+                      ]}
+                    >
+                      <Text style={styles.selectText}>{roleLabel}</Text>
+                      <Text style={styles.selectIcon}>⌄</Text>
+                    </Pressable>
+                  </View>
 
-      <Button title={loading ? 'Registering...' : 'Register'} onPress={handleRegister} disabled={loading} />
+                  <View style={styles.field}>
+                    <Text style={styles.label}>{t('register.class_label')}</Text>
+                    <TextInput
+                      placeholder={
+                        role === 'Teacher'
+                          ? t('register.class_placeholder_teacher')
+                          : t('register.class_placeholder_student')
+                      }
+                      placeholderTextColor={placeholderColor}
+                      value={className}
+                      onChangeText={setClassName}
+                      style={styles.input}
+                      editable={role !== 'Teacher'}
+                    />
+                    {role === 'Teacher' && (
+                      <Text style={styles.hintText}>{t('register.class_hint')}</Text>
+                    )}
+                  </View>
+                </>
+              )}
 
-      {/* Role Selection Modal */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  loading && styles.primaryButtonDisabled,
+                  pressed && !loading && styles.primaryButtonPressed,
+                ]}
+                onPress={handleRegister}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.primaryButtonText}>{t('register.button_loading')}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.primaryButtonText}>{t('register.button')}</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
       <Modal
         visible={showRoleModal}
-        transparent={true}
-        animationType="slide"
+        transparent
+        animationType="fade"
         onRequestClose={() => setShowRoleModal(false)}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setShowRoleModal(false)}>
-          <Pressable style={[styles.modalContent, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF' }]} onPress={(e) => e.stopPropagation()}>
-            <Text style={[styles.modalTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Select Role</Text>
-            <Pressable
-              style={[styles.modalOption, role === 'Student' && styles.modalOptionSelected]}
-              onPress={() => {
-                setRole('Student');
-                setShowRoleModal(false);
-              }}
-            >
-              <Text style={[styles.modalOptionText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Student</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.modalOption, role === 'Teacher' && styles.modalOptionSelected]}
-              onPress={() => {
-                setRole('Teacher');
-                setShowRoleModal(false);
-              }}
-            >
-              <Text style={[styles.modalOptionText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Teacher</Text>
-            </Pressable>
-            <Button title="Cancel" onPress={() => setShowRoleModal(false)} />
+          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.modalTitle}>{t('register.modal_title')}</Text>
+            <View style={styles.modalOptions}>
+              <Pressable
+                style={[
+                  styles.modalOption,
+                  role === 'Student' && styles.modalOptionSelected,
+                ]}
+                onPress={() => {
+                  setRole('Student');
+                  setShowRoleModal(false);
+                }}
+              >
+                <Text style={styles.modalOptionText}>{t('register.role_student')}</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalOption,
+                  role === 'Teacher' && styles.modalOptionSelected,
+                ]}
+                onPress={() => {
+                  setRole('Teacher');
+                  setShowRoleModal(false);
+                }}
+              >
+                <Text style={styles.modalOptionText}>{t('register.role_teacher')}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.modalActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalSecondaryButton,
+                  pressed && styles.modalButtonPressed,
+                ]}
+                onPress={() => setShowRoleModal(false)}
+              >
+                <Text style={styles.modalSecondaryText}>{t('common.cancel')}</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const getStyles = (colorScheme: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7' },
-  contentContainer: { padding: 20, paddingTop: 40 },
-  input: { 
-    backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF', 
-    color: colorScheme === 'dark' ? '#FFFFFF' : '#000000', 
-    borderColor: colorScheme === 'dark' ? '#555' : '#CCC', 
-    borderWidth: 1, 
-    borderRadius: 8, 
-    padding: 10, 
-    marginBottom: 12 
-  },
-  title: { 
-    fontSize: 24, 
-    fontWeight: '600', 
-    marginBottom: 20, 
-    textAlign: 'center', 
-    color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' 
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 4,
-    color: colorScheme === 'dark' ? '#FFFFFF' : '#000000'
-  },
-  selectButton: {
-    backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF',
-    borderColor: colorScheme === 'dark' ? '#555' : '#CCC',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  selectButtonText: {
-    fontSize: 16,
-    flex: 1
-  },
-  selectButtonArrow: {
-    fontSize: 12,
-    marginLeft: 8
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 400,
-    borderRadius: 12,
-    padding: 20,
-    maxHeight: '80%'
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 16,
-    textAlign: 'center'
-  },
-  modalScrollView: {
-    maxHeight: 300,
-    marginBottom: 16
-  },
-  modalOption: {
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: 'transparent'
-  },
-  modalOptionSelected: {
-    backgroundColor: 'rgba(0, 122, 255, 0.2)'
-  },
-  modalOptionText: {
-    fontSize: 16
-  },
-  modalOptionDescription: {
-    fontSize: 12,
-    marginTop: 4
-  },
-  debugText: {
-    fontSize: 12,
-    marginBottom: 8,
-    textAlign: 'center',
-    fontStyle: 'italic'
-  },
-  hintText: {
-    fontSize: 12,
-    marginTop: -8,
-    marginBottom: 12,
-    fontStyle: 'italic'
-  }
-});
+const getStyles = (colorScheme: any) => {
+  const palette =
+    colorScheme === 'dark'
+      ? {
+          background: '#020617',
+          card: 'rgba(15, 23, 42, 0.88)',
+          border: 'rgba(148, 163, 184, 0.35)',
+          input: 'rgba(15, 23, 42, 0.92)',
+          text: '#E2E8F0',
+          muted: '#94A3B8',
+          shadowOpacity: 0.25,
+          accent: '#93C5FD',
+        }
+      : {
+          background: '#F0F4FF',
+          card: '#FFFFFF',
+          border: '#E2E8F0',
+          input: '#F8FAFC',
+          text: '#0F172A',
+          muted: '#64748B',
+          shadowOpacity: 0.12,
+          accent: '#2563EB',
+        };
+
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    container: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingVertical: 32,
+      justifyContent: 'center',
+    },
+    card: {
+      backgroundColor: palette.card,
+      borderRadius: 28,
+      padding: 28,
+      borderWidth: 1,
+      borderColor: palette.border,
+      shadowColor: '#0F172A',
+      shadowOpacity: palette.shadowOpacity,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 8,
+      width: '100%',
+      maxWidth: 520,
+      alignSelf: 'center',
+      gap: 24,
+    },
+    cardTitle: {
+      fontSize: 26,
+      fontWeight: '700',
+      textAlign: 'center',
+      color: palette.text,
+    },
+    form: {
+      gap: 20,
+    },
+    field: {
+      gap: 8,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: palette.text,
+    },
+    input: {
+      backgroundColor: palette.input,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: palette.border,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      fontSize: 15,
+      color: palette.text,
+    },
+    hintText: {
+      fontSize: 12,
+      color: palette.muted,
+    },
+    selectControl: {
+      backgroundColor: palette.input,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: palette.border,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    selectControlPressed: {
+      opacity: 0.85,
+    },
+    selectText: {
+      fontSize: 15,
+      color: palette.text,
+      fontWeight: '600',
+    },
+    selectIcon: {
+      fontSize: 18,
+      color: palette.muted,
+      marginLeft: 12,
+    },
+    primaryButton: {
+      marginTop: 12,
+      backgroundColor: '#2563EB',
+      borderRadius: 18,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 10,
+    },
+    primaryButtonDisabled: {
+      opacity: 0.75,
+    },
+    primaryButtonPressed: {
+      opacity: 0.9,
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(15, 23, 42, 0.55)',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+    },
+    modalCard: {
+      backgroundColor: palette.card,
+      borderRadius: 24,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: palette.border,
+      shadowColor: '#0F172A',
+      shadowOpacity: palette.shadowOpacity,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 8,
+      gap: 20,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: palette.text,
+      textAlign: 'center',
+    },
+    modalOptions: {
+      gap: 12,
+    },
+    modalOption: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: palette.border,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: palette.input,
+    },
+    modalOptionSelected: {
+      borderColor: '#2563EB',
+      backgroundColor: colorScheme === 'dark' ? 'rgba(37, 99, 235, 0.18)' : 'rgba(37, 99, 235, 0.12)',
+    },
+    modalOptionText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: palette.text,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+    },
+    modalSecondaryButton: {
+      borderRadius: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 18,
+      backgroundColor: palette.input,
+      borderWidth: 1,
+      borderColor: palette.border,
+    },
+    modalSecondaryText: {
+      color: palette.text,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    modalButtonPressed: {
+      opacity: 0.85,
+    },
+  });
+};

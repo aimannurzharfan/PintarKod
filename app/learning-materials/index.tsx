@@ -21,6 +21,7 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 type LearningMaterial = {
   id: string;
@@ -44,37 +45,30 @@ type SelectedFile = {
   size?: number;
 };
 
-const TOPIC_OPTIONS = [
-  { value: 'STRATEGI_PENYELESAIAN_MASALAH', label: '1.1 Strategi Penyelesaian Masalah' },
-  { value: 'ALGORITMA', label: '1.2 Algoritma' },
-  { value: 'PEMBOLEH_UBAH_PEMALAR_JENIS_DATA', label: '1.3 Pemboleh Ubah, Pemalar dan Jenis Data' },
-  { value: 'STRUKTUR_KAWALAN', label: '1.4 Struktur Kawalan' },
-  { value: 'AMALAN_TERBAIK_PENGATURCARAAN', label: '1.5 Amalan Terbaik Pengaturcaraan' },
-  { value: 'STRUKTUR_DATA_MODULAR', label: '1.6 Struktur Data dan Modular' },
-  { value: 'PEMBANGUNAN_APLIKASI', label: '1.7 Pembangunan Aplikasi' },
+const TOPIC_VALUES = [
+  'STRATEGI_PENYELESAIAN_MASALAH',
+  'ALGORITMA',
+  'PEMBOLEH_UBAH_PEMALAR_JENIS_DATA',
+  'STRUKTUR_KAWALAN',
+  'AMALAN_TERBAIK_PENGATURCARAAN',
+  'STRUKTUR_DATA_MODULAR',
+  'PEMBANGUNAN_APLIKASI',
 ] as const;
 
-const TYPE_OPTIONS = [
-  { value: 'NOTES', label: 'Notes', helper: 'Upload images or PDFs' },
-  { value: 'VIDEO', label: 'Video', helper: 'Link to hosted or embedded videos' },
-  { value: 'EXERCISE', label: 'Exercise', helper: 'Upload worksheets (images or PDFs)' },
-] as const;
+const TYPE_VALUES = ['NOTES', 'VIDEO', 'EXERCISE'] as const;
 
-const TOPIC_LABEL_MAP = TOPIC_OPTIONS.reduce<Record<string, string>>((acc, option) => {
-  acc[option.value] = option.label;
-  return acc;
-}, {});
+const isTopicValue = (value: string): value is (typeof TOPIC_VALUES)[number] =>
+  TOPIC_VALUES.includes(value as (typeof TOPIC_VALUES)[number]);
 
-const TYPE_LABEL_MAP = TYPE_OPTIONS.reduce<Record<string, string>>((acc, option) => {
-  acc[option.value] = option.label;
-  return acc;
-}, {});
+const isTypeValue = (value: string): value is (typeof TYPE_VALUES)[number] =>
+  TYPE_VALUES.includes(value as (typeof TYPE_VALUES)[number]);
 
 const FILE_MIME_FILTER = ['image/*', 'application/pdf'];
 
 export default function LearningMaterialsScreen() {
   const colorScheme = useColorScheme();
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   const [materials, setMaterials] = useState<LearningMaterial[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,8 +87,8 @@ export default function LearningMaterialsScreen() {
 
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [formTopic, setFormTopic] = useState<string>(TOPIC_OPTIONS[0].value);
-  const [formType, setFormType] = useState<string>(TYPE_OPTIONS[0].value);
+  const [formTopic, setFormTopic] = useState<(typeof TOPIC_VALUES)[number]>(TOPIC_VALUES[0]);
+  const [formType, setFormType] = useState<(typeof TYPE_VALUES)[number]>(TYPE_VALUES[0]);
   const [formVideoUrl, setFormVideoUrl] = useState('');
   const [formFile, setFormFile] = useState<SelectedFile | null>(null);
   const [formExistingFilePath, setFormExistingFilePath] = useState<string | null>(null);
@@ -157,7 +151,7 @@ export default function LearningMaterialsScreen() {
         );
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || 'Unable to load learning materials');
+          throw new Error(payload.error || t('materials_alerts.load_failed'));
         }
         const payload = await response.json();
         const normalized = Array.isArray(payload)
@@ -167,7 +161,7 @@ export default function LearningMaterialsScreen() {
       } catch (err: any) {
         if (err?.name === 'AbortError') return;
         console.error('Learning materials fetch error:', err);
-        setError(err?.message ?? 'Failed to load learning materials');
+        setError(err?.message ?? t('materials_alerts.load_failed'));
       } finally {
         if (isRefresh) {
           setRefreshing(false);
@@ -176,7 +170,7 @@ export default function LearningMaterialsScreen() {
         }
       }
     },
-    [debouncedQuery, topicFilter, typeFilter, normalizeMaterial]
+    [debouncedQuery, topicFilter, typeFilter, normalizeMaterial, t]
   );
 
   useEffect(() => {
@@ -187,25 +181,31 @@ export default function LearningMaterialsScreen() {
 
   const topicChips = useMemo(
     () => [
-      { label: 'All Topics', value: 'ALL' },
-      ...TOPIC_OPTIONS.map((option) => ({ label: option.label, value: option.value })),
+      { label: t('materials.all_topics'), value: 'ALL' },
+      ...TOPIC_VALUES.map((value) => ({
+        label: t(`materials_topics.${value}`),
+        value,
+      })),
     ],
-    []
+    [t]
   );
 
   const typeChips = useMemo(
     () => [
-      { label: 'All Types', value: 'ALL' },
-      ...TYPE_OPTIONS.map((option) => ({ label: option.label, value: option.value })),
+      { label: t('materials.all_types'), value: 'ALL' },
+      ...TYPE_VALUES.map((value) => ({
+        label: t(`materials_types.${value}`),
+        value,
+      })),
     ],
-    []
+    [t]
   );
 
   const resetForm = useCallback(() => {
     setFormTitle('');
     setFormDescription('');
-    setFormTopic(TOPIC_OPTIONS[0].value);
-    setFormType(TYPE_OPTIONS[0].value);
+    setFormTopic(TOPIC_VALUES[0]);
+    setFormType(TYPE_VALUES[0]);
     setFormVideoUrl('');
     setFormFile(null);
     setFormExistingFilePath(null);
@@ -246,12 +246,12 @@ export default function LearningMaterialsScreen() {
     []
   );
 
-  const handleSelectTopic = useCallback((value: string) => {
+  const handleSelectTopic = useCallback((value: (typeof TOPIC_VALUES)[number]) => {
     setFormTopic(value);
   }, []);
 
   const handleSelectType = useCallback(
-    (value: string) => {
+    (value: (typeof TYPE_VALUES)[number]) => {
       setFormType(value);
       if (value === 'VIDEO') {
         setFormFile(null);
@@ -268,7 +268,10 @@ export default function LearningMaterialsScreen() {
   const handlePickFile = useCallback(async () => {
     try {
       if (formType === 'VIDEO') {
-        Alert.alert('Video material', 'Video materials use an external URL instead of file uploads.');
+        Alert.alert(
+          t('materials_alerts.video_material_title'),
+          t('materials_alerts.video_material_body')
+        );
         return;
       }
       setPickingFile(true);
@@ -290,7 +293,10 @@ export default function LearningMaterialsScreen() {
 
       const uri: string = asset.uri;
       if (!uri) {
-        Alert.alert('File selection', 'Unable to read the selected file.');
+        Alert.alert(
+          t('materials_alerts.file_selection_title'),
+          t('materials_alerts.file_selection_unreadable')
+        );
         return;
       }
 
@@ -315,11 +321,14 @@ export default function LearningMaterialsScreen() {
       setFormRemoveFile(false);
     } catch (err) {
       console.error('File picker error:', err);
-      Alert.alert('File selection', 'Could not read the selected file. Please try again.');
+      Alert.alert(
+        t('materials_alerts.file_selection_title'),
+        t('materials_alerts.file_selection_retry')
+      );
     } finally {
       setPickingFile(false);
     }
-  }, [formType]);
+  }, [formType, t]);
 
   const handleRemoveExistingFile = useCallback(() => {
     setFormExistingFilePath(null);
@@ -329,34 +338,46 @@ export default function LearningMaterialsScreen() {
 
   const validateForm = useCallback(() => {
     if (!formTitle.trim()) {
-      Alert.alert('Missing title', 'Please enter a title for the learning material.');
+      Alert.alert(
+        t('materials_alerts.validation_title'),
+        t('materials_alerts.validation_title_message')
+      );
       return false;
     }
-    if (!TOPIC_LABEL_MAP[formTopic]) {
-      Alert.alert('Missing topic', 'Please choose a valid topic for this material.');
+    if (!isTopicValue(formTopic)) {
+      Alert.alert(
+        t('materials_alerts.validation_topic'),
+        t('materials_alerts.validation_topic_message')
+      );
       return false;
     }
-    if (!TYPE_LABEL_MAP[formType]) {
-      Alert.alert('Missing type', 'Please choose the material type.');
+    if (!isTypeValue(formType)) {
+      Alert.alert(
+        t('materials_alerts.validation_type'),
+        t('materials_alerts.validation_type_message')
+      );
       return false;
     }
 
     if (formType === 'VIDEO') {
       if (!formVideoUrl.trim()) {
-        Alert.alert('Missing video URL', 'Please provide a video URL for this material.');
+        Alert.alert(
+          t('materials_alerts.validation_video'),
+          t('materials_alerts.validation_video_message')
+        );
         return false;
       }
       return true;
     }
 
     return true;
-  }, [formTitle, formTopic, formType, formVideoUrl]);
+  }, [formTitle, formTopic, formType, formVideoUrl, t]);
 
   const submitForm = useCallback(async () => {
     if (!isTeacher || userIdNumber == null) {
       Alert.alert(
-        'Permission denied',
-        'Only teachers can upload learning materials. Please sign in with a teacher account.'
+        t('materials_alerts.permission_denied_title'),
+        t('materials_alerts.permission_denied_message')
       );
       return;
     }
@@ -400,14 +421,14 @@ export default function LearningMaterialsScreen() {
 
       if (!response.ok) {
         const errPayload = await response.json().catch(() => ({}));
-        throw new Error(errPayload.error || 'Failed to save learning material');
+        throw new Error(errPayload.error || t('materials_alerts.save_failed_title'));
       }
 
       await loadMaterials({ isRefresh: false });
       closeModal();
     } catch (err: any) {
       console.error('Submit learning material error:', err);
-      Alert.alert('Save failed', err?.message ?? 'Unable to save learning material.');
+      Alert.alert(t('materials_alerts.save_failed_title'), err?.message ?? t('materials_alerts.network_error'));
     } finally {
       setSubmitting(false);
     }
@@ -425,21 +446,25 @@ export default function LearningMaterialsScreen() {
     editingMaterial,
     loadMaterials,
     closeModal,
+    t,
   ]);
 
   const handleDelete = useCallback(
     (material: LearningMaterial) => {
       if (!isTeacher || userIdNumber == null) {
-        Alert.alert('Permission denied', 'You can only delete your own learning materials.');
+        Alert.alert(
+          t('materials_alerts.permission_denied_title'),
+          t('materials_alerts.permission_denied_message')
+        );
         return;
       }
       Alert.alert(
-        'Delete material',
-        'This will remove the learning material for all students. Continue?',
+        t('materials_alerts.delete_confirm_title'),
+        t('materials_alerts.delete_confirm_message'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Delete',
+            text: t('common.delete'),
             style: 'destructive',
             onPress: async () => {
               try {
@@ -449,19 +474,22 @@ export default function LearningMaterialsScreen() {
                 );
                 if (!response.ok) {
                   const payload = await response.json().catch(() => ({}));
-                  throw new Error(payload.error || 'Failed to delete learning material');
+                  throw new Error(payload.error || t('materials_alerts.delete_failed_title'));
                 }
                 await loadMaterials({ isRefresh: false });
               } catch (err: any) {
                 console.error('Delete learning material error:', err);
-                Alert.alert('Delete failed', err?.message ?? 'Unable to delete learning material.');
+                Alert.alert(
+                  t('materials_alerts.delete_failed_title'),
+                  err?.message ?? t('materials_alerts.network_error')
+                );
               }
             },
           },
         ]
       );
     },
-    [isTeacher, userIdNumber, loadMaterials]
+    [isTeacher, userIdNumber, loadMaterials, t]
   );
 
   const canEditMaterial = useCallback(
@@ -476,39 +504,58 @@ export default function LearningMaterialsScreen() {
     loadMaterials({ isRefresh: true });
   }, [loadMaterials]);
 
-  const openResource = useCallback(async (material: LearningMaterial) => {
-    try {
-      if (material.materialType === 'VIDEO' && material.videoUrl) {
-        const supported = await Linking.canOpenURL(material.videoUrl);
-        if (supported) {
-          await Linking.openURL(material.videoUrl);
-        } else {
-          Alert.alert('Cannot open URL', 'This device cannot open the provided video link.');
+  const openResource = useCallback(
+    async (material: LearningMaterial) => {
+      try {
+        if (material.materialType === 'VIDEO' && material.videoUrl) {
+          const supported = await Linking.canOpenURL(material.videoUrl);
+          if (supported) {
+            await Linking.openURL(material.videoUrl);
+          } else {
+            Alert.alert(
+              t('materials_alerts.open_url_failed_title'),
+              t('materials_alerts.open_url_failed_message')
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      if (material.fileUrl) {
-        const supported = await Linking.canOpenURL(material.fileUrl);
-        if (supported) {
-          await Linking.openURL(material.fileUrl);
-        } else {
-          Alert.alert('Cannot open file', 'Please download and view this resource on the web.');
+        if (material.fileUrl) {
+          const supported = await Linking.canOpenURL(material.fileUrl);
+          if (supported) {
+            await Linking.openURL(material.fileUrl);
+          } else {
+            Alert.alert(
+              t('materials_alerts.open_file_failed_title'),
+              t('materials_alerts.open_file_failed_message')
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      Alert.alert('No resource', 'This learning material does not have an attached file or link.');
-    } catch (err) {
-      console.error('Open resource error:', err);
-      Alert.alert('Open failed', 'Unable to open the learning material. Please try again.');
-    }
-  }, []);
+        Alert.alert(
+          t('materials_alerts.no_resource_title'),
+          t('materials_alerts.no_resource_message')
+        );
+      } catch (err) {
+        console.error('Open resource error:', err);
+        Alert.alert(
+          t('materials_alerts.open_failed_title'),
+          t('materials_alerts.open_failed_message')
+        );
+      }
+    },
+    [t]
+  );
 
   const renderMaterial = useCallback(
     ({ item }: { item: LearningMaterial }) => {
-      const topicLabel = TOPIC_LABEL_MAP[item.topic] ?? item.topic;
-      const typeLabel = TYPE_LABEL_MAP[item.materialType] ?? item.materialType;
+      const topicLabel = t(`materials_topics.${item.topic}`, {
+        defaultValue: item.topic,
+      });
+      const typeLabel = t(`materials_types.${item.materialType}`, {
+        defaultValue: item.materialType,
+      });
       const isOwner = canEditMaterial(item);
 
       return (
@@ -574,7 +621,7 @@ export default function LearningMaterialsScreen() {
                 colorScheme === 'dark' && styles.metaTextDark,
               ]}
             >
-              Updated {formatTimestamp(item.updatedAt)}
+              {t('materials.updated_at', { date: formatTimestamp(item.updatedAt, t) })}
             </Text>
           </View>
 
@@ -592,7 +639,9 @@ export default function LearningMaterialsScreen() {
                 color="#FFFFFF"
               />
               <Text style={styles.primaryButtonText}>
-                {item.materialType === 'VIDEO' ? 'Watch Video' : 'View Resource'}
+                {item.materialType === 'VIDEO'
+                  ? t('materials.button_watch')
+                  : t('materials.button_view')}
               </Text>
             </Pressable>
             {isOwner ? (
@@ -605,7 +654,7 @@ export default function LearningMaterialsScreen() {
                   onPress={() => openEditModal(item)}
                 >
                   <IconSymbol name="pencil" size={16} color="#2563EB" />
-                  <Text style={styles.secondaryButtonText}>Edit</Text>
+                  <Text style={styles.secondaryButtonText}>{t('common.edit')}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [
@@ -615,7 +664,7 @@ export default function LearningMaterialsScreen() {
                   onPress={() => handleDelete(item)}
                 >
                   <IconSymbol name="trash" size={16} color="#DC2626" />
-                  <Text style={styles.deleteButtonText}>Delete</Text>
+                  <Text style={styles.deleteButtonText}>{t('common.delete')}</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -623,16 +672,14 @@ export default function LearningMaterialsScreen() {
         </View>
       );
     },
-    [canEditMaterial, colorScheme, openResource, openEditModal, handleDelete]
+    [canEditMaterial, colorScheme, openResource, openEditModal, handleDelete, t]
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Learning Materials</Text>
-        <Text style={styles.subtitle}>
-          Explore curated notes, exercises, and videos to support your learning journey.
-        </Text>
+        <Text style={styles.title}>{t('materials.title')}</Text>
+        <Text style={styles.subtitle}>{t('materials.subtitle')}</Text>
       </View>
 
       <View style={styles.searchRow}>
@@ -641,7 +688,7 @@ export default function LearningMaterialsScreen() {
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Search by title or description"
+            placeholder={t('learning_ui.search_placeholder')}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -654,7 +701,7 @@ export default function LearningMaterialsScreen() {
       </View>
 
       <View style={styles.filtersSection}>
-        <Text style={styles.filtersLabel}>Topic</Text>
+        <Text style={styles.filtersLabel}>{t('learning_ui.topic_label')}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -670,7 +717,9 @@ export default function LearningMaterialsScreen() {
           ))}
         </ScrollView>
 
-        <Text style={[styles.filtersLabel, styles.filterGroupSpacing]}>Type</Text>
+        <Text style={[styles.filtersLabel, styles.filterGroupSpacing]}>
+          {t('learning_ui.type_label')}
+        </Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -690,7 +739,7 @@ export default function LearningMaterialsScreen() {
       {isTeacher ? (
         <Pressable style={styles.createButton} onPress={openCreateModal}>
           <IconSymbol name="plus.circle.fill" size={20} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>Upload New Material</Text>
+          <Text style={styles.createButtonText}>{t('learning_ui.create_button')}</Text>
         </Pressable>
       ) : null}
 
@@ -709,10 +758,8 @@ export default function LearningMaterialsScreen() {
           loading ? null : (
             <View style={styles.emptyState}>
               <IconSymbol name="doc.text.magnifyingglass" size={40} color="#93C5FD" />
-              <Text style={styles.emptyTitle}>No learning materials found.</Text>
-              <Text style={styles.emptySubtitle}>
-                Try another search term or clear your filters to see more resources.
-              </Text>
+              <Text style={styles.emptyTitle}>{t('learning_ui.empty_title')}</Text>
+              <Text style={styles.emptySubtitle}>{t('learning_ui.empty_description')}</Text>
             </View>
           )
         }
@@ -721,7 +768,7 @@ export default function LearningMaterialsScreen() {
       {loading ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading materials...</Text>
+          <Text style={styles.loadingText}>{t('learning_ui.loading')}</Text>
         </View>
       ) : null}
 
@@ -729,7 +776,7 @@ export default function LearningMaterialsScreen() {
         <Pressable style={styles.errorBanner} onPress={() => loadMaterials()}>
           <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#FACC15" />
           <Text style={styles.errorText}>{error}</Text>
-          <Text style={styles.errorRetry}>Tap to retry</Text>
+          <Text style={styles.errorRetry}>{t('learning_ui.refresh_hint')}</Text>
         </Pressable>
       ) : null}
 
@@ -742,12 +789,12 @@ export default function LearningMaterialsScreen() {
         <Pressable style={styles.modalOverlay} onPress={closeModal}>
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.modalTitle}>
-              {editingMaterial ? 'Edit Learning Material' : 'Upload Learning Material'}
+              {editingMaterial ? t('materials.modal_edit_title') : t('materials.modal_create_title')}
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Title"
+              placeholder={t('materials.field_title')}
               placeholderTextColor="#94A3B8"
               value={formTitle}
               onChangeText={setFormTitle}
@@ -755,7 +802,7 @@ export default function LearningMaterialsScreen() {
 
             <TextInput
               style={[styles.input, styles.textarea]}
-              placeholder="Description (optional)"
+              placeholder={t('materials.field_description')}
               placeholderTextColor="#94A3B8"
               value={formDescription}
               onChangeText={setFormDescription}
@@ -765,14 +812,14 @@ export default function LearningMaterialsScreen() {
             />
 
             <View style={styles.optionGroup}>
-              <Text style={styles.optionLabel}>Topic</Text>
+              <Text style={styles.optionLabel}>{t('learning_ui.topic_label')}</Text>
               <View style={styles.optionWrap}>
-                {TOPIC_OPTIONS.map((option) => (
+                {TOPIC_VALUES.map((value) => (
                   <FilterChip
-                    key={option.value}
-                    label={option.label}
-                    active={formTopic === option.value}
-                    onPress={() => handleSelectTopic(option.value)}
+                    key={value}
+                    label={t(`materials_topics.${value}`)}
+                    active={formTopic === value}
+                    onPress={() => handleSelectTopic(value)}
                     compact
                   />
                 ))}
@@ -780,14 +827,14 @@ export default function LearningMaterialsScreen() {
             </View>
 
             <View style={styles.optionGroup}>
-              <Text style={styles.optionLabel}>Type</Text>
+              <Text style={styles.optionLabel}>{t('learning_ui.type_label')}</Text>
               <View style={styles.optionWrap}>
-                {TYPE_OPTIONS.map((option) => (
+                {TYPE_VALUES.map((value) => (
                   <FilterChip
-                    key={option.value}
-                    label={option.label}
-                    active={formType === option.value}
-                    onPress={() => handleSelectType(option.value)}
+                    key={value}
+                    label={t(`materials_types.${value}`)}
+                    active={formType === value}
+                    onPress={() => handleSelectType(value)}
                     compact
                   />
                 ))}
@@ -797,7 +844,7 @@ export default function LearningMaterialsScreen() {
             {formType === 'VIDEO' ? (
               <TextInput
                 style={styles.input}
-                placeholder="Video URL (e.g., YouTube, Vimeo, Google Drive)"
+                placeholder={t('materials.field_video_placeholder')}
                 placeholderTextColor="#94A3B8"
                 value={formVideoUrl}
                 onChangeText={setFormVideoUrl}
@@ -806,12 +853,12 @@ export default function LearningMaterialsScreen() {
               />
             ) : (
               <View style={styles.fileSection}>
-                <Text style={styles.optionLabel}>Supporting file (optional)</Text>
+                <Text style={styles.optionLabel}>{t('materials.supporting_file_label')}</Text>
                 {formFile ? (
                   <View style={styles.fileChip}>
                     <IconSymbol name="doc.richtext" size={18} color="#2563EB" />
                     <Text style={styles.fileChipText}>
-                      {formFile.name ?? 'Selected file'}
+                      {formFile.name ?? t('materials.selected_file')}
                       {formatFileSize(formFile.size)}
                     </Text>
                     <Pressable onPress={() => setFormFile(null)}>
@@ -822,16 +869,14 @@ export default function LearningMaterialsScreen() {
                   <View style={styles.fileChip}>
                     <IconSymbol name="doc.text.fill" size={18} color="#2563EB" />
                     <Text style={styles.fileChipText}>
-                      {extractFileName(formExistingFilePath)}
+                      {extractFileName(formExistingFilePath) || t('materials.selected_file')}
                     </Text>
                     <Pressable onPress={handleRemoveExistingFile}>
                       <IconSymbol name="trash.circle.fill" size={18} color="#DC2626" />
                     </Pressable>
                   </View>
                 ) : (
-                  <Text style={styles.fileHint}>
-                    Upload an image or PDF if you have supporting notes or exercises to share.
-                  </Text>
+                  <Text style={styles.fileHint}>{t('materials.supporting_file_hint')}</Text>
                 )}
                 <Pressable
                   style={[
@@ -843,7 +888,7 @@ export default function LearningMaterialsScreen() {
                 >
                   <IconSymbol name="square.and.arrow.up" size={18} color="#2563EB" />
                   <Text style={styles.pickFileButtonText}>
-                    {pickingFile ? 'Selecting...' : 'Choose File'}
+                    {pickingFile ? t('materials.selecting_file') : t('materials.choose_file')}
                   </Text>
                 </Pressable>
               </View>
@@ -851,7 +896,7 @@ export default function LearningMaterialsScreen() {
 
             <View style={styles.modalActions}>
               <Pressable style={styles.modalSecondary} onPress={closeModal} disabled={submitting}>
-                <Text style={styles.modalSecondaryText}>Cancel</Text>
+                <Text style={styles.modalSecondaryText}>{t('materials.button_cancel')}</Text>
               </Pressable>
               <Pressable
                 style={[
@@ -865,7 +910,9 @@ export default function LearningMaterialsScreen() {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalPrimaryText}>
-                    {editingMaterial ? 'Save Changes' : 'Publish'}
+                    {editingMaterial
+                      ? t('materials.button_save')
+                      : t('materials.button_publish')}
                   </Text>
                 )}
               </Pressable>
@@ -911,9 +958,12 @@ function toAbsoluteUrl(url: string) {
   return `${API_URL}${url.startsWith('/') ? url : `/${url}`}`;
 }
 
-function formatTimestamp(timestamp: string) {
+function formatTimestamp(
+  timestamp: string,
+  translate: (key: string, options?: any) => string
+) {
   const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
+  if (Number.isNaN(date.getTime())) return translate('materials_alerts.unknown_date');
   return date.toLocaleString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -924,9 +974,9 @@ function formatTimestamp(timestamp: string) {
 }
 
 function extractFileName(filePath: string | null) {
-  if (!filePath) return 'Attached file';
+  if (!filePath) return '';
   const parts = filePath.split(/[\\/]/);
-  return parts[parts.length - 1] || 'Attached file';
+  return parts[parts.length - 1] || '';
 }
 
 function formatFileSize(size?: number) {

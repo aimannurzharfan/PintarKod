@@ -6,18 +6,13 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 1. Install dependencies
 
-   ```bash
    [Node.js (v18 or higher, recommend LTS version)](https://nodejs.org/en)
-   ```
-
-     ```bash
+    
    [MySQL Server & Workbench (v8.0 or higher)](https://dev.mysql.com/downloads/workbench/)
    [create a database named pintarkod]
-   ```
-
-     ```bash
+   
    [Android Studio (Used to run the Android Emulator)](https://developer.android.com/studio)
-   ```
+   
 
 ## Before Running
 

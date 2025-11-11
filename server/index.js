@@ -396,12 +396,12 @@ app.post('/api/classes', async (req, res) => {
 
 const forumThreadInclude = {
   author: {
-    select: { id: true, username: true, email: true }
+    select: { id: true, username: true, email: true, role: true }
   },
   comments: {
     include: {
       author: {
-        select: { id: true, username: true, email: true }
+        select: { id: true, username: true, email: true, role: true }
       }
     },
     orderBy: { createdAt: 'asc' }
@@ -643,17 +643,35 @@ app.delete('/api/forum/comments/:commentId', async (req, res) => {
     if (!Number.isInteger(commentId)) {
       return res.status(400).json({ error: 'Invalid comment id' });
     }
-    const authorIdNum = Number(authorId);
-    if (!Number.isInteger(authorIdNum)) {
+    const actorId = Number(authorId);
+    if (!Number.isInteger(actorId)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
     }
+
     const existing = await prisma.forumComment.findUnique({
       where: { id: commentId },
+      include: {
+        author: { select: { id: true, role: true } },
+      },
     });
     if (!existing) return res.status(404).json({ error: 'Comment not found' });
-    if (existing.authorId !== authorIdNum) {
-      return res.status(403).json({ error: 'You can only delete comments you created' });
+
+    const actor = await prisma.user.findUnique({
+      where: { id: actorId },
+      select: { id: true, role: true },
+    });
+    if (!actor) {
+      return res.status(404).json({ error: 'User not found' });
     }
+
+    const isOwner = existing.authorId === actorId;
+    const actorIsTeacher = actor.role === 'Teacher';
+    const targetIsStudent = existing.author?.role === 'Student';
+
+    if (!isOwner && !(actorIsTeacher && targetIsStudent)) {
+      return res.status(403).json({ error: 'You do not have permission to delete this comment' });
+    }
+
     await prisma.forumComment.delete({ where: { id: commentId } });
     await prisma.forumThread.update({
       where: { id: existing.threadId },

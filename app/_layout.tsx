@@ -1,10 +1,50 @@
+import '../i18n';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ForumProvider } from '@/contexts/ForumContext';
 import { Stack } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import i18n from '../i18n';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, useColorScheme, View } from 'react-native';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [languageReady, setLanguageReady] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    AsyncStorage.getItem('appLanguage')
+      .then((storedLanguage) => {
+        if (!isMounted || !storedLanguage) return;
+        if (storedLanguage !== i18n.language) {
+          i18n.changeLanguage(storedLanguage).catch((err) =>
+            console.warn('Language restore failed:', err)
+          );
+        }
+      })
+      .catch((err) => console.warn('Language load error:', err))
+      .finally(() => {
+        if (isMounted) setLanguageReady(true);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (!languageReady) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colorScheme === 'dark' ? '#020617' : '#EEF2FF',
+        }}
+      >
+        <ActivityIndicator size="small" color="#2563EB" />
+      </View>
+    );
+  }
 
   return (
     <AuthProvider>

@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { API_URL } from './config';
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
@@ -28,6 +29,7 @@ export default function DeleteAccountScreen() {
   const [confirmUsername, setConfirmUsername] = useState('');
   const [searching, setSearching] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const { t } = useTranslation();
 
   const StudentAvatar = ({ profileImage, avatarUrl }: { profileImage?: string | null; avatarUrl?: string | null }) => {
     const uri = resolveAvatarUri(profileImage, avatarUrl);
@@ -44,10 +46,13 @@ export default function DeleteAccountScreen() {
   // Verify current user is a teacher
   useEffect(() => {
     if (currentUser?.role !== 'Teacher') {
-      Alert.alert('Access Denied', 'Only teachers can access this feature');
+      Alert.alert(
+        t('delete_student.access_denied_title'),
+        t('delete_student.access_denied_message')
+      );
       router.back();
     }
-  }, [currentUser, router]);
+  }, [currentUser, router, t]);
 
   // Search students function
   const searchStudents = async (query: string) => {
@@ -69,7 +74,7 @@ export default function DeleteAccountScreen() {
     } catch (err) {
       console.error(err);
       // Only show an alert for actual network/server errors, not for empty results
-      Alert.alert('Error', 'Network error or server unavailable');
+      Alert.alert(t('delete_student.error_title'), t('delete_student.search_error'));
       setSearchResults([]);
     } finally {
       setSearching(false);
@@ -84,16 +89,19 @@ export default function DeleteAccountScreen() {
       const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) {
-        Alert.alert('Error', data.error || 'Failed to delete student account');
+        Alert.alert(
+          t('delete_student.error_title'),
+          data.error || t('delete_student.error_delete_failed')
+        );
       } else {
-        Alert.alert('Success', 'Student account deleted successfully');
+        Alert.alert(t('delete_student.success_title'), t('delete_student.success_message'));
         setSearchResults(searchResults.filter(student => student.username !== username));
         setSelectedStudent(null);
         setConfirmUsername('');
       }
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Network error');
+      Alert.alert(t('delete_student.error_title'), t('delete_student.network_error'));
     } finally {
       setLoading(false);
     }
@@ -101,13 +109,13 @@ export default function DeleteAccountScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Delete Student Account</Text>
+      <Text style={styles.title}>{t('delete_student.title')}</Text>
 
       {/* Search Section */}
       <View style={styles.searchSection}>
         <View style={styles.searchInputContainer}>
           <TextInput
-            placeholder="Search student by username..."
+            placeholder={t('delete_student.search_placeholder')}
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={styles.searchInput}
@@ -118,6 +126,7 @@ export default function DeleteAccountScreen() {
           />
           <Pressable 
             onPress={() => searchStudents(searchQuery)}
+            accessibilityLabel={t('delete_student.search_button_accessibility')}
             style={({ pressed }) => [
               styles.searchButton,
               { opacity: pressed ? 0.7 : 1 }
@@ -147,10 +156,16 @@ export default function DeleteAccountScreen() {
                   <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>{selectedStudent.fullName}</Text>
                 ) : null}
                 {selectedStudent.role ? (
-                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>Role: {selectedStudent.role}</Text>
+                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                    {t('delete_student.student_role', { role: selectedStudent.role })}
+                  </Text>
                 ) : null}
                 {selectedStudent.createdAt ? (
-                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>Joined: {new Date(selectedStudent.createdAt).toLocaleDateString()}</Text>
+                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                    {t('delete_student.student_joined', {
+                      date: new Date(selectedStudent.createdAt).toLocaleDateString(),
+                    })}
+                  </Text>
                 ) : null}
               </View>
             </View>
@@ -181,6 +196,7 @@ export default function DeleteAccountScreen() {
               </View>
               <Pressable
                 onPress={() => setSelectedStudent(student)}
+                accessibilityLabel={t('delete_student.select_student')}
                 style={({ pressed }) => [
                   styles.selectButton,
                   { opacity: pressed ? 0.7 : 1 }
@@ -192,7 +208,7 @@ export default function DeleteAccountScreen() {
           ))
         ) : searchQuery.trim().length > 0 ? (
           <Text style={[styles.studentMeta, { textAlign: 'center', color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-            No students found for that username.
+            {t('delete_student.no_results')}
           </Text>
         ) : null}
       </View>
@@ -203,10 +219,14 @@ export default function DeleteAccountScreen() {
           <Modal visible={showDeleteModal} transparent animationType="slide" onRequestClose={() => setShowDeleteModal(false)}>
             <Pressable style={styles.modalOverlay} onPress={() => setShowDeleteModal(false)}>
               <Pressable style={[styles.modalContent, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFF' }]} onPress={(e) => e.stopPropagation()}>
-                <Text style={[styles.title, { fontSize: 20, marginBottom: 8, color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>Confirm Delete</Text>
-                <Text style={styles.warningText}>Type "{selectedStudent.username}" to confirm deletion:</Text>
+                <Text style={[styles.title, { fontSize: 20, marginBottom: 8, color: colorScheme === 'dark' ? '#FFF' : '#000' }]}>
+                  {t('delete_student.confirm_title')}
+                </Text>
+                <Text style={styles.warningText}>
+                  {t('delete_student.confirm_instructions', { username: selectedStudent.username })}
+                </Text>
                 <TextInput
-                  placeholder="Type username to confirm"
+                  placeholder={t('delete_student.confirm_placeholder')}
                   value={confirmUsername}
                   onChangeText={setConfirmUsername}
                   style={styles.input}
@@ -214,13 +234,16 @@ export default function DeleteAccountScreen() {
                   placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'}
                 />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-                  <Button title="Cancel" onPress={() => setShowDeleteModal(false)} />
+                  <Button title={t('delete_student.cancel')} onPress={() => setShowDeleteModal(false)} />
                   <Button
-                    title={loading ? 'Deleting...' : 'Delete'}
+                    title={loading ? t('delete_student.deleting') : t('delete_student.delete')}
                     color="#b00"
                     onPress={() => {
                       if (confirmUsername !== selectedStudent.username) {
-                        Alert.alert('Error', 'Username does not match.');
+                        Alert.alert(
+                          t('delete_student.error_title'),
+                          t('delete_student.error_username_mismatch')
+                        );
                         return;
                       }
                       setShowDeleteModal(false);

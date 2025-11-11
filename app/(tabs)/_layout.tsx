@@ -8,6 +8,7 @@ import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
 import { Image, Platform, Pressable, View } from 'react-native';
 import { ActionSheetIOS, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -25,6 +26,7 @@ export default function TabLayout() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const avatarUri = resolveAvatarUri(user?.profileImage ?? undefined, user?.avatarUrl ?? undefined);
+  const { t } = useTranslation();
 
   function openMenu() {
     const username = user?.username;
@@ -35,7 +37,7 @@ export default function TabLayout() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancel', 'View Profile', 'Edit Profile', 'Logout'],
+          options: [t('common.cancel'), t('profile.title'), t('profile.edit'), t('profile.logout')],
           destructiveButtonIndex: 3,
           cancelButtonIndex: 0,
           userInterfaceStyle: colorScheme === 'dark' ? 'dark' : 'light',
@@ -48,13 +50,13 @@ export default function TabLayout() {
       );
     } else {
       Alert.alert(
-        'Account',
-        user?.username ? `@${user.username}` : 'Account',
+        t('profile.title'),
+        user?.username ? `@${user.username}` : t('profile.welcome'),
         [
-          { text: 'View Profile', onPress: view },
-          { text: 'Edit Profile', onPress: edit },
-          { text: 'Logout', style: 'destructive', onPress: doLogout },
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('profile.title'), onPress: view },
+          { text: t('profile.edit'), onPress: edit },
+          { text: t('profile.logout'), style: 'destructive', onPress: doLogout },
+          { text: t('common.cancel'), style: 'cancel' },
         ]
       );
     }
@@ -98,14 +100,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t('tabs.home'),
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: t('tabs.forum'),
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
         }}
       />

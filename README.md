@@ -14,7 +14,7 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    
 ## Database 
 
-   create a database name ```bash pintarkod```
+   create a database name ```pintarkod```
 
 ## Before Running
 

@@ -1,9 +1,32 @@
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, Button, Image, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
-import { API_URL } from './config';
-import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useColorScheme,
+} from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { API_URL } from './config';
+
+type ProfileUser = {
+  id: string;
+  username: string;
+  email?: string | null;
+  role?: string | null;
+  createdAt: string;
+  profileImage?: string | null;
+  avatarUrl?: string | null;
+};
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -18,234 +41,414 @@ const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | nul
 
 export default function ProfileScreen() {
   const [searchId, setSearchId] = useState('');
-  const [searchedUser, setSearchedUser] = useState(null as any);
-  const [currentUser, setCurrentUser] = useState(null as any);
-  const [loading, setLoading] = useState(false);
-  const [loadingCurrentUser, setLoadingCurrentUser] = useState(false);
+  const [searchedUser, setSearchedUser] = useState<ProfileUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<ProfileUser | null>(null);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const { user: authUser, logout } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme);
-  const { user: authUser } = useAuth();
+  const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
+  const placeholderColor = colorScheme === 'dark' ? '#94A3B8' : '#64748B';
+  const { t } = useTranslation();
 
-  useEffect(() => {
-    // Load current user's profile
-    if (authUser?.username) {
-      loadCurrentUser();
-    }
-  }, [authUser?.username]);
+  const heroAvatarUri = resolveAvatarUri(
+    currentUser?.profileImage ?? authUser?.profileImage,
+    currentUser?.avatarUrl ?? authUser?.avatarUrl
+  );
+  const isTeacher = (authUser?.role ?? currentUser?.role) === 'Teacher';
+  const displayUsername = currentUser?.username ?? authUser?.username ?? '—';
+  const displayEmail = currentUser?.email ?? authUser?.email ?? '';
 
-  async function loadCurrentUser() {
+  const loadCurrentUser = useCallback(async () => {
     if (!authUser?.username) return;
-    setLoadingCurrentUser(true);
+    setLoadingProfile(true);
+    setError(null);
     try {
       const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(authUser.username)}`);
       const data = await res.json();
-      if (res.ok) {
-        setCurrentUser(data);
-      } else {
-        console.error('Failed to load current user:', data.error);
+      if (!res.ok) {
+        setError(data.error || t('profile.load_error'));
+        setCurrentUser(null);
+        return;
       }
+      setCurrentUser(data);
     } catch (err) {
       console.error(err);
+      setError(t('common.network_error'));
     } finally {
-      setLoadingCurrentUser(false);
+      setLoadingProfile(false);
     }
-  }
+  }, [authUser?.username, t]);
 
-  async function fetchUser() {
-    if (!searchId) { Alert.alert('Validation', 'Please enter a username'); return; }
-    setLoading(true);
+  useEffect(() => {
+    loadCurrentUser();
+  }, [loadCurrentUser]);
+
+  const handleEditProfile = useCallback(() => {
+    router.push('/edit-profile');
+  }, [router]);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(t('profile.delete'), t('profile.delete_confirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('profile.delete'), style: 'destructive', onPress: () => router.push('/delete-account') },
+    ]);
+  }, [router, t]);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    router.replace('/');
+  }, [logout, router]);
+
+  const handleSearch = useCallback(async () => {
+    const trimmed = searchId.trim();
+    if (!trimmed) {
+      Alert.alert(t('profile.title'), t('profile.validation_username'));
+      return;
+    }
+    setLoadingSearch(true);
+    setSearchError(null);
     try {
-      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(searchId)}`);
+      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (!res.ok) {
-        Alert.alert('Error', data.error || 'Failed to fetch user');
+        setSearchError(data.error || t('profile.load_error'));
         setSearchedUser(null);
-      } else {
-        setSearchedUser(data);
+        return;
       }
+      setSearchedUser(data);
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Network error');
-    } finally { setLoading(false); }
-  }
+      setSearchError(t('common.network_error'));
+    } finally {
+      setLoadingSearch(false);
+    }
+  }, [searchId, t]);
 
-  const currentAvatarUri = currentUser ? resolveAvatarUri(currentUser.profileImage, currentUser.avatarUrl) : undefined;
-  const searchedAvatarUri = searchedUser ? resolveAvatarUri(searchedUser.profileImage, searchedUser.avatarUrl) : undefined;
+  const InfoRow = ({ label, value }: { label: string; value?: string | null }) => (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value?.toString() || '—'}</Text>
+    </View>
+  );
+
+  const renderSearchedUser = () => {
+    if (!searchedUser) return null;
+    const avatarUri = resolveAvatarUri(searchedUser.profileImage, searchedUser.avatarUrl);
+    return (
+      <View style={styles.resultCard}>
+        <View style={styles.resultHeader}>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.resultAvatar} />
+          ) : (
+            <View style={styles.resultAvatarFallback}>
+              <IconSymbol name="person.fill" size={20} color="#FFFFFF" />
+            </View>
+          )}
+          <View>
+            <Text style={styles.resultUsername}>@{searchedUser.username}</Text>
+            {searchedUser.email ? (
+              <Text style={styles.resultEmail}>{searchedUser.email}</Text>
+            ) : null}
+          </View>
+        </View>
+        <View style={styles.infoList}>
+          <InfoRow label={t('register.role')} value={searchedUser.role} />
+          <InfoRow label={t('profile.joined')} value={formatTimestamp(searchedUser.createdAt)} />
+        </View>
+      </View>
+    );
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Profile</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.pageTitle}>{t('profile.title')}</Text>
 
-      {/* Current User Profile Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>My Profile</Text>
-        {loadingCurrentUser ? (
-          <Text style={[styles.loadingText, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-            Loading...
-          </Text>
-        ) : currentUser ? (
-          <View style={styles.card}>
-            {currentAvatarUri ? (
-              <Image source={{ uri: currentAvatarUri }} style={styles.profileImage} />
+        <View style={styles.profileCard}>
+          <View style={styles.profileHeader}>
+            {heroAvatarUri ? (
+              <Image source={{ uri: heroAvatarUri }} style={styles.profileAvatar} />
             ) : (
-              <View style={styles.profileImagePlaceholder}>
-                <IconSymbol size={50} name="person.fill" color="#fff" />
+              <View style={styles.profileAvatarFallback}>
+                <IconSymbol name="person.fill" size={28} color="#FFFFFF" />
               </View>
             )}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>ID:</Text>
-              <Text style={styles.fieldValue}>{currentUser.id}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Username:</Text>
-              <Text style={styles.fieldValue}>{currentUser.username}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Email:</Text>
-              <Text style={styles.fieldValue}>{currentUser.email || 'N/A'}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Role:</Text>
-              <Text style={styles.fieldValue}>{currentUser.role || 'N/A'}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Created:</Text>
-              <Text style={styles.fieldValue}>{new Date(currentUser.createdAt).toLocaleString()}</Text>
-            </View>
-            <View style={{ marginTop: 12 }}>
-              <Button title="Edit Profile" onPress={() => router.push(`/edit-profile?username=${encodeURIComponent(currentUser.username)}`)} />
+            <View style={styles.profileHeaderText}>
+              <Text style={styles.profileTitle}>{t('profile.title')}</Text>
+              <Text style={styles.profileUsername}>@{displayUsername}</Text>
+              {displayEmail ? <Text style={styles.profileEmail}>{displayEmail}</Text> : null}
             </View>
           </View>
-        ) : (
-          <Text style={[styles.loadingText, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-            No profile data available
-          </Text>
-        )}
-      </View>
+          {loadingProfile ? (
+            <View style={styles.loaderRow}>
+              <ActivityIndicator size="small" color="#2563EB" />
+              <Text style={styles.loaderText}>{t('common.loading')}</Text>
+            </View>
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : currentUser ? (
+            <View style={styles.infoList}>
+              <InfoRow label={t('register.username')} value={currentUser.username} />
+              <InfoRow label={t('register.email')} value={currentUser.email} />
+              <InfoRow label={t('register.role')} value={currentUser.role} />
+              <InfoRow label={t('profile.joined')} value={formatTimestamp(currentUser.createdAt)} />
+            </View>
+          ) : (
+            <Text style={styles.mutedText}>{t('profile.no_data')}</Text>
+          )}
+        </View>
 
-      {/* Search Other Users Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Search Other Users</Text>
-        <TextInput
-          placeholder="Enter username"
-          value={searchId}
-          onChangeText={setSearchId}
-          style={styles.input}
-          autoCapitalize="none"
-          placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'}
-        />
-        <Button title={loading ? 'Loading...' : 'Search'} onPress={fetchUser} disabled={loading} />
-
-        {searchedUser && (
-          <View style={styles.card}>
-            {searchedAvatarUri ? (
-              <Image source={{ uri: searchedAvatarUri }} style={styles.profileImage} />
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{t('profile.search_title')}</Text>
+          <View style={styles.searchInput}>
+            <IconSymbol name="magnifyingglass" size={18} color={placeholderColor} />
+            <TextInput
+              style={styles.searchField}
+              placeholder={t('profile.search_placeholder')}
+              placeholderTextColor={placeholderColor}
+              value={searchId}
+              onChangeText={setSearchId}
+              autoCapitalize="none"
+            />
+          </View>
+          <Pressable
+            onPress={handleSearch}
+            disabled={loadingSearch}
+            style={({ pressed }) => [
+              styles.searchButton,
+              loadingSearch && styles.searchButtonDisabled,
+              pressed && !loadingSearch && styles.searchButtonPressed,
+            ]}
+          >
+            {loadingSearch ? (
+              <>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={styles.searchButtonText}>{t('common.loading')}</Text>
+              </>
             ) : (
-              <View style={styles.profileImagePlaceholder}>
-                <IconSymbol size={50} name="person.fill" color="#fff" />
-              </View>
+              <Text style={styles.searchButtonText}>{t('profile.search_button')}</Text>
             )}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>ID:</Text>
-              <Text style={styles.fieldValue}>{searchedUser.id}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Username:</Text>
-              <Text style={styles.fieldValue}>{searchedUser.username}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Email:</Text>
-              <Text style={styles.fieldValue}>{searchedUser.email || 'N/A'}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Role:</Text>
-              <Text style={styles.fieldValue}>{searchedUser.role || 'N/A'}</Text>
-            </View>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Created:</Text>
-              <Text style={styles.fieldValue}>{new Date(searchedUser.createdAt).toLocaleString()}</Text>
-            </View>
-          </View>
-        )}
-      </View>
-    </ScrollView>
+          </Pressable>
+          {searchError ? <Text style={styles.errorText}>{searchError}</Text> : null}
+          {renderSearchedUser()}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const getStyles = (colorScheme: any) => StyleSheet.create({
-  container: {
-    padding: 20,
-    flexGrow: 1,
-    backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7'
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 24,
-    textAlign: 'center',
-    color: colorScheme === 'dark' ? '#FFFFFF' : '#000000'
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: colorScheme === 'dark' ? '#FFFFFF' : '#000000'
-  },
-  card: {
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colorScheme === 'dark' ? '#333' : '#eee',
-    borderRadius: 12,
-    backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF',
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignSelf: 'center',
-    marginBottom: 16,
-    backgroundColor: '#DDD',
-  },
-  profileImagePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#888',
-    alignSelf: 'center',
-    marginBottom: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fieldContainer: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    alignItems: 'flex-start',
-  },
-  fieldLabel: {
-    fontWeight: '600',
-    marginRight: 8,
-    minWidth: 80,
-    color: colorScheme === 'dark' ? '#999' : '#666',
-  },
-  fieldValue: {
-    flex: 1,
-    color: colorScheme === 'dark' ? '#FFFFFF' : '#000000',
-  },
-  input: {
-    backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF',
-    color: colorScheme === 'dark' ? '#FFFFFF' : '#000000',
-    borderColor: colorScheme === 'dark' ? '#555' : '#CCC',
-    borderWidth: 1,
-    padding: 10,
-    marginBottom: 12,
-    borderRadius: 8,
-  },
-  loadingText: {
-    textAlign: 'center',
-    padding: 16,
-  },
-});
+const formatTimestamp = (timestamp: string) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+const createStyles = (colorScheme: 'light' | 'dark' | null) => {
+  const isDark = colorScheme === 'dark';
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: isDark ? '#020617' : '#F3F4FF',
+    },
+    container: {
+      paddingHorizontal: 20,
+      paddingVertical: 28,
+      gap: 20,
+    },
+    pageTitle: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: isDark ? '#E2E8F0' : '#0F172A',
+      textAlign: 'center',
+    },
+    profileCard: {
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : '#FFFFFF',
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.2)' : '#E2E8F0',
+      gap: 16,
+      shadowColor: '#0F172A',
+      shadowOpacity: isDark ? 0.18 : 0.08,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 6,
+    },
+    profileHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    profileAvatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+    },
+    profileAvatarFallback: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: '#2563EB',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    profileHeaderText: {
+      flex: 1,
+      gap: 4,
+    },
+    profileTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: isDark ? '#CBD5F5' : '#64748B',
+    },
+    profileUsername: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: isDark ? '#F8FAFC' : '#0F172A',
+    },
+    profileEmail: {
+      fontSize: 14,
+      color: isDark ? '#CBD5F5' : '#475569',
+    },
+    infoList: {
+      gap: 12,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 12,
+    },
+    infoLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDark ? '#CBD5F5' : '#475569',
+      flexShrink: 0,
+      minWidth: 120,
+    },
+    infoValue: {
+      fontSize: 14,
+      color: isDark ? '#F8FAFC' : '#0F172A',
+      flex: 1,
+      textAlign: 'right',
+    },
+    mutedText: {
+      fontSize: 14,
+      color: isDark ? '#9CA3AF' : '#64748B',
+      textAlign: 'center',
+    },
+    loaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    loaderText: {
+      fontSize: 14,
+      color: isDark ? '#CBD5F5' : '#475569',
+    },
+    errorText: {
+      fontSize: 14,
+      color: '#DC2626',
+      textAlign: 'center',
+    },
+    sectionCard: {
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : '#FFFFFF',
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.2)' : '#E2E8F0',
+      gap: 16,
+      shadowColor: '#0F172A',
+      shadowOpacity: isDark ? 0.12 : 0.06,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 4,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: isDark ? '#E2E8F0' : '#0F172A',
+    },
+    searchInput: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC',
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.25)' : '#E2E8F0',
+      paddingHorizontal: 14,
+    },
+    searchField: {
+      flex: 1,
+      fontSize: 14,
+      color: isDark ? '#F8FAFC' : '#0F172A',
+      paddingVertical: 12,
+    },
+    searchButton: {
+      marginTop: 4,
+      backgroundColor: '#2563EB',
+      borderRadius: 18,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 8,
+    },
+    searchButtonDisabled: {
+      opacity: 0.75,
+    },
+    searchButtonPressed: {
+      opacity: 0.9,
+    },
+    searchButtonText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    resultCard: {
+      marginTop: 12,
+      borderRadius: 18,
+      padding: 16,
+      backgroundColor: isDark ? 'rgba(30, 41, 59, 0.7)' : '#F1F5F9',
+      gap: 12,
+    },
+    resultHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    resultAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+    },
+    resultAvatarFallback: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: '#2563EB',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    resultUsername: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: isDark ? '#F8FAFC' : '#0F172A',
+    },
+    resultEmail: {
+      fontSize: 13,
+      color: isDark ? '#CBD5F5' : '#475569',
+    },
+  });
+};

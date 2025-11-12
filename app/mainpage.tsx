@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useForum } from '@/contexts/ForumContext';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Image, Modal, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { API_URL } from './config';
 
@@ -30,6 +31,7 @@ export default function MainPage() {
   const navigation = useNavigation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const { t } = useTranslation();
 
   function openMenu() {
     setShowProfileMenu(true);
@@ -78,13 +80,13 @@ export default function MainPage() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: 'Main Page',
+      title: t('main.header_title'),
       headerRight: () => (
         <Pressable
           onPress={openMenu}
           hitSlop={12}
           style={{ paddingHorizontal: 12 }}
-          accessibilityLabel="Open account menu"
+          accessibilityLabel={t('main.menu_view_profile')}
         >
           {userAvatarUri ? (
             <Image
@@ -108,18 +110,24 @@ export default function MainPage() {
           </Pressable>
       ),
     });
-  }, [navigation, colorScheme, user?.username, userAvatarUri]);
+  }, [navigation, colorScheme, user?.username, userAvatarUri, t]);
 
   const discussionCards = useMemo(
     () => [
       {
         key: 'forum-view',
-        title: 'Discussion Forum',
-        description: 'See what the community is talking about right now.',
+        title: t('main.discussion_forum_title'),
+        description: t('main.discussion_forum_description'),
         onPress: () => router.push('/forum' as any),
       },
+      {
+        key: 'learning-materials',
+        title: t('main.materials_title'),
+        description: t('main.materials_description'),
+        onPress: () => router.push('/learning-materials' as any),
+      },
     ],
-    [router]
+    [router, t]
   );
 
   type CtaButton = {
@@ -130,25 +138,25 @@ export default function MainPage() {
     onPress: () => void;
   };
 
-  const CTA_BUTTONS: CtaButton[] =
-    user?.role !== 'Teacher'
-      ? []
-      : [
-          {
-            key: 'register',
-            label: 'Register Student',
-            description: 'Create new student accounts instantly.',
-            icon: 'person.badge.plus' as IconSymbolName,
-            onPress: () => router.push('/register' as any),
-          },
-          {
-            key: 'delete',
-            label: 'Remove Student',
-            description: 'Search and delete student accounts securely.',
-            icon: 'trash.circle.fill' as IconSymbolName,
-            onPress: handleDeleteAccount,
-          },
-        ];
+  const CTA_BUTTONS: CtaButton[] = useMemo(() => {
+    if (user?.role !== 'Teacher') return [];
+    return [
+      {
+        key: 'register',
+        label: t('main.cta_register_title'),
+        description: t('main.cta_register_description'),
+        icon: 'person.badge.plus' as IconSymbolName,
+        onPress: () => router.push('/register' as any),
+      },
+      {
+        key: 'delete',
+        label: t('main.cta_remove_title'),
+        description: t('main.cta_remove_description'),
+        icon: 'trash.circle.fill' as IconSymbolName,
+        onPress: handleDeleteAccount,
+      },
+    ];
+  }, [handleDeleteAccount, router, t, user?.role]);
 
   return (
     <ThemedView style={styles.container}>
@@ -161,8 +169,12 @@ export default function MainPage() {
           </View>
         )}
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <ThemedText type="title">Hello{user?.username ? `, ${user.username}` : '!'}</ThemedText>
-          <ThemedText type="subtitle">Welcome Back!</ThemedText>
+          <ThemedText type="title">
+            {user?.username
+              ? t('main.welcome_named', { name: user.username })
+              : t('main.welcome_generic')}
+          </ThemedText>
+          <ThemedText type="subtitle">{t('main.welcome_subtitle')}</ThemedText>
         </View>
       </View>
 
@@ -245,7 +257,7 @@ export default function MainPage() {
               { color: colorScheme === 'dark' ? '#FCA5A5' : '#DC2626' },
             ]}
           >
-            Note: live forum data is currently unavailable; you may see a sample discussion when you continue.
+            {t('main.forum_notice')}
           </Text>
         ) : null}
       </View>
@@ -271,10 +283,10 @@ export default function MainPage() {
               )}
               <View style={styles.userInfoText}>
                 <Text style={[styles.userName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                  {user?.email || user?.username || 'User'}
+                  {user?.email || user?.username || t('main.menu_user_fallback')}
                 </Text>
                 <Text style={[styles.userUsername, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-                  @{user?.username || 'username'}
+                  @{user?.username || t('main.menu_username_placeholder')}
                 </Text>
               </View>
             </View>
@@ -283,14 +295,14 @@ export default function MainPage() {
             <View style={styles.menuOptions}>
               <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleViewProfile}>
                 <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                  View Profile
+                  {t('main.menu_view_profile')}
                 </Text>
                 <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
               </Pressable>
 
               <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleEditProfile}>
                 <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                  Edit Profile
+                  {t('main.menu_edit_profile')}
                 </Text>
               <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
             </Pressable>
@@ -299,14 +311,14 @@ export default function MainPage() {
               <>
                 <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => { closeMenu(); router.push('/register' as any); }}>
                   <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                    Register New User
+                    {t('main.menu_register')}
                   </Text>
                 <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
                 </Pressable>
 
                 <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleDeleteAccount}>
                   <Text style={[styles.menuItemText, { color: '#b00' }]}>
-                    Delete Account
+                    {t('main.menu_delete_account')}
                   </Text>
                   <IconSymbol name={CHEVRON_RIGHT} size={18} color="#b00" />
                 </Pressable>
@@ -315,7 +327,7 @@ export default function MainPage() {
 
               <Pressable style={styles.menuItem} onPress={handleLogout}>
                 <Text style={[styles.menuItemText, { color: '#b00' }]}>
-                  Logout
+                  {t('main.menu_logout')}
                 </Text>
                 <IconSymbol name={CHEVRON_RIGHT} size={18} color="#b00" />
               </Pressable>
@@ -323,7 +335,7 @@ export default function MainPage() {
 
             <Pressable style={styles.closeButton} onPress={closeMenu}>
               <Text style={[styles.closeButtonText, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-                Cancel
+                {t('main.menu_cancel')}
               </Text>
             </Pressable>
           </Pressable>
@@ -334,7 +346,7 @@ export default function MainPage() {
       <Pressable
         style={styles.floatingChatButton}
         onPress={() => setShowChatbot(true)}
-        accessibilityLabel="Open AI Chatbot"
+        accessibilityLabel={t('main.chat_accessibility')}
       >
         <IconSymbol name="message.fill" size={28} color="#FFFFFF" />
       </Pressable>

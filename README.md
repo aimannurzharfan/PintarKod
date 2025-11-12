@@ -2,6 +2,20 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## Install Before Starting
+
+1. Install dependencies
+
+   [Node.js (v18 or higher, recommend LTS version)](https://nodejs.org/en)
+    
+   [MySQL Server & Workbench (v8.0 or higher)](https://dev.mysql.com/downloads/workbench/)
+   
+   [Android Studio (Used to run the Android Emulator)](https://developer.android.com/studio)
+   
+## Database 
+
+   create a database name ```pintarkod```
+
 ## Before Running
 
 1. Install dependencies

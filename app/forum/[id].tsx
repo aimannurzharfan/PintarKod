@@ -20,6 +20,7 @@ import {
   View,
   useColorScheme
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function ForumThreadScreen() {
   const { id, action } = useLocalSearchParams<{ id?: string; action?: string }>();
@@ -37,11 +38,16 @@ export default function ForumThreadScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
+  const { t } = useTranslation();
+
+  const userRole = user?.role ?? null;
+  const isTeacher = userRole === 'Teacher';
 
   const thread = useMemo<ForumThread | undefined>(
     () => (threadId ? getThreadById(threadId) : undefined),
     [threadId, getThreadById]
   );
+  const isEditingThread = Boolean(thread);
 
   useEffect(() => {
     if (!threadId) return;
@@ -84,13 +90,10 @@ const [showChatbot, setShowChatbot] = useState(false);
   if (!threadId) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>Thread not found</Text>
-        <Text style={styles.emptySubtitle}>
-          The discussion you are looking for may have been removed. Head back to the forum and try
-          again.
-        </Text>
+        <Text style={styles.emptyTitle}>{t('forum_thread.not_found_title')}</Text>
+        <Text style={styles.emptySubtitle}>{t('forum_thread.not_found_message')}</Text>
         <Pressable style={styles.emptyButton} onPress={() => router.replace('/forum')}>
-          <Text style={styles.emptyButtonText}>Back to forum</Text>
+          <Text style={styles.emptyButtonText}>{t('forum_thread.not_found_back')}</Text>
         </Pressable>
       </View>
     );
@@ -100,7 +103,7 @@ const [showChatbot, setShowChatbot] = useState(false);
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.loadingText}>Loading thread...</Text>
+        <Text style={styles.loadingText}>{t('forum_thread.loading')}</Text>
       </View>
     );
   }
@@ -108,11 +111,11 @@ const [showChatbot, setShowChatbot] = useState(false);
   function handleSubmitComment() {
     const body = commentDraft.trim();
     if (!body) {
-      Alert.alert('Add a reply', 'Share your thoughts or answer before posting.');
+      Alert.alert(t('forum_thread.alert_reply_title'), t('forum_thread.alert_reply_body'));
       return;
     }
     if (user?.id == null) {
-      Alert.alert('Sign in required', 'Please log in before posting a reply.');
+      Alert.alert(t('forum_list.alert_signin_title'), t('forum_thread.alert_signin_reply'));
       return;
     }
     addComment({
@@ -129,7 +132,7 @@ const [showChatbot, setShowChatbot] = useState(false);
 
   function openEditComment(comment: ForumComment) {
     if (!canManageComment(comment, user?.id, user?.username, user?.email)) {
-      Alert.alert('Permission denied', 'You can only edit comments that you wrote.');
+      Alert.alert(t('forum_list.alert_permission_title'), t('forum_thread.alert_edit_comment'));
       return;
     }
     setEditingComment(comment);
@@ -146,11 +149,11 @@ const [showChatbot, setShowChatbot] = useState(false);
   function submitCommentEdit() {
     const body = editingCommentText.trim();
     if (!editingComment || !body) {
-      Alert.alert('Nothing to update', 'Make sure your reply has some content.');
+      Alert.alert(t('forum_thread.alert_edit_empty_title'), t('forum_thread.alert_edit_empty_body'));
       return;
     }
     if (user?.id == null) {
-      Alert.alert('Sign in required', 'Please log in before editing your reply.');
+      Alert.alert(t('forum_list.alert_signin_title'), t('forum_thread.alert_signin_edit_reply'));
       return;
     }
     updateComment({
@@ -167,7 +170,7 @@ const [showChatbot, setShowChatbot] = useState(false);
 
   function openThreadEditor() {
     if (!canManage(thread, user?.id, user?.username, user?.email)) {
-      Alert.alert('Permission denied', 'You can only edit threads that you created.');
+      Alert.alert(t('forum_list.alert_permission_title'), t('forum_list.alert_permission_body'));
       return;
     }
     setThreadEditorVisible(true);
@@ -181,11 +184,11 @@ const [showChatbot, setShowChatbot] = useState(false);
     const title = threadTitle.trim();
     const content = threadContent.trim();
     if (!title || !content) {
-      Alert.alert('Incomplete details', 'Title and description cannot be empty.');
+      Alert.alert(t('forum_thread.alert_incomplete_title'), t('forum_thread.alert_incomplete_body'));
       return;
     }
     if (user?.id == null) {
-      Alert.alert('Sign in required', 'Please log in before editing your thread.');
+      Alert.alert(t('forum_list.alert_signin_title'), t('forum_thread.alert_signin_edit_thread'));
       return;
     }
     updateThread({
@@ -205,7 +208,10 @@ const [showChatbot, setShowChatbot] = useState(false);
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission needed', 'Please allow access to your photo library to attach an image.');
+        Alert.alert(
+          t('forum_list.attachment_permission_title'),
+          t('forum_list.attachment_permission_message')
+        );
         return;
       }
       setPickingThreadAttachment(true);
@@ -216,7 +222,10 @@ const [showChatbot, setShowChatbot] = useState(false);
       if (!result.canceled && result.assets?.length) {
         const asset = result.assets[0];
         if (!asset.base64) {
-          Alert.alert('Attachment', 'Unable to read the selected image. Please try a different file.');
+          Alert.alert(
+            t('forum_list.attachment_error_title'),
+            t('forum_list.attachment_unreadable')
+          );
           return;
         }
         const mime = asset.mimeType ?? 'image/jpeg';
@@ -224,7 +233,10 @@ const [showChatbot, setShowChatbot] = useState(false);
       }
     } catch (err) {
       console.error('Thread attachment picker error', err);
-      Alert.alert('Attachment', 'Unable to select image, please try again.');
+      Alert.alert(
+        t('forum_list.attachment_error_title'),
+        t('forum_list.attachment_generic_error')
+      );
     } finally {
       setPickingThreadAttachment(false);
     }
@@ -232,7 +244,10 @@ const [showChatbot, setShowChatbot] = useState(false);
 
   function confirmDeleteThread() {
     if (user?.id == null) {
-      Alert.alert('Sign in required', 'Please log in before deleting your thread.');
+      Alert.alert(
+        t('forum_list.alert_signin_title'),
+        t('forum_thread.alert_signin_delete_thread')
+      );
       return;
     }
     Alert.alert(
@@ -248,7 +263,10 @@ const [showChatbot, setShowChatbot] = useState(false);
             if (success) {
               router.replace('/forum');
             } else {
-              Alert.alert('Delete failed', 'Could not delete this thread. Please try again.');
+              Alert.alert(
+                t('forum_list.delete_failed_title'),
+                t('forum_list.delete_failed_message')
+              );
             }
           }
         }
@@ -258,7 +276,10 @@ const [showChatbot, setShowChatbot] = useState(false);
 
   function confirmDeleteComment(comment: ForumComment) {
     if (user?.id == null) {
-      Alert.alert('Sign in required', 'Please log in before deleting your reply.');
+      Alert.alert(
+        t('forum_list.alert_signin_title'),
+        t('forum_thread.alert_signin_delete_reply')
+      );
       return;
     }
     Alert.alert(
@@ -272,7 +293,10 @@ const [showChatbot, setShowChatbot] = useState(false);
           onPress: async () => {
             const success = await deleteComment(thread.id, comment.id, Number(user.id));
             if (!success) {
-              Alert.alert('Delete failed', 'Could not delete this comment. Please try again.');
+              Alert.alert(
+                t('forum_list.delete_failed_title'),
+                t('forum_thread.alert_delete_comment_failed')
+              );
             }
           }
         }
@@ -293,18 +317,17 @@ const [showChatbot, setShowChatbot] = useState(false);
               <View style={styles.threadHeaderActions}>
                 <Pressable style={styles.editButton} onPress={openThreadEditor}>
                   <IconSymbol name="pencil" size={16} color="#2563EB" />
-                  <Text style={styles.editButtonText}>Edit</Text>
+                  <Text style={styles.editButtonText}>{t('forum_list.action_edit')}</Text>
                 </Pressable>
                 <Pressable style={styles.deleteButton} onPress={confirmDeleteThread}>
                   <IconSymbol name="trash.circle.fill" size={16} color="#DC2626" />
-                  <Text style={styles.deleteButtonText}>Delete</Text>
+                  <Text style={styles.deleteButtonText}>{t('forum_list.action_delete')}</Text>
                 </Pressable>
               </View>
             )}
           </View>
           <Text style={styles.threadMeta}>
-            Started by <Text style={styles.metaHighlight}>{thread.authorName}</Text> ·{' '}
-            {formatRelativeTime(thread.updatedAt)}
+            {t('forum_list.started_by', { name: thread.authorName })} · {formatRelativeTime(thread.updatedAt)}
           </Text>
           <Text style={styles.threadBody}>{thread.content}</Text>
           {thread.attachment ? (
@@ -318,53 +341,68 @@ const [showChatbot, setShowChatbot] = useState(false);
 
         <View style={styles.commentsHeader}>
           <Text style={styles.commentsTitle}>
-            Replies ({thread.comments.length})
+            {t('forum_thread.replies_header', { count: thread.comments.length })}
           </Text>
         </View>
 
         {thread.comments.length === 0 ? (
           <View style={styles.emptyComments}>
             <IconSymbol name="text.bubble" size={32} color="#A5B4FC" />
-            <Text style={styles.emptyCommentTitle}>No replies yet</Text>
+            <Text style={styles.emptyCommentTitle}>{t('forum_thread.empty_title')}</Text>
             <Text style={styles.emptyCommentSubtitle}>
-              Be the first to offer help or share an idea.
+              {t('forum_thread.empty_description')}
             </Text>
           </View>
         ) : (
-          thread.comments.map((comment) => (
-            <View key={comment.id} style={styles.commentCard}>
-              <View style={styles.commentHeader}>
-                <Text style={styles.commentAuthor}>{comment.authorName}</Text>
-                <Text style={styles.commentTimestamp}>{formatRelativeTime(comment.updatedAt)}</Text>
-              </View>
-              <Text style={styles.commentBody}>{comment.content}</Text>
-              {canManageComment(comment, user?.id, user?.username, user?.email) && (
-                <View style={styles.commentActions}>
-                  <Pressable
-                    style={styles.commentAction}
-                    onPress={() => openEditComment(comment)}
-                  >
-                    <IconSymbol name="square.and.pencil" size={14} color="#2563EB" />
-                    <Text style={styles.commentActionText}>Edit</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.commentDeleteAction}
-                    onPress={() => confirmDeleteComment(comment)}
-                  >
-                    <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
-                    <Text style={styles.commentDeleteText}>Delete</Text>
-                  </Pressable>
+          thread.comments.map((comment) => {
+            const isAuthor = canManageComment(comment, user?.id, user?.username, user?.email);
+            const targetRole = comment.authorRole ? comment.authorRole.toLowerCase() : undefined;
+            const canModerate = isTeacher && targetRole === 'student';
+            const canDelete = isAuthor || canModerate;
+
+            return (
+              <View key={comment.id} style={styles.commentCard}>
+                <View style={styles.commentHeader}>
+                  <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                  <Text style={styles.commentTimestamp}>{formatRelativeTime(comment.updatedAt)}</Text>
                 </View>
-              )}
-            </View>
-          ))
+                <Text style={styles.commentBody}>{comment.content}</Text>
+                {(isAuthor || canDelete) && (
+                  <View style={styles.commentActions}>
+                    {isAuthor && (
+                      <Pressable
+                        style={styles.commentAction}
+                        onPress={() => openEditComment(comment)}
+                      >
+                        <IconSymbol name="square.and.pencil" size={14} color="#2563EB" />
+                        <Text style={styles.commentActionText}>
+                          {t('forum_thread.action_edit')}
+                        </Text>
+                      </Pressable>
+                    )}
+                    {canDelete && (
+                      <Pressable
+                        style={styles.commentDeleteAction}
+                        onPress={() => confirmDeleteComment(comment)}
+                      >
+                        <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
+                        <Text style={styles.commentDeleteText}>
+                          {t('forum_thread.action_delete')}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })
         )}
       </ScrollView>
 
       <View style={styles.composer}>
         <TextInput
           ref={commentInputRef}
-          placeholder="Write your reply…"
+          placeholder={t('forum_thread.placeholder_reply')}
           placeholderTextColor="#94A3B8"
           style={styles.composerInput}
           multiline
@@ -372,7 +410,7 @@ const [showChatbot, setShowChatbot] = useState(false);
           onChangeText={setCommentDraft}
         />
         <Pressable style={styles.composerButton} onPress={handleSubmitComment}>
-          <Text style={styles.composerButtonText}>Post</Text>
+          <Text style={styles.composerButtonText}>{t('forum_thread.post_button')}</Text>
         </Pressable>
       </View>
 
@@ -384,7 +422,7 @@ const [showChatbot, setShowChatbot] = useState(false);
       >
         <Pressable style={styles.modalOverlay} onPress={closeCommentModal}>
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.modalTitle}>Edit reply</Text>
+            <Text style={styles.modalTitle}>{t('forum_thread.modal_edit_title')}</Text>
             <TextInput
               style={[styles.modalInput, styles.modalTextarea]}
               multiline
@@ -395,10 +433,10 @@ const [showChatbot, setShowChatbot] = useState(false);
             />
             <View style={styles.modalActions}>
               <Pressable style={styles.modalSecondary} onPress={closeCommentModal}>
-                <Text style={styles.modalSecondaryText}>Cancel</Text>
+                <Text style={styles.modalSecondaryText}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable style={styles.modalPrimary} onPress={submitCommentEdit}>
-                <Text style={styles.modalPrimaryText}>Save</Text>
+                <Text style={styles.modalPrimaryText}>{t('common.save')}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -413,19 +451,23 @@ const [showChatbot, setShowChatbot] = useState(false);
       >
         <Pressable style={styles.modalOverlay} onPress={closeThreadEditor}>
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.modalTitle}>Edit thread</Text>
+            <Text style={styles.modalTitle}>
+              {isEditingThread
+                ? t('forum_list.modal_edit_title')
+                : t('forum_list.modal_create_title')}
+            </Text>
             <TextInput
               style={styles.modalInput}
               value={threadTitle}
               onChangeText={setThreadTitle}
-              placeholder="Title"
+              placeholder={t('forum_list.modal_title_placeholder')}
               placeholderTextColor="#94A3B8"
             />
             <TextInput
               style={[styles.modalInput, styles.modalTextarea]}
               value={threadContent}
               onChangeText={setThreadContent}
-              placeholder="Details"
+              placeholder={t('forum_list.modal_content_placeholder')}
               placeholderTextColor="#94A3B8"
               multiline
               numberOfLines={4}
@@ -438,7 +480,7 @@ const [showChatbot, setShowChatbot] = useState(false);
                   { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' },
                 ]}
               >
-                Attachment (optional)
+                {t('forum_list.attachment_label')}
               </Text>
               {threadAttachment ? (
                 <View style={styles.attachmentPreview}>
@@ -452,7 +494,7 @@ const [showChatbot, setShowChatbot] = useState(false);
                     onPress={() => setThreadAttachment(null)}
                   >
                     <IconSymbol name="xmark.circle.fill" size={18} color="#DC2626" />
-                    <Text style={styles.attachmentRemoveText}>Remove</Text>
+                    <Text style={styles.attachmentRemoveText}>{t('forum_list.attachment_remove')}</Text>
                   </Pressable>
                 </View>
               ) : (
@@ -484,17 +526,21 @@ const [showChatbot, setShowChatbot] = useState(false);
                       { color: colorScheme === 'dark' ? '#DBEAFE' : '#1D4ED8' },
                     ]}
                   >
-                    {pickingThreadAttachment ? 'Opening gallery…' : 'Add an image'}
+                    {pickingThreadAttachment
+                      ? t('forum_list.attachment_loading')
+                      : t('forum_list.attachment_button')}
                   </Text>
                 </Pressable>
               )}
             </View>
             <View style={styles.modalActions}>
               <Pressable style={styles.modalSecondary} onPress={closeThreadEditor}>
-                <Text style={styles.modalSecondaryText}>Cancel</Text>
+                <Text style={styles.modalSecondaryText}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable style={styles.modalPrimary} onPress={submitThreadEdit}>
-                <Text style={styles.modalPrimaryText}>Save changes</Text>
+                <Text style={styles.modalPrimaryText}>
+                  {isEditingThread ? t('forum_list.modal_save') : t('forum_list.modal_publish')}
+                </Text>
               </Pressable>
             </View>
           </Pressable>

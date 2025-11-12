@@ -1,229 +1,378 @@
-import { API_URL } from '@/config';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
-import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Image, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
-
-const resolveAvatarPreview = (profileImage?: string | null, avatarUrl?: string | null) => {
-  if (profileImage) {
-    return profileImage.startsWith('data:') ? profileImage : `data:image/jpeg;base64,${profileImage}`;
-  }
-  if (!avatarUrl) return undefined;
-  if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
-    return avatarUrl;
-  }
-  return `${API_URL}${avatarUrl}`;
-};
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useColorScheme,
+} from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { API_URL } from './config';
 
 export default function EditProfileScreen() {
-  const { username: usernameParam } = useLocalSearchParams();
+  const { user, setUser } = useAuth();
+  const { i18n, t } = useTranslation();
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme);
-  const [formUsername, setFormUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
+
+  const [username, setUsername] = useState(user?.username ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
-  const { user, setUser } = useAuth();
-  const [originalUsername, setOriginalUsername] = useState<string | undefined>(undefined);
-  const [errors, setErrors] = useState<{ username?: string; email?: string; password?: string; general?: string }>({});
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    // If no username param provided, default to current authenticated user
-    const target = (usernameParam as string) || user?.username;
-    if (!target) return;
-    (async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(target)}`);
-        const data = await res.json();
-        if (res.ok) {
-          setFormUsername(data.username);
-          setOriginalUsername(data.username);
-          setEmail(data.email);
-          setRole(data.role);
-          setAvatarPreview(resolveAvatarPreview(data.profileImage, data.avatarUrl));
-        } else {
-          Alert.alert('Error', data.error || 'Failed to load user');
-        }
-      } catch (err) {
-        console.error(err);
-        Alert.alert('Error', 'Network error');
-      }
-    })();
-  }, [usernameParam, user?.username]);
+  const placeholderColor = colorScheme === 'dark' ? '#94A3B8' : '#64748B';
 
-  async function handleSave() {
-    const target = (usernameParam as string) || user?.username;
-    if (!target) { Alert.alert('Error', 'Missing username'); return; }
-    setLoading(true);
-    setErrors({});
-    setSuccessMessage(null);
+  const handleSave = useCallback(async () => {
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
 
-    // Client-side validation
-    const newErrors: typeof errors = {};
-    if (!formUsername || formUsername.length < 3) newErrors.username = 'Username must be at least 3 characters';
-    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(formUsername)) newErrors.username = 'Username may contain letters, numbers, - and _ only';
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'Enter a valid email';
-    if (password && password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-    if (Object.keys(newErrors).length) { setErrors(newErrors); setLoading(false); return; }
-
-    // If username changed from original, confirm with the user
-    if (originalUsername && formUsername !== originalUsername) {
-      const ok = await new Promise<boolean>((resolve) => {
-        Alert.alert('Change username', 'Changing your username will update your profile URL. Continue?', [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          { text: 'Yes', onPress: () => resolve(true) },
-        ]);
-      });
-      if (!ok) { setLoading(false); return; }
-    }
-
-    try {
-      // Build payload, only include password if provided
-      const payload: any = { username: formUsername, email, role };
-      if (password) payload.password = password;
-
-      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(target)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrors({ general: data.error || 'Failed to update' });
-      } else {
-        setSuccessMessage('Profile updated');
-        // If current user updated self, sync auth context (except password)
-        if (user && (user.username === target)) {
-          setUser({
-            ...user,
-            username: data.username,
-            email: data.email,
-            role: data.role,
-            avatarUrl: data.avatarUrl,
-            profileImage: data.profileImage ?? null,
-          });
-        }
-        // Update original username for further edits
-        setOriginalUsername(data.username);
-        // Navigate after short delay so user sees confirmation
-        setTimeout(() => router.replace(`/profile?username=${encodeURIComponent(data.username)}`), 900);
-      }
-    } catch (err) {
-      console.error(err);
-      setErrors({ general: 'Network error' });
-    } finally { setLoading(false); }
-  }
-
-  async function pickAndUploadAvatar() {
-    const targetUsername = (usernameParam as string) || user?.username;
-    if (!targetUsername) {
-      Alert.alert('Error', 'Unable to determine which profile to update.');
-      return;
-    }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (perm.status !== 'granted') { Alert.alert('Permission required', 'Please allow photo library access'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.9,
-      base64: true,
-    });
-    if (result.canceled) return;
-    const asset = result.assets[0];
-    if (!asset) return;
-    if (!asset.base64) {
-      Alert.alert('Error', 'Failed to read image data.');
+    if (!trimmedUsername || !trimmedEmail) {
+      Alert.alert(t('edit_profile.title'), t('edit_profile.validation'));
       return;
     }
 
+    if (password && password !== confirmPassword) {
+      Alert.alert(t('edit_profile.title'), t('edit_profile.password_mismatch'));
+      return;
+    }
+
+    if (!user?.username) {
+      Alert.alert(t('edit_profile.title'), t('edit_profile.error_generic'));
+      return;
+    }
+
+    setSaving(true);
     try {
-      setLoading(true);
-      const target = targetUsername;
-      const dataUri = asset.base64.startsWith('data:')
-        ? asset.base64
-        : `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`;
-      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(target)}/avatar`, {
+      const payload: Record<string, string> = {
+        username: trimmedUsername,
+        email: trimmedEmail,
+      };
+
+      if (password) {
+        payload.password = password;
+      }
+
+      const response = await fetch(`${API_URL}/api/users/${encodeURIComponent(user.username)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: dataUri }),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrors({ general: data.error || 'Failed to upload avatar' });
-      } else {
-        setAvatarPreview(resolveAvatarPreview(data.profileImage, data.avatarUrl));
-        if (user && (user.username === target)) {
-          setUser({
-            ...user,
-            avatarUrl: data.avatarUrl,
-            profileImage: data.profileImage ?? null,
-          });
-        }
-        setSuccessMessage('Profile picture updated');
-        setTimeout(() => setSuccessMessage(null), 1200);
+
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert(t('edit_profile.title'), data.error || t('edit_profile.error_generic'));
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      Alert.alert('Error', 'Upload failed');
+
+      if (user) {
+        setUser({
+          ...user,
+          username: trimmedUsername,
+          email: trimmedEmail,
+        });
+      }
+
+      setPassword('');
+      setConfirmPassword('');
+
+      Alert.alert(t('edit_profile.success_title'), t('edit_profile.success_message'), [
+        { text: t('common.ok'), onPress: () => router.back() },
+      ]);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t('edit_profile.title'), t('common.network_error'));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  }
+  }, [confirmPassword, email, password, router, setUser, t, user, username]);
+
+  const languages = [
+    { code: 'ms', label: t('edit_profile.language_ms') },
+    { code: 'en', label: t('edit_profile.language_en') },
+  ];
+
+  const currentLanguage = (i18n.language || 'ms').split('-')[0];
+
+  const handleLanguageChange = useCallback(
+    async (code: string) => {
+      try {
+        await i18n.changeLanguage(code);
+        await AsyncStorage.setItem('appLanguage', code);
+      } catch (err) {
+        console.warn('Language change failed:', err);
+      }
+    },
+    [i18n]
+  );
+
+  const renderLanguageButton = (code: string, label: string) => {
+    const isActive = currentLanguage === code;
+    return (
+      <Pressable
+        key={code}
+        onPress={() => handleLanguageChange(code)}
+        style={({ pressed }) => [
+          styles.languageButton,
+          isActive && styles.languageButtonActive,
+          pressed && styles.languageButtonPressed,
+        ]}
+      >
+        <Text style={[styles.languageButtonText, isActive && styles.languageButtonTextActive]}>
+          {label}
+        </Text>
+      </Pressable>
+    );
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Edit Profile</Text>
-      {avatarPreview ? (
-        <Image source={{ uri: avatarPreview }} style={{ width: 100, height: 100, borderRadius: 50, alignSelf: 'center', marginBottom: 16 }} />
-      ) : null}
-      <Button title="Change Profile Picture" onPress={pickAndUploadAvatar} disabled={loading} />
-      <View style={{ height: 12 }} />
-    <TextInput placeholder="Username" value={formUsername} onChangeText={setFormUsername} style={styles.input} placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} />
-    {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
-    <TextInput placeholder="Email" value={email} onChangeText={setEmail} style={styles.input} autoCapitalize="none" placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} />
-    {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-    <TextInput placeholder="New password (leave blank to keep)" value={password} onChangeText={setPassword} style={styles.input} secureTextEntry placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'} />
-    {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
-      <View style={styles.readOnlyField}>
-        <Text style={[styles.fieldLabel, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>Role:</Text>
-        <Text style={[styles.fieldValue, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>{role || 'N/A'}</Text>
-      </View>
-  {errors.general ? <Text style={styles.errorText}>{errors.general}</Text> : null}
-  {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
-  <View style={{ marginTop: 8 }}>{loading ? <ActivityIndicator /> : null}</View>
-  <Button title={loading ? 'Saving...' : 'Save'} onPress={handleSave} disabled={loading} />
-    </View>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.select({ ios: 'padding', android: undefined })}
+      >
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.card}>
+            <Text style={styles.title}>{t('edit_profile.title')}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>{t('edit_profile.username')}</Text>
+              <View style={styles.inputWrapper}>
+                <IconSymbol name="person.fill" size={18} color={placeholderColor} />
+                <TextInput
+                  style={styles.input}
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder={t('edit_profile.username')}
+                  placeholderTextColor={placeholderColor}
+                  autoCapitalize="none"
+                  textContentType="username"
+                />
+              </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>{t('edit_profile.email')}</Text>
+              <View style={styles.inputWrapper}>
+                <IconSymbol name="envelope.fill" size={18} color={placeholderColor} />
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder={t('edit_profile.email')}
+                  placeholderTextColor={placeholderColor}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                />
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+            <Text style={styles.sectionLabel}>{t('edit_profile.change_password')}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>{t('edit_profile.new_password')}</Text>
+              <View style={styles.inputWrapper}>
+                <IconSymbol name="lock.fill" size={18} color={placeholderColor} />
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder={t('edit_profile.new_password')}
+                  placeholderTextColor={placeholderColor}
+                  secureTextEntry
+                  textContentType="newPassword"
+                />
+              </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>{t('edit_profile.confirm_password')}</Text>
+              <View style={styles.inputWrapper}>
+                <IconSymbol name="lock.fill" size={18} color={placeholderColor} />
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder={t('edit_profile.confirm_password')}
+                  placeholderTextColor={placeholderColor}
+                  secureTextEntry
+                  textContentType="newPassword"
+                />
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+            <Text style={styles.sectionLabel}>{t('edit_profile.language')}</Text>
+            <Text style={styles.helpText}>{t('edit_profile.language_hint')}</Text>
+            <View style={styles.languageRow}>
+              {languages.map((lang) => renderLanguageButton(lang.code, lang.label))}
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.saveButton,
+                saving && styles.saveButtonDisabled,
+                pressed && !saving && styles.saveButtonPressed,
+              ]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.saveButtonText}>{t('common.loading')}</Text>
+                </>
+              ) : (
+                <Text style={styles.saveButtonText}>{t('edit_profile.save_button')}</Text>
+              )}
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
-const getStyles = (colorScheme: any) => StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: 'center', backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7' },
-  input: { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000', borderColor: colorScheme === 'dark' ? '#555' : '#CCC', borderWidth: 1, padding: 10, marginBottom: 12, borderRadius: 8 },
-  title: { fontSize: 24, fontWeight: '600', marginBottom: 20, textAlign: 'center', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' },
-  readOnlyField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F5F5F5',
-    borderColor: colorScheme === 'dark' ? '#555' : '#CCC',
-    borderWidth: 1,
-    padding: 10,
-    marginBottom: 12,
-    borderRadius: 8,
-  },
-  fieldLabel: {
-    fontWeight: '600',
-    marginRight: 8,
-    fontSize: 16,
-  },
-  fieldValue: {
-    fontSize: 16,
-    flex: 1,
-  },
-  errorText: { color: '#ff4d4f', marginBottom: 8 },
-  successText: { color: '#2f855a', marginBottom: 8 },
-});
+const createStyles = (colorScheme: 'light' | 'dark' | null) => {
+  const isDark = colorScheme === 'dark';
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: isDark ? '#020617' : '#EEF2FF',
+    },
+    flex: {
+      flex: 1,
+    },
+    container: {
+      flexGrow: 1,
+      paddingHorizontal: 20,
+      paddingVertical: 32,
+      alignItems: 'stretch',
+    },
+    card: {
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : '#FFFFFF',
+      borderRadius: 28,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.25)' : '#E2E8F0',
+      shadowColor: '#0F172A',
+      shadowOpacity: isDark ? 0.28 : 0.12,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 8,
+      gap: 18,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: isDark ? '#E2E8F0' : '#0F172A',
+      textAlign: 'center',
+    },
+    fieldGroup: {
+      gap: 8,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDark ? '#CBD5F5' : '#475569',
+    },
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC',
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.3)' : '#E2E8F0',
+      paddingHorizontal: 14,
+    },
+    input: {
+      flex: 1,
+      fontSize: 15,
+      color: isDark ? '#F8FAFC' : '#0F172A',
+      paddingVertical: 12,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : '#E2E8F0',
+      marginVertical: 4,
+    },
+    sectionLabel: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: isDark ? '#E2E8F0' : '#0F172A',
+      marginTop: 6,
+    },
+    helpText: {
+      fontSize: 13,
+      color: isDark ? '#94A3B8' : '#64748B',
+    },
+    languageRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    languageButton: {
+      flex: 1,
+      borderRadius: 16,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.35)' : '#CBD5F5',
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.5)' : '#F8FAFF',
+    },
+    languageButtonActive: {
+      borderColor: '#2563EB',
+      backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    },
+    languageButtonPressed: {
+      opacity: 0.85,
+    },
+    languageButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDark ? '#E2E8F0' : '#1E293B',
+    },
+    languageButtonTextActive: {
+      color: '#2563EB',
+    },
+    saveButton: {
+      marginTop: 8,
+      backgroundColor: '#2563EB',
+      borderRadius: 20,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 10,
+    },
+    saveButtonDisabled: {
+      opacity: 0.75,
+    },
+    saveButtonPressed: {
+      opacity: 0.9,
+    },
+    saveButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+};

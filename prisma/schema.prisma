@@ -8,50 +8,81 @@ generator client {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  email     String   @unique
-  password  String
-  role      String   @default("Student") // or Teacher
-  avatarUrl String?
-  profileImage String? @db.LongText
-  className String?  // Text field for class name (e.g., "Educator" for Teachers, or class name for Students)
-  classId   Int?
-  class     Class?   @relation(fields: [classId], references: [id])
-  forumThreads  ForumThread[]
-  forumComments ForumComment[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                Int                @id @default(autoincrement())
+  username          String             @unique
+  email             String             @unique
+  password          String
+  role              String             @default("Student") // or Teacher
+  avatarUrl         String?
+  profileImage      String?            @db.LongText
+  className         String? // Text field for class name (e.g., "Educator" for Teachers, or class name for Students)
+  classId           Int?
+  class             Class?             @relation(fields: [classId], references: [id])
+  forumThreads      ForumThread[]
+  forumComments     ForumComment[]
+  learningMaterials LearningMaterial[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model Class {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
   description String?
-  students  User[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  students    User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ForumThread {
-  id        Int            @id @default(autoincrement())
-  title     String
-  content   String         @db.Text
-  attachment String?       @db.LongText
-  authorId  Int
-  author    User           @relation(fields: [authorId], references: [id])
-  comments  ForumComment[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id         Int            @id @default(autoincrement())
+  title      String
+  content    String         @db.Text
+  attachment String?        @db.LongText
+  authorId   Int
+  author     User           @relation(fields: [authorId], references: [id])
+  comments   ForumComment[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 }
 
 model ForumComment {
-  id        Int      @id @default(autoincrement())
-  content   String   @db.Text
+  id        Int         @id @default(autoincrement())
+  content   String      @db.Text
   threadId  Int
   thread    ForumThread @relation(fields: [threadId], references: [id])
   authorId  Int
-  author    User     @relation(fields: [authorId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  author    User        @relation(fields: [authorId], references: [id])
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+enum LearningMaterialTopic {
+  STRATEGI_PENYELESAIAN_MASALAH
+  ALGORITMA
+  PEMBOLEH_UBAH_PEMALAR_JENIS_DATA
+  STRUKTUR_KAWALAN
+  AMALAN_TERBAIK_PENGATURCARAAN
+  STRUKTUR_DATA_MODULAR
+  PEMBANGUNAN_APLIKASI
+}
+
+enum LearningMaterialType {
+  NOTES
+  VIDEO
+  EXERCISE
+}
+
+model LearningMaterial {
+  id           Int                   @id @default(autoincrement())
+  title        String
+  description  String?
+  topic        LearningMaterialTopic
+  materialType LearningMaterialType
+  authorId     Int
+  author       User                  @relation(fields: [authorId], references: [id])
+  fileUrl      String?
+  videoUrl     String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 }

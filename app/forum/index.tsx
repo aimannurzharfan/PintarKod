@@ -20,6 +20,7 @@ import {
   View,
   useColorScheme
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 type FilterMode = 'all' | 'mine';
 
@@ -37,6 +38,7 @@ export default function ForumScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams<{ action?: string }>();
+  const { t } = useTranslation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<TextInput | null>(null);
@@ -78,7 +80,7 @@ export default function ForumScreen() {
 
   const openThreadComposer = useCallback((thread?: ForumThread) => {
     if (thread && !canManageThread(thread, user?.id, user?.username, user?.email)) {
-      Alert.alert('Permission denied', 'You can only edit threads that you created.');
+      Alert.alert(t('forum_list.alert_permission_title'), t('forum_list.alert_permission_body'));
       return;
     }
     setEditingThread(thread ?? null);
@@ -113,17 +115,17 @@ export default function ForumScreen() {
     const title = formTitle.trim();
     const content = formContent.trim();
     if (!title) {
-      Alert.alert('Missing title', 'Please enter a thread title.');
+      Alert.alert(t('forum_list.alert_missing_title'), t('forum_list.alert_missing_title_message'));
       return;
     }
     if (!content) {
-      Alert.alert('Missing description', 'Please provide some details for the discussion.');
+      Alert.alert(t('forum_list.alert_missing_title'), t('forum_list.alert_missing_content'));
       return;
     }
 
     if (editingThread) {
       if (user?.id == null) {
-        Alert.alert('Sign in required', 'Please log in before editing your thread.');
+        Alert.alert(t('forum_list.alert_signin_title'), t('forum_list.alert_signin_body'));
         return;
       }
       updateThread({
@@ -141,7 +143,7 @@ export default function ForumScreen() {
     }
 
     if (user?.id == null) {
-      Alert.alert('Sign in required', 'You need to be logged in before starting a discussion.');
+      Alert.alert(t('forum_list.alert_signin_title'), t('forum_list.alert_start_discussion'));
       return;
     }
 
@@ -162,7 +164,10 @@ export default function ForumScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission needed', 'Please allow access to your photo library to attach an image.');
+      Alert.alert(
+        t('forum_list.attachment_permission_title'),
+        t('forum_list.attachment_permission_message')
+      );
         return;
       }
       setPickingAttachment(true);
@@ -174,7 +179,10 @@ export default function ForumScreen() {
       if (!result.canceled && result.assets?.length) {
         const asset = result.assets[0];
         if (!asset.base64) {
-          Alert.alert('Attachment', 'Unable to read the selected image. Please try a different file.');
+          Alert.alert(
+            t('forum_list.attachment_error_title'),
+            t('forum_list.attachment_unreadable')
+          );
           return;
         }
         const mime = asset.mimeType ?? 'image/jpeg';
@@ -182,7 +190,10 @@ export default function ForumScreen() {
       }
     } catch (err) {
       console.error('Image picker error', err);
-      Alert.alert('Attachment', 'Could not select image. Please try again.');
+      Alert.alert(
+        t('forum_list.attachment_error_title'),
+        t('forum_list.attachment_generic_error')
+      );
     } finally {
       setPickingAttachment(false);
     }
@@ -190,21 +201,24 @@ export default function ForumScreen() {
 
   function confirmDeleteThread(thread: ForumThread) {
     if (user?.id == null) {
-      Alert.alert('Sign in required', 'Please log in before deleting your thread.');
+      Alert.alert(t('forum_list.alert_signin_title'), t('forum_list.alert_signin_body'));
       return;
     }
     Alert.alert(
-      'Delete thread',
-      'This will remove the discussion and all of its replies. Continue?',
+      t('forum_list.delete_thread_title'),
+      t('forum_list.delete_thread_message'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             const success = await removeThread(thread.id, Number(user.id));
             if (!success) {
-              Alert.alert('Delete failed', 'Could not delete this thread. Please try again.');
+              Alert.alert(
+                t('forum_list.delete_failed_title'),
+                t('forum_list.delete_failed_message')
+              );
             }
           }
         }
@@ -218,10 +232,8 @@ export default function ForumScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Community Forum</Text>
-        <Text style={styles.subtitle}>
-          Collaborate with peers, ask questions, and keep the conversation going.
-        </Text>
+        <Text style={styles.title}>{t('forum_list.title')}</Text>
+        <Text style={styles.subtitle}>{t('forum_list.subtitle')}</Text>
       </View>
 
       <View style={styles.searchRow}>
@@ -229,7 +241,7 @@ export default function ForumScreen() {
           <IconSymbol name="magnifyingglass" size={18} color="#6B7280" />
           <TextInput
             ref={searchRef}
-            placeholder="Search by topic, description, or replies"
+            placeholder={t('forum_list.search_placeholder')}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -239,18 +251,18 @@ export default function ForumScreen() {
         </View>
         <Pressable style={styles.createButton} onPress={() => openThreadComposer()}>
           <IconSymbol name="square.and.pencil" size={18} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>New Thread</Text>
+          <Text style={styles.createButtonText}>{t('forum_list.new_thread')}</Text>
         </Pressable>
       </View>
 
       <View style={styles.filterRow}>
         <FilterPill
-          label="All Threads"
+          label={t('forum_list.filter_all')}
           active={filter === 'all'}
           onPress={() => setFilter('all')}
         />
         <FilterPill
-          label="My Posts"
+          label={t('forum_list.filter_mine')}
           active={filter === 'mine'}
           onPress={() => setFilter('mine')}
         />
@@ -266,10 +278,8 @@ export default function ForumScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <IconSymbol name="text.bubble" size={36} color="#93C5FD" />
-            <Text style={styles.emptyTitle}>No matching threads yet.</Text>
-            <Text style={styles.emptySubtitle}>
-              Start the first conversation or adjust your search filters.
-            </Text>
+            <Text style={styles.emptyTitle}>{t('forum_list.empty_title')}</Text>
+            <Text style={styles.emptySubtitle}>{t('forum_list.empty_description')}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -315,7 +325,7 @@ export default function ForumScreen() {
                           colorScheme === 'dark' && styles.editPillTextDark,
                         ]}
                       >
-                        Edit
+                        {t('forum_list.action_edit')}
                       </Text>
                     </Pressable>
                     <Pressable
@@ -326,7 +336,7 @@ export default function ForumScreen() {
                       }}
                     >
                       <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
-                      <Text style={styles.deletePillText}>Delete</Text>
+                      <Text style={styles.deletePillText}>{t('forum_list.action_delete')}</Text>
                     </Pressable>
                   </View>
                 )}
@@ -348,15 +358,7 @@ export default function ForumScreen() {
                     colorScheme === 'dark' && styles.threadInfoTextDark,
                   ]}
                 >
-                  Started by:{' '}
-                  <Text
-                    style={[
-                      styles.threadInfoHighlight,
-                      colorScheme === 'dark' && styles.threadInfoHighlightDark,
-                    ]}
-                  >
-                    {item.authorName}
-                  </Text>
+                  {t('forum_list.started_by', { name: item.authorName })}
                 </Text>
               </View>
 
@@ -368,15 +370,7 @@ export default function ForumScreen() {
                     colorScheme === 'dark' && styles.threadInfoTextDark,
                   ]}
                 >
-                  Replies:{' '}
-                  <Text
-                    style={[
-                      styles.threadInfoHighlight,
-                      colorScheme === 'dark' && styles.threadInfoHighlightDark,
-                    ]}
-                  >
-                    {repliesCount}
-                  </Text>
+                  {t('forum_list.replies_count', { count: repliesCount })}
                 </Text>
               </View>
 
@@ -388,24 +382,10 @@ export default function ForumScreen() {
                     colorScheme === 'dark' && styles.threadInfoTextDark,
                   ]}
                 >
-                  Last post:{' '}
-                  <Text
-                    style={[
-                      styles.threadInfoHighlight,
-                      colorScheme === 'dark' && styles.threadInfoHighlightDark,
-                    ]}
-                  >
-                    {lastAuthor}
-                  </Text>
-                  {' on '}
-                  <Text
-                    style={[
-                      styles.threadInfoHighlight,
-                      colorScheme === 'dark' && styles.threadInfoHighlightDark,
-                    ]}
-                  >
-                    {formatFullDate(lastTimestamp)}
-                  </Text>
+                  {t('forum_list.last_post', {
+                    name: lastAuthor,
+                    date: formatFullDate(lastTimestamp, t),
+                  })}
                 </Text>
               </View>
             </Pressable>
@@ -418,7 +398,7 @@ export default function ForumScreen() {
           <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#FACC15" />
           <Text style={styles.errorText}>{error}</Text>
           <Pressable onPress={refresh}>
-            <Text style={styles.errorLink}>Try again</Text>
+            <Text style={styles.errorLink}>{t('forum_list.error_banner')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -432,17 +412,19 @@ export default function ForumScreen() {
         <Pressable style={styles.modalOverlay} onPress={closeThreadComposer}>
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.modalTitle}>
-              {editingThread ? 'Edit Thread' : 'Start a Discussion'}
+              {editingThread
+                ? t('forum_list.modal_edit_title')
+                : t('forum_list.modal_create_title')}
             </Text>
             <TextInput
-              placeholder="Thread title"
+              placeholder={t('forum_list.modal_title_placeholder')}
               placeholderTextColor="#94A3B8"
               value={formTitle}
               onChangeText={setFormTitle}
               style={styles.modalInput}
             />
             <TextInput
-              placeholder="Describe your question or topic"
+              placeholder={t('forum_list.modal_content_placeholder')}
               placeholderTextColor="#94A3B8"
               value={formContent}
               onChangeText={setFormContent}
@@ -458,7 +440,7 @@ export default function ForumScreen() {
                   { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' },
                 ]}
               >
-                Attachment (optional)
+                {t('forum_list.attachment_label')}
               </Text>
               {formAttachment ? (
                 <View style={styles.attachmentPreview}>
@@ -472,7 +454,7 @@ export default function ForumScreen() {
                     onPress={() => setFormAttachment(null)}
                   >
                     <IconSymbol name="xmark.circle.fill" size={18} color="#DC2626" />
-                    <Text style={styles.attachmentRemoveText}>Remove</Text>
+                    <Text style={styles.attachmentRemoveText}>{t('common.delete')}</Text>
                   </Pressable>
                 </View>
               ) : (
@@ -504,18 +486,22 @@ export default function ForumScreen() {
                       { color: colorScheme === 'dark' ? '#DBEAFE' : '#1D4ED8' },
                     ]}
                   >
-                    {pickingAttachment ? 'Opening gallery…' : 'Add an image'}
+                      {pickingAttachment
+                        ? t('forum_list.attachment_loading')
+                        : t('forum_list.attachment_button')}
                   </Text>
                 </Pressable>
               )}
             </View>
             <View style={styles.modalActions}>
               <Pressable style={styles.modalSecondary} onPress={closeThreadComposer}>
-                <Text style={styles.modalSecondaryText}>Cancel</Text>
+                <Text style={styles.modalSecondaryText}>{t('forum_list.modal_cancel')}</Text>
               </Pressable>
               <Pressable style={styles.modalPrimary} onPress={submitThread}>
                 <Text style={styles.modalPrimaryText}>
-                  {editingThread ? 'Save Changes' : 'Publish Thread'}
+                  {editingThread
+                    ? t('forum_list.modal_save')
+                    : t('forum_list.modal_publish')}
                 </Text>
               </Pressable>
             </View>
@@ -526,7 +512,7 @@ export default function ForumScreen() {
       <Pressable
         style={styles.floatingChatButton}
         onPress={() => setShowChatbot(true)}
-        accessibilityLabel="Open AI chatbot"
+        accessibilityLabel={t('main.chat_accessibility')}
       >
         <IconSymbol name="message.fill" size={28} color="#FFFFFF" />
       </Pressable>
@@ -565,9 +551,9 @@ function canManageThread(
   return thread.authorName === identifier || thread.authorName.startsWith(identifier);
 }
 
-function formatFullDate(timestamp: string) {
+function formatFullDate(timestamp: string, translate: (key: string, options?: any) => string) {
   const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
+  if (Number.isNaN(date.getTime())) return translate('forum_list.format_unknown');
   return `${date.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',

@@ -1,8 +1,22 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Button,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useColorScheme,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { API_URL } from './config';
 
@@ -124,7 +138,7 @@ export default function DeleteAccountScreen() {
             returnKeyType="search"
             onSubmitEditing={() => searchStudents(searchQuery)}
           />
-          <Pressable 
+          <Pressable
             onPress={() => searchStudents(searchQuery)}
             accessibilityLabel={t('delete_student.search_button_accessibility')}
             style={({ pressed }) => [
@@ -132,7 +146,11 @@ export default function DeleteAccountScreen() {
               { opacity: pressed ? 0.7 : 1 }
             ]}
           >
-              <IconSymbol name="magnifyingglass.circle.fill" size={22} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+            <Feather
+              name="search"
+              size={18}
+              color={colorScheme === 'dark' ? '#FFFFFF' : '#0F172A'}
+            />
           </Pressable>
         </View>
       </View>

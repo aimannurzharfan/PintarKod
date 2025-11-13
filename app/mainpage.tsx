@@ -2,6 +2,7 @@ import { AIChatbot } from '@/components/ai-chatbot';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForum } from '@/contexts/ForumContext';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -140,7 +141,7 @@ export default function MainPage() {
             style={styles.headerIconButton}
             accessibilityLabel={t('main.notifications_title')}
           >
-            <IconSymbol
+            <Feather
               name="bell"
               size={20}
               color={colorScheme === 'dark' ? '#FACC15' : '#1E293B'}
@@ -166,7 +167,7 @@ export default function MainPage() {
               />
             ) : (
               <View style={styles.headerAvatarFallback}>
-                <IconSymbol size={18} name="person.fill" color="#fff" />
+                <Feather name="user" size={18} color="#fff" />
               </View>
             )}
           </Pressable>

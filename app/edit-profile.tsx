@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -276,7 +277,7 @@ export default function EditProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('edit_profile.username')}</Text>
               <View style={styles.inputWrapper}>
-                <IconSymbol name="person.fill" size={18} color={placeholderColor} />
+                <Feather name="user" size={18} color={placeholderColor} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={username}
@@ -292,7 +293,7 @@ export default function EditProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('edit_profile.email')}</Text>
               <View style={styles.inputWrapper}>
-                <IconSymbol name="envelope.fill" size={18} color={placeholderColor} />
+                <Feather name="mail" size={18} color={placeholderColor} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={email}
@@ -312,7 +313,7 @@ export default function EditProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('edit_profile.new_password')}</Text>
               <View style={styles.inputWrapper}>
-                <IconSymbol name="lock.fill" size={18} color={placeholderColor} />
+                <Feather name="lock" size={18} color={placeholderColor} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={password}
@@ -328,7 +329,7 @@ export default function EditProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('edit_profile.confirm_password')}</Text>
               <View style={styles.inputWrapper}>
-                <IconSymbol name="lock.fill" size={18} color={placeholderColor} />
+                <Feather name="lock" size={18} color={placeholderColor} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={confirmPassword}
@@ -480,6 +481,9 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       borderWidth: 1,
       borderColor: isDark ? 'rgba(148, 163, 184, 0.3)' : '#E2E8F0',
       paddingHorizontal: 14,
+    },
+    inputIcon: {
+      marginTop: 1,
     },
     input: {
       flex: 1,

@@ -17,12 +17,14 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Feather } from '@expo/vector-icons';
 import { API_URL } from './config';
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [role, setRole] = useState('Student');
   const [className, setClassName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -132,40 +134,78 @@ export default function RegisterScreen() {
             <View style={styles.form}>
               <View style={styles.field}>
                 <Text style={styles.label}>{t('register.username')}</Text>
-                <TextInput
-                  placeholder={t('register.username')}
-                  placeholderTextColor={placeholderColor}
-                  value={username}
-                  onChangeText={setUsername}
-                  style={styles.input}
-                  autoCapitalize="words"
-                  textContentType="name"
-                />
+                <View style={styles.inputWrapper}>
+                  <Feather
+                    name="user"
+                    size={18}
+                    color={placeholderColor}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder={t('register.username')}
+                    placeholderTextColor={placeholderColor}
+                    value={username}
+                    onChangeText={setUsername}
+                    style={styles.inputField}
+                    autoCapitalize="words"
+                    textContentType="name"
+                  />
+                </View>
               </View>
               <View style={styles.field}>
                 <Text style={styles.label}>{t('register.email')}</Text>
-                <TextInput
-                  placeholder={t('register.email')}
-                  placeholderTextColor={placeholderColor}
-                  value={email}
-                  onChangeText={setEmail}
-                  style={styles.input}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                />
+                <View style={styles.inputWrapper}>
+                  <Feather
+                    name="mail"
+                    size={18}
+                    color={placeholderColor}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder={t('register.email')}
+                    placeholderTextColor={placeholderColor}
+                    value={email}
+                    onChangeText={setEmail}
+                    style={styles.inputField}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                  />
+                </View>
               </View>
               <View style={styles.field}>
                 <Text style={styles.label}>{t('register.password')}</Text>
-                <TextInput
-                  placeholder={t('register.password')}
-                  placeholderTextColor={placeholderColor}
-                  value={password}
-                  onChangeText={setPassword}
-                  style={styles.input}
-                  secureTextEntry
-                  textContentType="password"
-                />
+                <View style={styles.inputWrapper}>
+                  <Feather
+                    name="lock"
+                    size={18}
+                    color={placeholderColor}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder={t('register.password')}
+                    placeholderTextColor={placeholderColor}
+                    value={password}
+                    onChangeText={setPassword}
+                    style={styles.inputField}
+                    secureTextEntry={!passwordVisible}
+                    textContentType="password"
+                  />
+                  <Pressable
+                    onPress={() => setPasswordVisible((prev) => !prev)}
+                    style={({ pressed }) => [
+                      styles.passwordToggle,
+                      pressed && styles.passwordTogglePressed,
+                    ]}
+                    hitSlop={8}
+                  >
+                    <Feather
+                      name={passwordVisible ? 'eye-off' : 'eye'}
+                      size={18}
+                      color={placeholderColor}
+                    />
+                  </Pressable>
+                </View>
               </View>
 
               {isTeacher && (
@@ -195,7 +235,7 @@ export default function RegisterScreen() {
                       placeholderTextColor={placeholderColor}
                       value={className}
                       onChangeText={setClassName}
-                      style={styles.input}
+                      style={styles.inputStandalone}
                       editable={role !== 'Teacher'}
                     />
                     {role === 'Teacher' && (
@@ -352,7 +392,26 @@ const getStyles = (colorScheme: any) => {
       fontWeight: '600',
       color: palette.text,
     },
-    input: {
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: palette.input,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: palette.border,
+      paddingHorizontal: 14,
+    },
+    inputIcon: {
+      marginTop: 1,
+    },
+    inputField: {
+      flex: 1,
+      fontSize: 15,
+      color: palette.text,
+      paddingVertical: 12,
+    },
+    inputStandalone: {
       backgroundColor: palette.input,
       borderRadius: 16,
       borderWidth: 1,
@@ -361,6 +420,12 @@ const getStyles = (colorScheme: any) => {
       paddingVertical: 14,
       fontSize: 15,
       color: palette.text,
+    },
+    passwordToggle: {
+      padding: 4,
+    },
+    passwordTogglePressed: {
+      opacity: 0.75,
     },
     hintText: {
       fontSize: 12,

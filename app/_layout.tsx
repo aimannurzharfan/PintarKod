@@ -2,6 +2,7 @@ import '../i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ForumProvider } from '@/contexts/ForumContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { Stack } from 'expo-router';
 import i18n from '../i18n';
 import React, { useEffect, useState } from 'react';
@@ -48,8 +49,9 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <ForumProvider>
-        <Stack
+      <NotificationProvider>
+        <ForumProvider>
+          <Stack
       screenOptions={{
         headerStyle: {
           backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7',
@@ -78,8 +80,10 @@ export default function RootLayout() {
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />
       <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />
-        </Stack>
-      </ForumProvider>
+      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+          </Stack>
+        </ForumProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

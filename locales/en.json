@@ -158,7 +158,10 @@
     "menu_logout": "Log Out",
     "menu_cancel": "Cancel",
     "menu_user_fallback": "User",
-    "menu_username_placeholder": "username"
+    "menu_username_placeholder": "username",
+    "notifications_title": "Notifications",
+    "notifications_clear": "Clear",
+    "notifications_empty": "You're all caught up!"
   },
   "forum_list": {
     "title": "Community Forum",
@@ -318,7 +321,15 @@
     "language_title": "App language",
     "language_hint": "Switch between available languages instantly.",
     "language_ms": "Bahasa Melayu",
-    "language_en": "English"
+    "language_en": "English",
+    "notifications_title": "Notifications",
+    "notifications_hint": "Choose which updates you receive from PintarKod.",
+    "notifications_forum": "New forum discussions",
+    "notifications_forum_hint": "Alert me when someone starts a new forum thread.",
+    "notifications_material": "New learning materials",
+    "notifications_material_hint": "Alert me when teachers upload new resources.",
+    "notifications_reply": "Replies to my discussions",
+    "notifications_reply_hint": "Alert me when someone replies to my forum thread."
   }
 }
 

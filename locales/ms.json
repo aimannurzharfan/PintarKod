@@ -158,7 +158,10 @@
     "menu_logout": "Log Keluar",
     "menu_cancel": "Batal",
     "menu_user_fallback": "Pengguna",
-    "menu_username_placeholder": "nama pengguna"
+    "menu_username_placeholder": "nama pengguna",
+    "notifications_title": "Notifikasi",
+    "notifications_clear": "Kosongkan",
+    "notifications_empty": "Tiada makluman buat masa ini."
   },
   "forum_list": {
     "title": "Forum Komuniti",
@@ -318,7 +321,15 @@
     "language_title": "Bahasa aplikasi",
     "language_hint": "Tukar bahasa yang tersedia serta-merta.",
     "language_ms": "Bahasa Melayu",
-    "language_en": "English"
+    "language_en": "English",
+    "notifications_title": "Notifikasi",
+    "notifications_hint": "Pilih kemas kini yang anda ingin terima daripada PintarKod.",
+    "notifications_forum": "Perbincangan forum baharu",
+    "notifications_forum_hint": "Maklumkan saya apabila perbincangan baharu dimulakan.",
+    "notifications_material": "Bahan pembelajaran baharu",
+    "notifications_material_hint": "Maklumkan saya apabila guru memuat naik bahan baharu.",
+    "notifications_reply": "Balasan pada perbincangan saya",
+    "notifications_reply_hint": "Maklumkan saya apabila seseorang membalas thread forum saya."
   }
 }
 

@@ -4,13 +4,42 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForum } from '@/contexts/ForumContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { useNavigation, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Modal, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native';
 import { API_URL } from './config';
 
 const CHEVRON_RIGHT = 'chevron.right' as IconSymbolName;
+
+function formatRelativeTime(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+  const diff = Date.now() - date.getTime();
+
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) {
+    const minutes = Math.round(diff / 60_000);
+    return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+  }
+  if (diff < 86_400_000) {
+    const hours = Math.round(diff / 3_600_000);
+    return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  }
+  const days = Math.round(diff / 86_400_000);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -30,48 +59,70 @@ export default function MainPage() {
   const router = useRouter();
   const navigation = useNavigation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const {
+    notifications,
+    unreadCount,
+    refreshNotifications,
+    markAllAsRead,
+    clearNotifications,
+    loading: notificationsLoading,
+  } = useNotifications();
   const { t } = useTranslation();
 
-  function openMenu() {
+  const openMenu = useCallback(() => {
     setShowProfileMenu(true);
-  }
+  }, []);
 
-
-
-  function closeMenu() {
+  const closeMenu = useCallback(() => {
     setShowProfileMenu(false);
-  }
+  }, []);
 
-  function handleViewProfile() {
+  const openNotificationsPanel = useCallback(() => {
+    setShowNotifications(true);
+    refreshNotifications()
+      .then(() => markAllAsRead())
+      .catch(() => markAllAsRead());
+  }, [markAllAsRead, refreshNotifications]);
+
+  const closeNotificationsPanel = useCallback(() => {
+    setShowNotifications(false);
+  }, []);
+
+  const handleViewProfile = useCallback(() => {
     closeMenu();
     const username = user?.username;
     if (username) {
       router.push(`/profile?username=${encodeURIComponent(username)}`);
     }
-  }
+  }, [closeMenu, router, user?.username]);
 
-  function handleEditProfile() {
+  const handleEditProfile = useCallback(() => {
     closeMenu();
     const username = user?.username;
     if (username) {
       router.push(`/edit-profile?username=${encodeURIComponent(username)}`);
     }
-  }
+  }, [closeMenu, router, user?.username]);
 
-  function handleDeleteAccount() {
+  const handleDeleteAccount = useCallback(() => {
     closeMenu();
     const username = user?.username;
     if (username) {
       router.push(`/delete-account?username=${encodeURIComponent(username)}`);
     }
-  }
+  }, [closeMenu, router, user?.username]);
 
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     closeMenu();
     logout();
     router.replace('/');
-  }
+  }, [closeMenu, logout, router]);
+
+  const handleClearNotifications = useCallback(() => {
+    clearNotifications();
+  }, [clearNotifications]);
 
   const userAvatarUri = useMemo(
     () => resolveAvatarUri(user?.profileImage ?? undefined, user?.avatarUrl ?? undefined),
@@ -82,35 +133,55 @@ export default function MainPage() {
     navigation.setOptions({
       title: t('main.header_title'),
       headerRight: () => (
-        <Pressable
-          onPress={openMenu}
-          hitSlop={12}
-          style={{ paddingHorizontal: 12 }}
-          accessibilityLabel={t('main.menu_view_profile')}
-        >
-          {userAvatarUri ? (
-            <Image
-              source={{ uri: userAvatarUri }}
-              style={{ width: 28, height: 28, borderRadius: 14 }}
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={openNotificationsPanel}
+            hitSlop={12}
+            style={styles.headerIconButton}
+            accessibilityLabel={t('main.notifications_title')}
+          >
+            <IconSymbol
+              name="bell"
+              size={20}
+              color={colorScheme === 'dark' ? '#FACC15' : '#1E293B'}
             />
-          ) : (
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: '#888',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <IconSymbol size={18} name="person.fill" color="#fff" />
-            </View>
-          )}
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </Pressable>
+          <Pressable
+            onPress={openMenu}
+            hitSlop={12}
+            style={styles.headerAvatarButton}
+            accessibilityLabel={t('main.menu_view_profile')}
+          >
+            {userAvatarUri ? (
+              <Image
+                source={{ uri: userAvatarUri }}
+                style={{ width: 28, height: 28, borderRadius: 14 }}
+              />
+            ) : (
+              <View style={styles.headerAvatarFallback}>
+                <IconSymbol size={18} name="person.fill" color="#fff" />
+              </View>
+            )}
+          </Pressable>
+        </View>
       ),
     });
-  }, [navigation, colorScheme, user?.username, userAvatarUri, t]);
+  }, [
+    colorScheme,
+    navigation,
+    openMenu,
+    openNotificationsPanel,
+    t,
+    unreadCount,
+    userAvatarUri,
+  ]);
 
   const discussionCards = useMemo(
     () => [
@@ -349,6 +420,115 @@ export default function MainPage() {
         </Pressable>
       </Modal>
 
+      <Modal
+        visible={showNotifications}
+        transparent
+        animationType="fade"
+        onRequestClose={closeNotificationsPanel}
+      >
+        <Pressable style={styles.notificationsOverlay} onPress={closeNotificationsPanel}>
+          <Pressable
+            style={[
+              styles.notificationsCard,
+              { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF' },
+            ]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.notificationsHeader}>
+              <Text
+                style={[
+                  styles.notificationsTitle,
+                  { color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A' },
+                ]}
+              >
+                {t('main.notifications_title')}
+              </Text>
+              {notifications.length ? (
+                <Pressable
+                  style={styles.notificationsClearButton}
+                  onPress={handleClearNotifications}
+                  disabled={notificationsLoading}
+                >
+                  <Text style={styles.notificationsClearText}>
+                    {t('main.notifications_clear')}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {notificationsLoading ? (
+              <View style={styles.notificationsLoading}>
+                <ActivityIndicator size="small" color="#2563EB" />
+              </View>
+            ) : notifications.length ? (
+              <ScrollView
+                style={styles.notificationsList}
+                contentContainerStyle={styles.notificationsListContent}
+              >
+                {notifications.map((notification) => (
+                  <View
+                    key={notification.id}
+                    style={[
+                      styles.notificationItem,
+                      {
+                        backgroundColor:
+                          colorScheme === 'dark'
+                            ? 'rgba(148, 163, 184, 0.16)'
+                            : 'rgba(148, 163, 184, 0.12)',
+                      },
+                    ]}
+                  >
+                    <View style={styles.notificationText}>
+                      <Text
+                        style={[
+                          styles.notificationTitle,
+                          { color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A' },
+                        ]}
+                      >
+                        {notification.title}
+                      </Text>
+                      {notification.message ? (
+                        <Text
+                          style={[
+                            styles.notificationMessage,
+                            { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' },
+                          ]}
+                        >
+                          {notification.message}
+                        </Text>
+                      ) : null}
+                      <Text
+                        style={[
+                          styles.notificationTime,
+                          { color: colorScheme === 'dark' ? '#94A3B8' : '#64748B' },
+                        ]}
+                      >
+                        {formatRelativeTime(notification.createdAt)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.notificationsEmpty}>
+                <IconSymbol
+                  name="bell.slash"
+                  size={28}
+                  color={colorScheme === 'dark' ? '#64748B' : '#94A3B8'}
+                />
+                <Text
+                  style={[
+                    styles.notificationsEmptyText,
+                    { color: colorScheme === 'dark' ? '#94A3B8' : '#64748B' },
+                  ]}
+                >
+                  {t('main.notifications_empty')}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Floating Chat Bubble */}
       <Pressable
         style={styles.floatingChatButton}
@@ -367,6 +547,131 @@ export default function MainPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 8,
+  },
+  headerIconButton: {
+    position: 'relative',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  headerAvatarButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  headerAvatarFallback: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#888',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  notificationsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingTop: 72,
+    paddingHorizontal: 16,
+    alignItems: 'flex-end',
+  },
+  notificationsCard: {
+    width: '92%',
+    maxWidth: 360,
+    alignSelf: 'flex-end',
+    borderRadius: 20,
+    padding: 18,
+    gap: 16,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+    maxHeight: '70%',
+  },
+  notificationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  notificationsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  notificationsClearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+  },
+  notificationsClearText: {
+    color: '#2563EB',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  notificationsLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  notificationsList: {
+    maxHeight: 320,
+  },
+  notificationsListContent: {
+    gap: 12,
+    paddingBottom: 4,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    padding: 12,
+    gap: 12,
+  },
+  notificationText: {
+    flex: 1,
+    gap: 4,
+  },
+  notificationTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  notificationMessage: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  notificationTime: {
+    fontSize: 12,
+  },
+  notificationsEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 28,
+  },
+  notificationsEmptyText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
   headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 12 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#DDD' },
   avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center' },

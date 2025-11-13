@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
   useColorScheme,
@@ -13,12 +14,21 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import {
+  useNotifications,
+  type NotificationPreferences,
+} from '@/contexts/NotificationContext';
 
 export default function SettingsScreen() {
   const { i18n, t } = useTranslation();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
+  const {
+    preferences,
+    updatePreferences,
+    updatingPreferences,
+  } = useNotifications();
 
   const languages = useMemo(
     () => [
@@ -40,6 +50,13 @@ export default function SettingsScreen() {
       }
     },
     [i18n]
+  );
+
+  const handlePreferenceToggle = useCallback(
+    (key: keyof NotificationPreferences, value: boolean) => {
+      updatePreferences({ [key]: value });
+    },
+    [updatePreferences]
   );
 
   return (
@@ -94,6 +111,70 @@ export default function SettingsScreen() {
             })}
           </View>
         </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <IconSymbol
+              name="bell"
+              size={20}
+              color={colorScheme === 'dark' ? '#FCD34D' : '#F59E0B'}
+            />
+            <Text style={styles.cardTitle}>{t('settings.notifications_title')}</Text>
+          </View>
+          <Text style={styles.cardDescription}>{t('settings.notifications_hint')}</Text>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceText}>
+              <Text style={styles.preferenceTitle}>{t('settings.notifications_forum')}</Text>
+              <Text style={styles.preferenceSubtitle}>
+                {t('settings.notifications_forum_hint')}
+              </Text>
+            </View>
+            <Switch
+              value={preferences.notifyNewForumThreads}
+              onValueChange={(value) =>
+                handlePreferenceToggle('notifyNewForumThreads', value)
+              }
+              disabled={updatingPreferences}
+            />
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceText}>
+              <Text style={styles.preferenceTitle}>
+                {t('settings.notifications_material')}
+              </Text>
+              <Text style={styles.preferenceSubtitle}>
+                {t('settings.notifications_material_hint')}
+              </Text>
+            </View>
+            <Switch
+              value={preferences.notifyNewLearningMaterials}
+              onValueChange={(value) =>
+                handlePreferenceToggle('notifyNewLearningMaterials', value)
+              }
+              disabled={updatingPreferences}
+            />
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceText}>
+              <Text style={styles.preferenceTitle}>
+                {t('settings.notifications_reply')}
+              </Text>
+              <Text style={styles.preferenceSubtitle}>
+                {t('settings.notifications_reply_hint')}
+              </Text>
+            </View>
+            <Switch
+              value={preferences.notifyForumReplies}
+              onValueChange={(value) =>
+                handlePreferenceToggle('notifyForumReplies', value)
+              }
+              disabled={updatingPreferences}
+            />
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -140,7 +221,7 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : '#FFFFFF',
       borderRadius: 24,
       padding: 20,
-      gap: 14,
+      gap: 18,
       borderWidth: 1,
       borderColor: isDark ? 'rgba(148, 163, 184, 0.25)' : '#E2E8F0',
       shadowColor: '#0F172A',
@@ -191,6 +272,24 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     languageButtonTextActive: {
       color: '#2563EB',
     },
+    preferenceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    preferenceText: {
+      flex: 1,
+      gap: 2,
+    },
+    preferenceTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: isDark ? '#E2E8F0' : '#0F172A',
+    },
+    preferenceSubtitle: {
+      fontSize: 13,
+      color: isDark ? '#94A3B8' : '#64748B',
+    },
   });
 };
-

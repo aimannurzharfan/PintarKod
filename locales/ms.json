@@ -12,7 +12,9 @@
     "username_placeholder": "nama pengguna",
     "error": "Ralat",
     "success": "Berjaya",
-    "confirm": "Sahkan"
+    "confirm": "Sahkan",
+    "reset": "Tetapkan semula",
+    "back": "Kembali"
   },
   "login": {
     "title": "Log Masuk",
@@ -121,7 +123,17 @@
     "success_message": "Profil anda telah dikemaskini.",
     "validation": "Sila lengkapkan ruangan yang diperlukan.",
     "password_mismatch": "Kata laluan tidak sepadan.",
-    "error_generic": "Gagal mengemaskini profil."
+    "error_generic": "Gagal mengemaskini profil.",
+    "avatar_title": "Gambar profil",
+    "avatar_hint": "Gunakan gambar berbentuk segi empat untuk paparan terbaik.",
+    "avatar_upload": "Muat naik gambar",
+    "avatar_change": "Tukar gambar",
+    "avatar_permission_title": "Kebenaran diperlukan",
+    "avatar_permission_message": "Sila benarkan akses pustaka foto untuk memilih gambar profil.",
+    "avatar_error_title": "Gambar profil",
+    "avatar_unreadable": "Gambar yang dipilih tidak dapat dibaca. Sila cuba gambar lain.",
+    "avatar_generic_error": "Tidak dapat membuka pemilih gambar. Sila cuba lagi.",
+    "avatar_upload_failed": "Tidak dapat mengemas kini gambar profil anda."
   },
   "main": {
     "header_title": "Laman Utama",
@@ -142,6 +154,7 @@
     "menu_edit_profile": "Kemaskini Profil",
     "menu_register": "Daftar Pengguna Baharu",
     "menu_delete_account": "Padam Akaun",
+    "menu_settings": "Tetapan",
     "menu_logout": "Log Keluar",
     "menu_cancel": "Batal",
     "menu_user_fallback": "Pengguna",
@@ -298,6 +311,14 @@
     "student_role": "Peranan: {{role}}",
     "student_joined": "Tarikh daftar: {{date}}",
     "network_error": "Ralat rangkaian."
+  },
+  "settings": {
+    "title": "Tetapan",
+    "description": "Sesuaikan cara aplikasi ini kelihatan dan berfungsi.",
+    "language_title": "Bahasa aplikasi",
+    "language_hint": "Tukar bahasa yang tersedia serta-merta.",
+    "language_ms": "Bahasa Melayu",
+    "language_en": "English"
   }
 }
 

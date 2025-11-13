@@ -12,7 +12,9 @@
     "username_placeholder": "username",
     "error": "Error",
     "success": "Success",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "reset": "Reset",
+    "back": "Back"
   },
   "login": {
     "title": "Login",
@@ -121,7 +123,17 @@
     "success_message": "Your profile has been updated.",
     "validation": "Please complete the required fields.",
     "password_mismatch": "Passwords do not match.",
-    "error_generic": "Failed to update profile."
+    "error_generic": "Failed to update profile.",
+    "avatar_title": "Profile photo",
+    "avatar_hint": "Use a square image for the best fit.",
+    "avatar_upload": "Upload photo",
+    "avatar_change": "Change photo",
+    "avatar_permission_title": "Permission needed",
+    "avatar_permission_message": "Please allow photo library access to choose a profile picture.",
+    "avatar_error_title": "Profile photo",
+    "avatar_unreadable": "Unable to read the selected image. Please try another picture.",
+    "avatar_generic_error": "Could not open the photo picker. Please try again.",
+    "avatar_upload_failed": "Could not update your profile photo."
   },
   "main": {
     "header_title": "Main Page",
@@ -142,6 +154,7 @@
     "menu_edit_profile": "Edit Profile",
     "menu_register": "Register New User",
     "menu_delete_account": "Delete Account",
+    "menu_settings": "Settings",
     "menu_logout": "Log Out",
     "menu_cancel": "Cancel",
     "menu_user_fallback": "User",
@@ -298,6 +311,14 @@
     "student_role": "Role: {{role}}",
     "student_joined": "Joined: {{date}}",
     "network_error": "Network error."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Personalise how the app looks and feels.",
+    "language_title": "App language",
+    "language_hint": "Switch between available languages instantly.",
+    "language_ms": "Bahasa Melayu",
+    "language_en": "English"
   }
 }
 

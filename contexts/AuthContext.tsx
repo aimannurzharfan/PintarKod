@@ -7,6 +7,9 @@ type AuthUser = {
   role?: string;
   avatarUrl?: string;
   profileImage?: string | null;
+  notifyNewForumThreads?: boolean;
+  notifyNewLearningMaterials?: boolean;
+  notifyForumReplies?: boolean;
 } | null;
 
 type AuthContextValue = {

@@ -106,6 +106,24 @@ function saveBase64File(fileData) {
 
 const prisma = new PrismaClient();
 
+async function createNotificationsForUsers(userIds, payload) {
+  if (!Array.isArray(userIds) || !userIds.length) return;
+  try {
+    await prisma.notification.createMany({
+      data: userIds.map((userId) => ({
+        userId,
+        type: payload.type,
+        title: payload.title,
+        message: payload.message ?? null,
+        data: payload.data ?? null,
+      })),
+      skipDuplicates: false,
+    });
+  } catch (err) {
+    console.error('Notification create error', err);
+  }
+}
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -480,6 +498,28 @@ app.post('/api/forum/threads', async (req, res) => {
       },
       include: forumThreadInclude
     });
+    try {
+      const recipients = await prisma.user.findMany({
+        where: {
+          id: { not: authorIdNum },
+          notifyNewForumThreads: true,
+        },
+        select: { id: true, username: true, email: true },
+      });
+      if (recipients.length) {
+        await createNotificationsForUsers(
+          recipients.map((recipient) => recipient.id),
+          {
+            type: 'NEW_FORUM_THREAD',
+            title: 'New forum discussion',
+            message: `${thread.author?.username || thread.author?.email || 'Someone'} started "${thread.title}"`,
+            data: { threadId: thread.id },
+          }
+        );
+      }
+    } catch (notifyErr) {
+      console.error('Thread notification dispatch error', notifyErr);
+    }
     res.status(201).json(thread);
   } catch (err) {
     console.error('Create thread error', err);
@@ -563,6 +603,30 @@ app.post('/api/forum/threads/:id/comments', async (req, res) => {
       where: { id: threadId },
       data: { updatedAt: new Date() }
     });
+    try {
+      if (thread.authorId !== authorIdNum) {
+        const threadAuthor = await prisma.user.findUnique({
+          where: { id: thread.authorId },
+          select: {
+            id: true,
+            notifyForumReplies: true,
+          },
+        });
+        if (threadAuthor?.notifyForumReplies) {
+          await createNotificationsForUsers([threadAuthor.id], {
+            type: 'FORUM_REPLY',
+            title: 'New reply in your discussion',
+            message: `${comment.author?.username || comment.author?.email || 'Someone'} replied to "${thread.title}"`,
+            data: {
+              threadId,
+              commentId: comment.id,
+            },
+          });
+        }
+      }
+    } catch (notifyErr) {
+      console.error('Forum reply notification error', notifyErr);
+    }
     res.status(201).json(comment);
   } catch (err) {
     console.error('Create comment error', err);
@@ -815,6 +879,28 @@ app.post('/api/learning-materials', async (req, res) => {
       },
       include: learningMaterialInclude,
     });
+    try {
+      const recipients = await prisma.user.findMany({
+        where: {
+          id: { not: authorIdNum },
+          notifyNewLearningMaterials: true,
+        },
+        select: { id: true },
+      });
+      if (recipients.length) {
+        await createNotificationsForUsers(
+          recipients.map((recipient) => recipient.id),
+          {
+            type: 'NEW_LEARNING_MATERIAL',
+            title: 'New learning material',
+            message: `${author.username || author.email || 'A teacher'} shared "${material.title}"`,
+            data: { materialId: material.id },
+          }
+        );
+      }
+    } catch (notifyErr) {
+      console.error('Learning material notification error', notifyErr);
+    }
     res.status(201).json(normalizeLearningMaterial(material));
   } catch (err) {
     console.error('Create learning material error', err);
@@ -937,6 +1023,97 @@ app.delete('/api/learning-materials/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Delete learning material error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId);
+    if (!Number.isInteger(userId)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    res.json(notifications);
+  } catch (err) {
+    console.error('List notifications error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/notifications/mark-read', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    await prisma.notification.updateMany({
+      where: { userId: id, isRead: false },
+      data: { isRead: true },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark notifications read error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/notifications/clear', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    await prisma.notification.deleteMany({
+      where: { userId: id },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Clear notifications error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/notifications/preferences', async (req, res) => {
+  try {
+    const { userId, notifyNewForumThreads, notifyNewLearningMaterials, notifyForumReplies } =
+      req.body || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    const data = {};
+    if (typeof notifyNewForumThreads === 'boolean') {
+      data.notifyNewForumThreads = notifyNewForumThreads;
+    }
+    if (typeof notifyNewLearningMaterials === 'boolean') {
+      data.notifyNewLearningMaterials = notifyNewLearningMaterials;
+    }
+    if (typeof notifyForumReplies === 'boolean') {
+      data.notifyForumReplies = notifyForumReplies;
+    }
+    if (!Object.keys(data).length) {
+      return res.status(400).json({ error: 'No valid preference flags provided' });
+    }
+    const updated = await prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        notifyNewForumThreads: true,
+        notifyNewLearningMaterials: true,
+        notifyForumReplies: true,
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Update notification preferences error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

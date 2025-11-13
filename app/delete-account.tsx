@@ -160,26 +160,66 @@ export default function DeleteAccountScreen() {
         {searching ? (
           <ActivityIndicator style={styles.loading} />
         ) : selectedStudent ? (
-          <View style={styles.studentCard}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.studentCard,
+              pressed && { opacity: 0.92 },
+            ]}
+            onPress={() => setShowDeleteModal(true)}
+            accessibilityLabel={t('delete_student.select_student')}
+          >
             <View style={styles.studentInfo}>
-              <StudentAvatar profileImage={selectedStudent.profileImage} avatarUrl={selectedStudent.avatarUrl} />
+              <StudentAvatar
+                profileImage={selectedStudent.profileImage}
+                avatarUrl={selectedStudent.avatarUrl}
+              />
               <View style={styles.studentDetails}>
-                <Text style={[styles.studentName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                  {selectedStudent.username}
-                </Text>
-                <Text style={[styles.studentEmail, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                <View style={styles.studentNameRow}>
+                  <Text
+                    style={[
+                      styles.studentName,
+                      { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' },
+                    ]}
+                  >
+                    {selectedStudent.username}
+                  </Text>
+                  <Feather name="trash-2" size={18} color="#b00" />
+                </View>
+                <Text
+                  style={[
+                    styles.studentEmail,
+                    { color: colorScheme === 'dark' ? '#999' : '#666' },
+                  ]}
+                >
                   {selectedStudent.email}
                 </Text>
                 {selectedStudent.fullName ? (
-                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>{selectedStudent.fullName}</Text>
+                  <Text
+                    style={[
+                      styles.studentMeta,
+                      { color: colorScheme === 'dark' ? '#999' : '#666' },
+                    ]}
+                  >
+                    {selectedStudent.fullName}
+                  </Text>
                 ) : null}
                 {selectedStudent.role ? (
-                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                  <Text
+                    style={[
+                      styles.studentMeta,
+                      { color: colorScheme === 'dark' ? '#999' : '#666' },
+                    ]}
+                  >
                     {t('delete_student.student_role', { role: selectedStudent.role })}
                   </Text>
                 ) : null}
                 {selectedStudent.createdAt ? (
-                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                  <Text
+                    style={[
+                      styles.studentMeta,
+                      { color: colorScheme === 'dark' ? '#999' : '#666' },
+                    ]}
+                  >
                     {t('delete_student.student_joined', {
                       date: new Date(selectedStudent.createdAt).toLocaleDateString(),
                     })}
@@ -187,16 +227,7 @@ export default function DeleteAccountScreen() {
                 ) : null}
               </View>
             </View>
-            <Pressable
-              onPress={() => setShowDeleteModal(true)}
-              style={({ pressed }) => [
-                styles.deleteButton,
-                { opacity: pressed ? 0.8 : 1 }
-              ]}
-            >
-              <IconSymbol name="trash" size={18} color="#fff" />
-            </Pressable>
-          </View>
+          </Pressable>
         ) : searchResults.length > 0 ? (
           // show list fallback if searchResults available
           searchResults.map((student) => (
@@ -353,6 +384,12 @@ const getStyles = (colorScheme: any) => StyleSheet.create({
   studentDetails: {
     marginLeft: 12,
     flex: 1,
+  },
+  studentNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   studentName: {
     fontSize: 16,

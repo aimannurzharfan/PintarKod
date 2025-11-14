@@ -767,40 +767,51 @@ function normalizeLearningMaterial(material) {
 app.get('/api/learning-materials', async (req, res) => {
   try {
     const { q = '', topic = '', type = '' } = req.query;
-    const filters = {};
     const searchTerm = typeof q === 'string' ? q.trim() : '';
-    const topicFilter = typeof topic === 'string' ? topic.trim().toUpperCase() : '';
-    const typeFilter = typeof type === 'string' ? type.trim().toUpperCase() : '';
+    const topicFilterRaw = typeof topic === 'string' ? topic.trim() : '';
+    const typeFilterRaw = typeof type === 'string' ? type.trim() : '';
 
-    if (topicFilter) {
-      if (!LEARNING_MATERIAL_TOPICS.has(topicFilter)) {
-        return res.status(400).json({ error: 'Invalid topic filter' });
+    const andFilters = [];
+
+    if (topicFilterRaw) {
+      const topicFilter = topicFilterRaw.toUpperCase();
+      if (topicFilter !== 'ALL') {
+        if (!LEARNING_MATERIAL_TOPICS.has(topicFilter)) {
+          return res.status(400).json({ error: 'Invalid topic filter' });
+        }
+        andFilters.push({ topic: topicFilter });
       }
-      filters.topic = topicFilter;
-    }
-    if (typeFilter) {
-      if (!LEARNING_MATERIAL_TYPES.has(typeFilter)) {
-        return res.status(400).json({ error: 'Invalid type filter' });
-      }
-      filters.materialType = typeFilter;
     }
 
-    const whereClause = Object.keys(filters).length ? { ...filters } : undefined;
-    if (searchTerm) {
-      Object.assign(whereClause || filters, {
-        OR: [
-          { title: { contains: searchTerm } },
-          { description: { contains: searchTerm } },
-        ],
-      });
+    if (typeFilterRaw) {
+      const typeFilter = typeFilterRaw.toUpperCase();
+      if (typeFilter !== 'ALL') {
+        if (!LEARNING_MATERIAL_TYPES.has(typeFilter)) {
+          return res.status(400).json({ error: 'Invalid type filter' });
+        }
+        andFilters.push({ materialType: typeFilter });
+      }
     }
+
+    const whereClause = andFilters.length ? { AND: andFilters } : undefined;
 
     const materials = await prisma.learningMaterial.findMany({
       where: whereClause,
       include: learningMaterialInclude,
       orderBy: { updatedAt: 'desc' },
     });
-    res.json(materials.map(normalizeLearningMaterial));
+    const normalized = materials.map(normalizeLearningMaterial);
+
+    const filtered = searchTerm
+      ? normalized.filter((material) => {
+          const query = searchTerm.toLowerCase();
+          const title = material.title?.toLowerCase() ?? '';
+          const description = material.description?.toLowerCase() ?? '';
+          return title.includes(query) || description.includes(query);
+        })
+      : normalized;
+
+    res.json(filtered);
   } catch (err) {
     console.error('List learning materials error', err);
     res.status(500).json({ error: 'Internal server error' });

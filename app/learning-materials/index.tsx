@@ -695,9 +695,6 @@ export default function LearningMaterialsScreen() {
             returnKeyType="search"
           />
         </View>
-        <Pressable style={styles.refreshButton} onPress={() => loadMaterials()}>
-          <IconSymbol name="arrow.clockwise" size={18} color="#2563EB" />
-        </Pressable>
       </View>
 
       <View style={styles.filtersSection}>
@@ -1027,16 +1024,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#0F172A',
-  },
-  refreshButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFF',
   },
   filtersSection: {
     marginBottom: 16,

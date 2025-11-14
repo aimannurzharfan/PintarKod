@@ -595,7 +595,7 @@ app.post('/api/forum/threads/:id/comments', async (req, res) => {
         authorId: authorIdNum
       },
       include: {
-        author: { select: { id: true, username: true, email: true } },
+        author: { select: { id: true, username: true, email: true, role: true } },
         thread: false
       }
     });
@@ -651,7 +651,7 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
     const existing = await prisma.forumComment.findUnique({
       where: { id: commentId },
       include: {
-        author: { select: { id: true, username: true, email: true } }
+        author: { select: { id: true, username: true, email: true, role: true } }
       }
     });
     if (!existing) return res.status(404).json({ error: 'Comment not found' });
@@ -663,7 +663,7 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
       where: { id: commentId },
       data: { content },
       include: {
-        author: { select: { id: true, username: true, email: true } }
+        author: { select: { id: true, username: true, email: true, role: true } }
       }
     });
     await prisma.forumThread.update({
@@ -683,19 +683,54 @@ app.delete('/api/forum/threads/:id', async (req, res) => {
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'Invalid thread id' });
     }
-    const authorIdNum = Number(req.query.authorId ?? req.body?.authorId);
-    if (!Number.isInteger(authorIdNum)) {
+    const actorId = Number(req.query.authorId ?? req.body?.authorId);
+    if (!Number.isInteger(actorId)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
     }
-    const thread = await prisma.forumThread.findUnique({ where: { id } });
+    
+    const thread = await prisma.forumThread.findUnique({ 
+      where: { id },
+      include: {
+        author: { select: { id: true, role: true } },
+      },
+    });
     if (!thread) return res.status(404).json({ error: 'Thread not found' });
-    if (Number(thread.authorId) !== Number(authorIdNum)) {
-      return res.status(403).json({ error: 'You can only delete threads you created' });
+
+    const isOwner = Number(thread.authorId) === Number(actorId);
+    
+    // Check if actor is a teacher trying to delete a student's thread
+    let hasPermission = isOwner;
+    if (!isOwner) {
+      const actor = await prisma.user.findUnique({
+        where: { id: actorId },
+        select: { id: true, role: true },
+      });
+      if (!actor) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const actorIsTeacher = actor.role === 'Teacher';
+      const targetIsStudent = thread.author && thread.author.role === 'Student';
+      hasPermission = actorIsTeacher && targetIsStudent;
     }
+
+    if (!hasPermission) {
+      return res.status(403).json({ error: 'You do not have permission to delete this thread' });
+    }
+
+    // Delete all comments first (to handle foreign key constraints)
+    await prisma.forumComment.deleteMany({ where: { threadId: id } });
+    
+    // Then delete the thread
     await prisma.forumThread.delete({ where: { id } });
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     console.error('Delete thread error', err);
+    console.error('Error details:', {
+      message: err?.message,
+      stack: err?.stack,
+      code: err?.code,
+    });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -730,7 +765,7 @@ app.delete('/api/forum/comments/:commentId', async (req, res) => {
 
     const isOwner = existing.authorId === actorId;
     const actorIsTeacher = actor.role === 'Teacher';
-    const targetIsStudent = existing.author?.role === 'Student';
+    const targetIsStudent = existing.author && existing.author.role === 'Student';
 
     if (!isOwner && !(actorIsTeacher && targetIsStudent)) {
       return res.status(403).json({ error: 'You do not have permission to delete this comment' });

@@ -306,38 +306,43 @@ export default function ForumScreen() {
                 >
                   {item.title}
                 </Text>
-                {canManageThread(item, user?.id, user?.username, user?.email) && (
+                {(canManageThread(item, user?.id, user?.username, user?.email) ||
+                  canDeleteThread(item, user?.id, user?.username, user?.email, user?.role)) && (
                   <View style={styles.threadActions}>
-                    <Pressable
-                      style={[
-                        styles.editPill,
-                        colorScheme === 'dark' && styles.editPillDark,
-                      ]}
-                      onPress={(event) => {
-                        event.stopPropagation();
-                        openThreadComposer(item);
-                      }}
-                    >
-                      <IconSymbol name="pencil" size={14} color={colorScheme === 'dark' ? '#BFDBFE' : '#2563EB'} />
-                      <Text
+                    {canManageThread(item, user?.id, user?.username, user?.email) && (
+                      <Pressable
                         style={[
-                          styles.editPillText,
-                          colorScheme === 'dark' && styles.editPillTextDark,
+                          styles.editPill,
+                          colorScheme === 'dark' && styles.editPillDark,
                         ]}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          openThreadComposer(item);
+                        }}
                       >
-                        {t('forum_list.action_edit')}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.deletePill}
-                      onPress={(event) => {
-                        event.stopPropagation();
-                        confirmDeleteThread(item);
-                      }}
-                    >
-                      <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
-                      <Text style={styles.deletePillText}>{t('forum_list.action_delete')}</Text>
-                    </Pressable>
+                        <IconSymbol name="pencil" size={14} color={colorScheme === 'dark' ? '#BFDBFE' : '#2563EB'} />
+                        <Text
+                          style={[
+                            styles.editPillText,
+                            colorScheme === 'dark' && styles.editPillTextDark,
+                          ]}
+                        >
+                          {t('forum_list.action_edit')}
+                        </Text>
+                      </Pressable>
+                    )}
+                    {canDeleteThread(item, user?.id, user?.username, user?.email, user?.role) && (
+                      <Pressable
+                        style={styles.deletePill}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          confirmDeleteThread(item);
+                        }}
+                      >
+                        <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
+                        <Text style={styles.deletePillText}>{t('forum_list.action_delete')}</Text>
+                      </Pressable>
+                    )}
                   </View>
                 )}
               </View>
@@ -549,6 +554,24 @@ function canManageThread(
   const identifier = username || email;
   if (!identifier) return false;
   return thread.authorName === identifier || thread.authorName.startsWith(identifier);
+}
+
+function canDeleteThread(
+  thread: ForumThread,
+  userId?: string | number | null,
+  username?: string | null,
+  email?: string,
+  userRole?: string | null
+) {
+  // Check if user is the owner
+  const isOwner = canManageThread(thread, userId, username, email);
+  if (isOwner) return true;
+  
+  // Allow teachers to delete threads posted by students
+  const actorIsTeacher = userRole === 'Teacher';
+  const targetIsStudent = thread.authorRole === 'Student';
+  
+  return actorIsTeacher && targetIsStudent;
 }
 
 function formatFullDate(timestamp: string, translate: (key: string, options?: any) => string) {

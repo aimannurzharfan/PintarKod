@@ -626,24 +626,27 @@ export default function LearningMaterialsScreen() {
           </View>
 
           <View style={styles.cardActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={() => openResource(item)}
-            >
-              <IconSymbol
-                name={item.materialType === 'VIDEO' ? 'play.circle.fill' : 'doc.text.fill'}
-                size={18}
-                color="#FFFFFF"
-              />
-              <Text style={styles.primaryButtonText}>
-                {item.materialType === 'VIDEO'
-                  ? t('materials.button_watch')
-                  : t('materials.button_view')}
-              </Text>
-            </Pressable>
+            {((item.materialType === 'VIDEO' && item.videoUrl) ||
+              (item.materialType !== 'VIDEO' && item.fileUrl)) && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={() => openResource(item)}
+              >
+                <IconSymbol
+                  name={item.materialType === 'VIDEO' ? 'play.circle.fill' : 'doc.text.fill'}
+                  size={18}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.primaryButtonText}>
+                  {item.materialType === 'VIDEO'
+                    ? t('materials.button_watch')
+                    : t('materials.button_view')}
+                </Text>
+              </Pressable>
+            )}
             {isOwner ? (
               <View style={styles.ownerActions}>
                 <Pressable

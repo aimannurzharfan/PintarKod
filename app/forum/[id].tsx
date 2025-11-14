@@ -355,10 +355,32 @@ const [showChatbot, setShowChatbot] = useState(false);
           </View>
         ) : (
           thread.comments.map((comment) => {
+            // Check if current user is the comment author
             const isAuthor = canManageComment(comment, user?.id, user?.username, user?.email);
-            const targetRole = comment.authorRole ? comment.authorRole.toLowerCase() : undefined;
-            const canModerate = isTeacher && targetRole === 'student';
+            
+            // Get the comment author's role from the backend data
+            const commentAuthorRole = comment.authorRole;
+            // Check if comment is from a student (case-insensitive check)
+            const isStudentComment = commentAuthorRole && 
+              String(commentAuthorRole).trim() === 'Student';
+            
+            // Teacher can delete if: user is teacher AND comment is from a student
+            const canModerate = isTeacher && isStudentComment;
+            
+            // The final decision: can delete if user is author OR teacher can moderate
             const canDelete = isAuthor || canModerate;
+            
+            // Temporary debug - remove after confirming it works
+            if (isTeacher && !isAuthor) {
+              console.log('Teacher viewing comment:', {
+                commentId: comment.id,
+                authorRole: commentAuthorRole,
+                isStudentComment,
+                canModerate,
+                canDelete,
+                userRole: user?.role,
+              });
+            }
 
             return (
               <View key={comment.id} style={styles.commentCard}>
@@ -367,7 +389,7 @@ const [showChatbot, setShowChatbot] = useState(false);
                   <Text style={styles.commentTimestamp}>{formatRelativeTime(comment.updatedAt)}</Text>
                 </View>
                 <Text style={styles.commentBody}>{comment.content}</Text>
-                {(isAuthor || canDelete) && (
+                {canDelete && (
                   <View style={styles.commentActions}>
                     {isAuthor && (
                       <Pressable
@@ -380,17 +402,15 @@ const [showChatbot, setShowChatbot] = useState(false);
                         </Text>
                       </Pressable>
                     )}
-                    {canDelete && (
-                      <Pressable
-                        style={styles.commentDeleteAction}
-                        onPress={() => confirmDeleteComment(comment)}
-                      >
-                        <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
-                        <Text style={styles.commentDeleteText}>
-                          {t('forum_thread.action_delete')}
-                        </Text>
-                      </Pressable>
-                    )}
+                    <Pressable
+                      style={styles.commentDeleteAction}
+                      onPress={() => confirmDeleteComment(comment)}
+                    >
+                      <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
+                      <Text style={styles.commentDeleteText}>
+                        {t('forum_thread.action_delete')}
+                      </Text>
+                    </Pressable>
                   </View>
                 )}
               </View>

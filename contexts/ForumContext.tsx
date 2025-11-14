@@ -26,6 +26,7 @@ export type ForumThread = {
   attachment: string | null;
   authorId: string;
   authorName: string;
+  authorRole?: string | null;
   createdAt: string;
   updatedAt: string;
   comments: ForumComment[];
@@ -111,13 +112,27 @@ export function ForumProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const normalizeComment = useCallback((comment: any): ForumComment => {
+    // Extract author role - check both nested author object and direct property
+    const authorRole = comment.author?.role || comment.authorRole || null;
+    
+    // Temporary debug - remove after fixing
+    if (!authorRole && comment.author) {
+      console.log('Comment normalization debug:', {
+        commentId: comment.id,
+        hasAuthor: !!comment.author,
+        authorKeys: comment.author ? Object.keys(comment.author) : [],
+        author: comment.author,
+        authorRole: comment.author?.role,
+      });
+    }
+    
     return {
       id: String(comment.id),
       threadId: String(comment.threadId),
       content: comment.content,
       authorId: comment.authorId != null ? String(comment.authorId) : '',
       authorName: comment.author?.username || comment.author?.email || 'Unknown user',
-      authorRole: comment.author?.role ?? comment.authorRole ?? null,
+      authorRole: authorRole,
       createdAt: comment.createdAt,
       updatedAt: comment.updatedAt,
     };
@@ -131,6 +146,7 @@ export function ForumProvider({ children }: { children: React.ReactNode }) {
       attachment: thread.attachment ?? null,
       authorId: String(thread.authorId),
       authorName: thread.author?.username || thread.author?.email || 'Unknown user',
+      authorRole: thread.author?.role ?? thread.authorRole ?? null,
       createdAt: thread.createdAt,
       updatedAt: thread.updatedAt,
       comments: (thread.comments || []).map(normalizeComment),

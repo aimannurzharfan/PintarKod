@@ -76,7 +76,10 @@ export default function RootLayout() {
       <Stack.Screen name="forum/index" options={{ title: 'Forum' }} />
       <Stack.Screen name="forum/[id]" options={{ title: 'Thread' }} />
       <Stack.Screen name="learning-materials/index" options={{ title: 'Learning Materials' }} />
+      <Stack.Screen name="games/index" options={{ title: 'Games' }} />
+      <Stack.Screen name="games/debugging/play" options={{ title: 'Debugging Challenge' }} />
       <Stack.Screen name="register" options={{ title: 'Register' }} />
+      <Stack.Screen name="teacher-dashboard/index" options={{ title: 'Teacher Dashboard' }} />
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />
       <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />

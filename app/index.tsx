@@ -46,7 +46,7 @@ export default function Index() {
       if (!res.ok) {
         Alert.alert(t('login.title'), data.error || t('login.error'));
       } else if (data.user) {
-        setUser(data.user);
+        setUser(data.user, data.token);
         router.replace('/mainpage');
       } else {
         Alert.alert(t('login.title'), t('login.missing_user'));

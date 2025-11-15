@@ -5,6 +5,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { generateRandomDebugChallenge } = require('./gameGenerator');
 
 const app = express();
 app.use(cors());
@@ -105,6 +107,45 @@ function saveBase64File(fileData) {
 }
 
 const prisma = new PrismaClient();
+
+// JWT Secret (in production, use environment variable)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// JWT Authentication middleware
+const authMiddleware = async (req, res, next) => {
+  try {
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized - No token provided' });
+    }
+    
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    try {
+      // Verify JWT token
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      // Get user from database
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+      
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized - User not found' });
+      }
+      
+      // Attach user to request object
+      req.user = user;
+      next();
+    } catch (jwtError) {
+      console.error('JWT verification error:', jwtError);
+      return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+    }
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(500).json({ error: 'Authentication error', details: err.message });
+  }
+};
 
 async function createNotificationsForUsers(userIds, payload) {
   if (!Array.isArray(userIds) || !userIds.length) return;
@@ -218,8 +259,15 @@ app.post('/api/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: 'Invalid email or password' });
 
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' } // Token expires in 7 days
+    );
+
     const { password: _pw, ...userSafe } = user;
-    res.status(200).json({ user: userSafe });
+    res.status(200).json({ user: userSafe, token });
   } catch (err) {
     console.error('Login error', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -254,11 +302,24 @@ app.get('/api/users/search', async (req, res) => {
         username: true,
         email: true,
         role: true,
+        className: true,
         avatarUrl: true,
         profileImage: true,
         createdAt: true,
       },
     });
+
+    // Debug: Log to verify className is being returned
+    console.log('Search users - Found', users.length, 'users');
+    if (users.length > 0) {
+      console.log('First user sample:', JSON.stringify(users[0], null, 2));
+      // Check for Aiman specifically
+      const aimanUser = users.find(u => u.username?.toLowerCase().includes('aiman'));
+      if (aimanUser) {
+        console.log('Found Aiman user:', JSON.stringify(aimanUser, null, 2));
+        console.log('Aiman className:', aimanUser.className);
+      }
+    }
 
     res.json(users);
   } catch (err) {
@@ -1161,6 +1222,86 @@ app.put('/api/notifications/preferences', async (req, res) => {
   } catch (err) {
     console.error('Update notification preferences error', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Game API Routes
+
+// GET A 10-QUESTION QUIZ
+app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
+  try {
+    // Get the user ID from the middleware
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    console.log('Generating quiz for user:', userId);
+
+    // Generate 10 random challenges
+    const challenges = [];
+    for (let i = 0; i < 10; i++) {
+      challenges.push(generateRandomDebugChallenge());
+    }
+    
+    console.log('Generated', challenges.length, 'challenges');
+    res.json(challenges); // Returns an array of 10 challenges
+  } catch (err) {
+    console.error('Error generating quiz:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
+  }
+});
+
+// POST /api/games/submit-quiz - Submits a full 10-question quiz
+app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
+  try {
+    // Get the user ID from the middleware
+    const userId = req.user.id;
+    const { answers, totalTimeMs } = req.body || {};
+
+    // 'answers' is an array: [{ challenge, selectedLine }, ...]
+    if (!Array.isArray(answers) || !totalTimeMs) {
+      return res.status(400).json({ error: 'Invalid quiz submission' });
+    }
+
+    let totalScore = 0;
+    let correctCount = 0;
+    const timePerQuestion = totalTimeMs / answers.length;
+
+    for (const answer of answers) {
+      const { challenge, selectedLine } = answer;
+      const isCorrect = (challenge.buggyLineIndex === selectedLine);
+
+      if (isCorrect) {
+        correctCount++;
+        // Calculate score for this *one* question
+        const score = Math.max(100, challenge.basePoints - Math.floor(timePerQuestion / 100));
+        totalScore += score;
+      }
+    }
+
+    // Save ONE record for the entire quiz
+    await prisma.gameScore.create({
+      data: {
+        userId: userId, // Use the correct ID from req.user
+        challengeId: `DEBUG_QUIZ_${Date.now()}`,
+        gameType: 'DEBUGGING_QUIZ',
+        score: totalScore,
+        timeTakenMs: totalTimeMs,
+      },
+    });
+
+    res.json({
+      isComplete: true,
+      totalScore: totalScore,
+      correctCount: correctCount,
+      totalQuestions: answers.length,
+    });
+  } catch (err) {
+    console.error('Error submitting quiz:', err);
+    res.status(500).json({ error: 'Failed to submit quiz' });
   }
 });
 

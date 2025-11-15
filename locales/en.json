@@ -14,7 +14,8 @@
     "success": "Success",
     "confirm": "Confirm",
     "reset": "Reset",
-    "back": "Back"
+    "back": "Back",
+    "retry": "Retry"
   },
   "login": {
     "title": "Login",
@@ -144,6 +145,8 @@
     "cta_register_description": "Create new user accounts",
     "cta_remove_title": "Remove Student",
     "cta_remove_description": "Search and delete student accounts",
+    "start_coding_title": "Start Coding",
+    "start_coding_description": "Play coding games and challenges",
     "discussion_forum_title": "Discussion Forum",
     "discussion_forum_description": "See what the community is talking about",
     "materials_title": "Learning Materials",
@@ -330,6 +333,24 @@
     "notifications_material_hint": "Alert me when teachers upload new resources.",
     "notifications_reply": "Replies to my discussions",
     "notifications_reply_hint": "Alert me when someone replies to my forum thread."
+  },
+  "game_ui": {
+    "title": "Game Challenges",
+    "start_coding_title": "Start Coding",
+    "start_coding_description": "Play coding games and challenges",
+    "debugging_title": "Debugging Challenge",
+    "debugging_desc": "Find the single buggy line of code!",
+    "submit_answer": "Submit Answer",
+    "correct": "Correct!",
+    "incorrect": "Incorrect!",
+    "score": "Score",
+    "time": "Time",
+    "next": "Next",
+    "loading": "Loading challenge...",
+    "error": "Failed to load challenge",
+    "select_line": "Select the buggy line",
+    "no_selection": "Please select a line before submitting",
+    "no_challenges": "No challenges available"
   }
 }
 

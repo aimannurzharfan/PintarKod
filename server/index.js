@@ -1164,6 +1164,130 @@ app.put('/api/notifications/preferences', async (req, res) => {
   }
 });
 
+// Game API Routes
+
+// GET /api/games/debugging - Fetch all debugging challenges
+app.get('/api/games/debugging', async (req, res) => {
+  try {
+    const { userId } = req.query || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    
+    // Verify user exists
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const challenges = await prisma.debuggingChallenge.findMany({
+      orderBy: { id: 'asc' },
+    });
+    res.json(challenges);
+  } catch (err) {
+    console.error('Get debugging challenges error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/games/debugging/:id - Fetch a single debugging challenge
+app.get('/api/games/debugging/:id', async (req, res) => {
+  try {
+    const { userId } = req.query || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    
+    // Verify user exists
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const challengeId = req.params.id;
+    const challenge = await prisma.debuggingChallenge.findUnique({
+      where: { id: challengeId },
+    });
+    
+    if (!challenge) {
+      return res.status(404).json({ error: 'Challenge not found' });
+    }
+    
+    res.json(challenge);
+  } catch (err) {
+    console.error('Get debugging challenge error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/games/debugging/:id/submit - Submit answer and calculate score
+app.post('/api/games/debugging/:id/submit', async (req, res) => {
+  try {
+    const { userId, selectedLine, timeTakenMs } = req.body || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    
+    // Verify user exists
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const challengeId = req.params.id;
+    const challenge = await prisma.debuggingChallenge.findUnique({
+      where: { id: challengeId },
+    });
+    
+    if (!challenge) {
+      return res.status(404).json({ error: 'Challenge not found' });
+    }
+
+    if (typeof selectedLine !== 'number' || typeof timeTakenMs !== 'number') {
+      return res.status(400).json({ error: 'selectedLine and timeTakenMs are required' });
+    }
+
+    const isCorrect = selectedLine === challenge.buggyLineIndex;
+    
+    if (!isCorrect) {
+      // Return incorrect response without saving score
+      const explanation = req.query.lang === 'ms' ? challenge.explanation_ms : challenge.explanation_en;
+      return res.json({
+        isCorrect: false,
+        explanation,
+      });
+    }
+
+    // Calculate score: basePoints - (timeTakenMs / 100), minimum 100
+    const score = Math.max(100, challenge.basePoints - Math.floor(timeTakenMs / 100));
+
+    // Save the score
+    await prisma.gameScore.create({
+      data: {
+        userId: id,
+        challengeId: challengeId,
+        gameType: 'DEBUGGING',
+        score: score,
+        timeTakenMs: timeTakenMs,
+      },
+    });
+
+    const explanation = req.query.lang === 'ms' ? challenge.explanation_ms : challenge.explanation_en;
+    
+    res.json({
+      isCorrect: true,
+      score: score,
+      explanation,
+    });
+  } catch (err) {
+    console.error('Submit debugging challenge error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);

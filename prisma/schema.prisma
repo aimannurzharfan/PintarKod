@@ -22,6 +22,7 @@ model User {
   forumComments     ForumComment[]
   learningMaterials LearningMaterial[]
   notifications     Notification[]
+  gameScores        GameScore[]
   notifyNewForumThreads      Boolean @default(true)
   notifyNewLearningMaterials Boolean @default(true)
   notifyForumReplies         Boolean @default(true)
@@ -109,4 +110,32 @@ model Notification {
   createdAt DateTime         @default(now())
 
   @@index([userId, createdAt])
+}
+
+model DebuggingChallenge {
+  id             String   @id @default(cuid())
+  title_en       String
+  title_ms       String
+  description_en String
+  description_ms String
+  codeBlock      String   @db.Text
+  buggyLineIndex Int
+  explanation_en String   @db.Text
+  explanation_ms String
+  basePoints     Int      @default(1000)
+
+  @@index([id])
+}
+
+model GameScore {
+  id          String   @id @default(cuid())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  challengeId String
+  gameType    String
+  score       Int
+  timeTakenMs Int
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }

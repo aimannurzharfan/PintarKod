@@ -1,57 +1,139 @@
-# Welcome to our PintarKod Project
+# Welcome to PintarKod
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+This is a full-stack mobile learning application built with React Native (Expo) and a Node.js (Express) backend.
 
-## Install Before Starting
+---
 
-1. Install dependencies
+## Pre-requisites
 
-   [Node.js (v18 or higher, recommend LTS version)](https://nodejs.org/en)
-    
-   [MySQL Server & Workbench (v8.0 or higher)](https://dev.mysql.com/downloads/workbench/)
-   
-   [Android Studio (Used to run the Android Emulator)](https://developer.android.com/studio)
-   
-## Database 
+Before you begin, ensure you have the following tools installed on your system:
 
-   create a database name ```pintarkod```
+- **Node.js (v18 or higher, LTS recommended)**  
+  https://nodejs.org/en
 
-## Before Running
+- **MySQL Server & Workbench (v8.0 or higher)**  
+  https://dev.mysql.com/downloads/workbench/
 
-1. Install dependencies
+- **Android Studio (Required for Android Emulator)**  
+  https://developer.android.com/studio
 
-   ```bash
-   npm install
-   ```
+---
 
-     ```bash
-   npx prisma generate
-   ```
+## Quick Start: How to Run
 
-     ```bash
-   npx prisma db push
-   ```
+Follow these steps exactly to get the project running.
 
-2. Start the app
+---
 
-   ```bash
-   npm run start:server
-   ```
+## 1. Get the Code
 
-      ```bash
-   npm run start
-   ```
+Clone this repository to your local machine:
 
-## Learn more
+```bash
+git clone <your-repo-url>
+cd PintarKod
+```
 
-To learn more about developing project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 2. Install Dependencies
 
-## Join the community
+Install all required packages for both backend and frontend:
 
-Join our community of developers creating universal apps.
+```bash
+npm install
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## 3. Set Up Your Environment (.env)
+
+This is the most important step.
+
+Create a file named **`.env`** in the project root, then paste and update these values:
+
+```env
+# Database Connection
+DATABASE_URL="mysql://root:YOUR_MYSQL_PASSWORD_HERE@localhost:3306/pintarkod"
+
+# JWT Secret for Authentication
+# This can be any long, random string.
+JWT_SECRET="YOUR_RANDOM_SECRET_KEY_HERE"
+```
+
+---
+
+## 4. Create the Database
+
+Open MySQL Workbench and run:
+
+```sql
+CREATE DATABASE pintarkod;
+```
+
+---
+
+## 5. Sync the Database
+
+Push schema into the database:
+
+```bash
+npx prisma db push
+```
+
+---
+
+## 6. Seed the Database (Creates Teacher Account)
+
+You **must** do this to log in:
+
+```bash
+npm run db:seed
+```
+
+---
+
+## 7. Run the Project
+
+Open **two separate terminals**.
+
+### Terminal 1 — Start Backend Server
+
+```bash
+npm run start:server
+```
+
+### Terminal 2 — Start Frontend (Expo)
+
+```bash
+npm run start
+```
+
+---
+
+## Default Login
+
+After seeding the database:
+
+- **Username:** `teacher`  
+- **Password:** `teacher123`
+
+---
+
+## Learn More
+
+- Expo documentation:  
+  https://docs.expo.dev/
+
+- Learn Expo tutorial:  
+  https://docs.expo.dev/tutorial/introduction/
+
+---
+
+## Join the Community
+
+- Expo on GitHub:  
+  https://github.com/expo/expo
+
+- Discord Community:  
+  https://chat.expo.dev

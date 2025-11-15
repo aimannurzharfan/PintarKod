@@ -1,29 +1,23 @@
-import { GoogleGenAI } from '@google/genai';
-import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  FlatList,
-  ActivityIndicator,
-  Modal,
-  Pressable,
   useColorScheme,
+  View,
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import { API_URL } from '../config';
 import { IconSymbol } from './ui/icon-symbol';
-
-// WARNING: Storing API keys directly in the code is insecure.
-// This key is visible to anyone who can access the app's source code.
-const API_KEY = 'AIzaSyDYErbKhUEm33lVjV8oTanBbGjYb1gIwww';
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-const model = 'gemini-2.5-flash';
 
 export type Role = 'user' | 'gemini';
 
@@ -44,6 +38,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const colorScheme = useColorScheme();
+  const { token } = useAuth();
 
   useEffect(() => {
     if (visible) {
@@ -76,15 +71,28 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     setError(null);
 
     try {
-      // Send the user's message to the Gemini API
-      const response = await ai.models.generateContent({
-        model: model,
-        contents: currentInput,
+      // Send the user's message to our secure proxy endpoint
+      const response = await fetch(`${API_URL}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Use the user's login token
+        },
+        body: JSON.stringify({
+          message: currentInput
+        })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get response from AI');
+      }
+
+      const data = await response.json();
       
       const botMessage: Message = {
         role: 'gemini',
-        text: response.text || 'Sorry, I could not generate a response.',
+        text: data.text || 'Sorry, I could not generate a response.',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, botMessage]);

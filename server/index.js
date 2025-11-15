@@ -1316,6 +1316,60 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
   }
 });
 
+// AI Chatbot Proxy Endpoint
+app.post('/api/chat', authMiddleware, async (req, res) => {
+  try {
+    const { message } = req.body;
+    const API_KEY = process.env.AI_CHATBOT_API_KEY;
+
+    if (!API_KEY) {
+      return res.status(500).json({ error: 'AI Chatbot API key not configured' });
+    }
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Call Google Gemini API
+    // The model name from the frontend is 'gemini-2.5-flash'
+    const model = 'gemini-2.5-flash';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: message
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error:', response.status, errorText);
+      return res.status(response.status).json({ 
+        error: 'Failed to get response from AI',
+        details: errorText 
+      });
+    }
+
+    const data = await response.json();
+    
+    // Extract the text from Gemini's response format
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+    
+    res.json({ text });
+  } catch (err) {
+    console.error('Chat API error:', err);
+    res.status(500).json({ error: 'Failed to get response from AI' });
+  }
+});
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);

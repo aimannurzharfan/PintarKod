@@ -7,19 +7,25 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Start seeding...');
   
-  const hashedPassword = await bcryptjs.hash('teacher123', 10);
-
-  // Create the master Teacher account
-  const teacher = await prisma.user.create({
-    data: {
-      username: 'teacher',
-      email: 'teacher@pintarkod.com',
-      password: hashedPassword,
-      role: 'Teacher',
-    },
+  // Create or get the master Teacher account
+  const existingTeacher = await prisma.user.findUnique({
+    where: { email: 'teacher@pintarkod.com' },
   });
 
-  console.log(`Created teacher account: ${teacher.username}`);
+  if (!existingTeacher) {
+    const hashedPassword = await bcryptjs.hash('teacher123', 10);
+    const teacher = await prisma.user.create({
+      data: {
+        username: 'teacher',
+        email: 'teacher@pintarkod.com',
+        password: hashedPassword,
+        role: 'Teacher',
+      },
+    });
+    console.log(`Created teacher account: ${teacher.username}`);
+  } else {
+    console.log(`Teacher account already exists: ${existingTeacher.username}`);
+  }
 
   // Seed debugging challenges
   await prisma.debuggingChallenge.deleteMany({});

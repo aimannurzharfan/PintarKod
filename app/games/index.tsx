@@ -58,14 +58,26 @@ export default function GamesIndexScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || t('game_ui.error'));
+        const errorMsg = data.error || data.details || t('game_ui.error');
+        throw new Error(errorMsg);
       }
 
-      setChallenges(data);
-    } catch (err) {
+      // Additional randomization on client side for extra randomness
+      const shuffled = [...data];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      
+      setChallenges(shuffled);
+    } catch (err: any) {
       console.error('Fetch challenges error', err);
-      setError(t('game_ui.error'));
-      Alert.alert(t('common.error'), t('game_ui.error'));
+      const errorMsg = err.message || t('game_ui.error');
+      setError(errorMsg);
+      // Only show alert if it's not a network error (to avoid duplicate alerts)
+      if (!err.message?.includes('Network') && !err.message?.includes('fetch')) {
+        Alert.alert(t('common.error'), errorMsg);
+      }
     } finally {
       setLoading(false);
     }

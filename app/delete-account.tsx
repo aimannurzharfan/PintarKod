@@ -68,6 +68,21 @@ export default function DeleteAccountScreen() {
     }
   }, [currentUser, router, t]);
 
+  // Debug: Log when selectedStudent changes
+  useEffect(() => {
+    if (selectedStudent) {
+      console.log('=== Selected Student Changed ===');
+      console.log('Full selectedStudent object:', JSON.stringify(selectedStudent, null, 2));
+      console.log('className:', selectedStudent.className);
+      console.log('className type:', typeof selectedStudent.className);
+      console.log('className truthy?', !!selectedStudent.className);
+      if (selectedStudent.className) {
+        console.log('className.trim():', selectedStudent.className.trim());
+        console.log('className.trim() length:', selectedStudent.className.trim().length);
+      }
+    }
+  }, [selectedStudent]);
+
   // Search students function
   const searchStudents = async (query: string) => {
     setSelectedStudent(null);
@@ -81,12 +96,14 @@ export default function DeleteAccountScreen() {
       const res = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(searchQ)}&role=Student`);
       const data = await res.json();
       if (res.ok && Array.isArray(data)) {
+        // Debug: Log the response to see if className is included
+        console.log('Search results:', JSON.stringify(data, null, 2));
         setSearchResults(data);
       } else {
         setSearchResults([]);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Search error:', err);
       // Only show an alert for actual network/server errors, not for empty results
       Alert.alert(t('delete_student.error_title'), t('delete_student.search_error'));
       setSearchResults([]);
@@ -213,6 +230,20 @@ export default function DeleteAccountScreen() {
                     {t('delete_student.student_role', { role: selectedStudent.role })}
                   </Text>
                 ) : null}
+                {selectedStudent.role && (
+                  <Text
+                    style={[
+                      styles.studentMeta,
+                      { color: colorScheme === 'dark' ? '#999' : '#666' },
+                    ]}
+                  >
+                    {selectedStudent.role === 'Teacher' 
+                      ? 'Educator'
+                      : selectedStudent.className && typeof selectedStudent.className === 'string' && selectedStudent.className.trim()
+                      ? t('delete_student.student_class', { className: selectedStudent.className.trim() })
+                      : t('delete_student.student_class', { className: 'No class assigned' })}
+                  </Text>
+                )}
                 {selectedStudent.createdAt ? (
                   <Text
                     style={[
@@ -241,10 +272,22 @@ export default function DeleteAccountScreen() {
                   <Text style={[styles.studentEmail, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
                     {student.email}
                   </Text>
+                  {(student.className && student.className.trim()) || student.role === 'Teacher' ? (
+                    <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                      {student.role === 'Teacher' 
+                        ? 'Educator'
+                        : t('delete_student.student_class', { className: student.className })}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
               <Pressable
-                onPress={() => setSelectedStudent(student)}
+                onPress={() => {
+                  console.log('=== Setting Selected Student ===');
+                  console.log('Student object from search results:', JSON.stringify(student, null, 2));
+                  console.log('Student className:', student.className);
+                  setSelectedStudent(student);
+                }}
                 accessibilityLabel={t('delete_student.select_student')}
                 style={({ pressed }) => [
                   styles.selectButton,

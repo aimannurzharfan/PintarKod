@@ -1,0 +1,8 @@
+# Generated sound files
+# These can be regenerated using: npm run generate-sounds
+*.wav
+*.mp3
+
+# Keep only README.md in version control
+!README.md
+

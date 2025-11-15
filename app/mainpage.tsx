@@ -2,10 +2,10 @@ import { AIChatbot } from '@/components/ai-chatbot';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
-import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForum } from '@/contexts/ForumContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -185,21 +185,35 @@ export default function MainPage() {
   ]);
 
   const discussionCards = useMemo(
-    () => [
-      {
-        key: 'forum-view',
-        title: t('main.discussion_forum_title'),
-        description: t('main.discussion_forum_description'),
-        onPress: () => router.push('/forum' as any),
-      },
-      {
-        key: 'learning-materials',
-        title: t('main.materials_title'),
-        description: t('main.materials_description'),
-        onPress: () => router.push('/learning-materials' as any),
-      },
-    ],
-    [router, t]
+    () => {
+      const cards = [
+        {
+          key: 'forum-view',
+          title: t('main.discussion_forum_title'),
+          description: t('main.discussion_forum_description'),
+          onPress: () => router.push('/forum' as any),
+        },
+        {
+          key: 'learning-materials',
+          title: t('main.materials_title'),
+          description: t('main.materials_description'),
+          onPress: () => router.push('/learning-materials' as any),
+        },
+      ];
+      
+      // Add Teacher Dashboard card if user is a teacher
+      if (user?.role === 'Teacher') {
+        cards.unshift({
+          key: 'teacher-dashboard',
+          title: t('teacher_ui.dashboard'),
+          description: t('teacher_ui.dashboard_desc'),
+          onPress: () => router.push('/teacher-dashboard' as any),
+        });
+      }
+      
+      return cards;
+    },
+    [router, t, user?.role]
   );
 
   type CtaButton = {
@@ -211,24 +225,9 @@ export default function MainPage() {
   };
 
   const CTA_BUTTONS: CtaButton[] = useMemo(() => {
-    if (user?.role !== 'Teacher') return [];
-    return [
-      {
-        key: 'register',
-        label: t('main.cta_register_title'),
-        description: t('main.cta_register_description'),
-        icon: 'person.badge.plus' as IconSymbolName,
-        onPress: () => router.push('/register' as any),
-      },
-      {
-        key: 'delete',
-        label: t('main.cta_remove_title'),
-        description: t('main.cta_remove_description'),
-        icon: 'trash.circle.fill' as IconSymbolName,
-        onPress: handleDeleteAccount,
-      },
-    ];
-  }, [handleDeleteAccount, router, t, user?.role]);
+    // Teacher Dashboard moved to discussionCards for consistent styling
+    return [];
+  }, []);
 
   return (
     <ThemedView style={styles.container}>
@@ -249,6 +248,45 @@ export default function MainPage() {
           <ThemedText type="subtitle">{t('main.welcome_subtitle')}</ThemedText>
         </View>
       </View>
+
+      {/* Start Learning Hero Banner */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.heroBanner,
+          {
+            backgroundColor: colorScheme === 'dark'
+              ? 'rgba(59, 130, 246, 0.15)'
+              : 'rgba(59, 130, 246, 0.08)',
+            borderColor: colorScheme === 'dark'
+              ? 'rgba(59, 130, 246, 0.3)'
+              : 'rgba(59, 130, 246, 0.2)',
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          },
+        ]}
+        onPress={() => router.push('/games' as any)}
+      >
+        <View style={styles.heroContent}>
+          <View style={[
+            styles.heroIconWrapper,
+            {
+              backgroundColor: colorScheme === 'dark'
+                ? 'rgba(59, 130, 246, 0.2)'
+                : 'rgba(59, 130, 246, 0.15)',
+            },
+          ]}>
+            <Feather name="book-open" size={24} color="#000000" />
+          </View>
+          <View style={styles.heroTextWrapper}>
+            <Text style={[styles.heroTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#0F172A' }]}>
+              {t('game_ui.start_learning')}
+            </Text>
+            <Text style={[styles.heroDescription, { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' }]}>
+              {t('game_ui.start_learning_desc')}
+            </Text>
+          </View>
+          <IconSymbol name={CHEVRON_RIGHT} size={24} color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'} />
+        </View>
+      </Pressable>
 
       {CTA_BUTTONS.length > 0 && (
         <View style={styles.ctaSection}>
@@ -676,6 +714,36 @@ const styles = StyleSheet.create({
   headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 12 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#DDD' },
   avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center' },
+  heroBanner: {
+    marginTop: 24,
+    borderRadius: 20,
+    borderWidth: 2,
+    padding: 24,
+  },
+  heroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  heroIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTextWrapper: {
+    flex: 1,
+    gap: 6,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  heroDescription: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
   ctaSection: { marginTop: 24, gap: 16 },
   ctaCard: {
     flexDirection: 'row',
@@ -723,6 +791,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
     gap: 16,
+  },
+  discussionIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   discussionRowTitle: {
     fontSize: 16,

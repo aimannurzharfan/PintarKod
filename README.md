@@ -56,10 +56,6 @@ Create a file named **`.env`** in the project root, then paste and update these 
 # Database Connection
 DATABASE_URL="mysql://root:YOUR_MYSQL_PASSWORD_HERE@localhost:3306/pintarkod"
 
-# JWT Secret for Authentication
-# This can be any long, random string.
-JWT_SECRET="YOUR_RANDOM_SECRET_KEY_HERE"
-
 # AI Chatbot API Key
 AI_CHATBOT_API_KEY="YOUR_SECRET_KEY_GOES_HERE"
 ```

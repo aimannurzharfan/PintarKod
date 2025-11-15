@@ -187,6 +187,12 @@ export default function MainPage() {
   const discussionCards = useMemo(
     () => [
       {
+        key: 'start-coding',
+        title: t('main.start_coding_title'),
+        description: t('main.start_coding_description'),
+        onPress: () => router.push('/games' as any),
+      },
+      {
         key: 'forum-view',
         title: t('main.discussion_forum_title'),
         description: t('main.discussion_forum_description'),

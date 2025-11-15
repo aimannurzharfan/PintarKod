@@ -14,7 +14,8 @@
     "success": "Berjaya",
     "confirm": "Sahkan",
     "reset": "Tetapkan semula",
-    "back": "Kembali"
+    "back": "Kembali",
+    "retry": "Cuba lagi"
   },
   "login": {
     "title": "Log Masuk",
@@ -144,6 +145,8 @@
     "cta_register_description": "Cipta akaun pengguna baharu",
     "cta_remove_title": "Padam Pelajar",
     "cta_remove_description": "Cari dan padam akaun pelajar",
+    "start_coding_title": "Mula Mengatur Cara",
+    "start_coding_description": "Main permainan dan cabaran pengaturcaraan",
     "discussion_forum_title": "Forum Perbincangan",
     "discussion_forum_description": "Lihat perbincangan komuniti semasa",
     "materials_title": "Bahan Pembelajaran",
@@ -330,6 +333,24 @@
     "notifications_material_hint": "Maklumkan saya apabila guru memuat naik bahan baharu.",
     "notifications_reply": "Balasan pada perbincangan saya",
     "notifications_reply_hint": "Maklumkan saya apabila seseorang membalas thread forum saya."
+  },
+  "game_ui": {
+    "title": "Cabaran Permainan",
+    "start_coding_title": "Mula Mengatur Cara",
+    "start_coding_description": "Main permainan dan cabaran pengaturcaraan",
+    "debugging_title": "Cabaran Pembetul Pepijat",
+    "debugging_desc": "Cari satu baris kod yang mempunyai pepijat!",
+    "submit_answer": "Hantar Jawapan",
+    "correct": "Betul!",
+    "incorrect": "Salah!",
+    "score": "Skor",
+    "time": "Masa",
+    "next": "Seterusnya",
+    "loading": "Memuatkan cabaran...",
+    "error": "Gagal memuatkan cabaran",
+    "select_line": "Pilih baris kod yang mempunyai pepijat",
+    "no_selection": "Sila pilih baris sebelum menghantar",
+    "no_challenges": "Tiada cabaran tersedia"
   }
 }
 

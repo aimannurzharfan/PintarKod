@@ -21,7 +21,7 @@ import Animated, {
   FadeIn,
   BounceIn,
 } from 'react-native-reanimated';
-import { API_URL } from '../../config';
+import { API_URL } from '../../../config';
 
 type DebuggingChallenge = {
   title: { en: string; ms: string };

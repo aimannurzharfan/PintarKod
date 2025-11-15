@@ -8,7 +8,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,9 +15,10 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
-import { API_URL } from './config';
+import { API_URL } from '../config';
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState('');

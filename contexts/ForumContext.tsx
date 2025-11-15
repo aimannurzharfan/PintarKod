@@ -1,4 +1,4 @@
-import { API_URL } from '@/app/config';
+import { API_URL } from '../config';
 import React, {
   createContext,
   useCallback,

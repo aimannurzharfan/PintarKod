@@ -7,7 +7,6 @@ import {
   Alert,
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,8 +14,9 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from './config';
+import { API_URL } from '../config';
 
 type ProfileUser = {
   id: string;

@@ -1260,6 +1260,9 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     // Get the user ID from the middleware
     const userId = req.user.id;
     const { answers, totalTimeMs } = req.body || {};
+    
+    // Read lang from query string (default to 'en')
+    const lang = req.query.lang || 'en';
 
     // 'answers' is an array: [{ challenge, selectedLine }, ...]
     if (!Array.isArray(answers) || !totalTimeMs) {
@@ -1269,6 +1272,7 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     let totalScore = 0;
     let correctCount = 0;
     const timePerQuestion = totalTimeMs / answers.length;
+    const feedback = []; // Array to store wrong answers
 
     for (const answer of answers) {
       const { challenge, selectedLine } = answer;
@@ -1279,6 +1283,12 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
         // Calculate score for this *one* question
         const score = Math.max(100, challenge.basePoints - Math.floor(timePerQuestion / 100));
         totalScore += score;
+      } else {
+        // Add wrong answer to feedback array
+        feedback.push({
+          title: challenge.title[lang] || challenge.title.en || 'Challenge',
+          explanation: challenge.explanation[lang] || challenge.explanation.en || 'No explanation available',
+        });
       }
     }
 
@@ -1298,6 +1308,7 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
       totalScore: totalScore,
       correctCount: correctCount,
       totalQuestions: answers.length,
+      feedback: feedback, // Include feedback array in response
     });
   } catch (err) {
     console.error('Error submitting quiz:', err);

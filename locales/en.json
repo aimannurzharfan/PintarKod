@@ -369,7 +369,11 @@
     "no_challenges": "No challenges available",
     "start_game": "Start New Challenge",
     "next_question": "Next",
-    "question_progress": "Question {{current}} of {{total}}"
+    "question_progress": "Question {{current}} of {{total}}",
+    "review_wrong_answers": "Review Your Wrong Answers",
+    "get_feedback": "Get Feedback",
+    "close_game": "Close Game",
+    "close": "Close"
   }
 }
 

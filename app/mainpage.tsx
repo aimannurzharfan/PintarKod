@@ -187,12 +187,6 @@ export default function MainPage() {
   const discussionCards = useMemo(
     () => [
       {
-        key: 'start-coding',
-        title: t('main.start_coding_title'),
-        description: t('main.start_coding_description'),
-        onPress: () => router.push('/games' as any),
-      },
-      {
         key: 'forum-view',
         title: t('main.discussion_forum_title'),
         description: t('main.discussion_forum_description'),
@@ -255,6 +249,45 @@ export default function MainPage() {
           <ThemedText type="subtitle">{t('main.welcome_subtitle')}</ThemedText>
         </View>
       </View>
+
+      {/* Start Learning Hero Banner */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.heroBanner,
+          {
+            backgroundColor: colorScheme === 'dark'
+              ? 'rgba(59, 130, 246, 0.15)'
+              : 'rgba(59, 130, 246, 0.08)',
+            borderColor: colorScheme === 'dark'
+              ? 'rgba(59, 130, 246, 0.3)'
+              : 'rgba(59, 130, 246, 0.2)',
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          },
+        ]}
+        onPress={() => router.push('/games' as any)}
+      >
+        <View style={styles.heroContent}>
+          <View style={[
+            styles.heroIconWrapper,
+            {
+              backgroundColor: colorScheme === 'dark'
+                ? 'rgba(59, 130, 246, 0.2)'
+                : 'rgba(59, 130, 246, 0.15)',
+            },
+          ]}>
+            <IconSymbol name="gamecontroller.fill" size={40} color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'} />
+          </View>
+          <View style={styles.heroTextWrapper}>
+            <Text style={[styles.heroTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#0F172A' }]}>
+              {t('game_ui.start_learning')}
+            </Text>
+            <Text style={[styles.heroDescription, { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' }]}>
+              {t('game_ui.start_learning_desc')}
+            </Text>
+          </View>
+          <IconSymbol name={CHEVRON_RIGHT} size={24} color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'} />
+        </View>
+      </Pressable>
 
       {CTA_BUTTONS.length > 0 && (
         <View style={styles.ctaSection}>
@@ -682,6 +715,36 @@ const styles = StyleSheet.create({
   headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 12 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#DDD' },
   avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center' },
+  heroBanner: {
+    marginTop: 24,
+    borderRadius: 20,
+    borderWidth: 2,
+    padding: 24,
+  },
+  heroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  heroIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTextWrapper: {
+    flex: 1,
+    gap: 6,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  heroDescription: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
   ctaSection: { marginTop: 24, gap: 16 },
   ctaCard: {
     flexDirection: 'row',

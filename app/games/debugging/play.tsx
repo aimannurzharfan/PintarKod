@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { Audio } from 'expo-av';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -18,54 +18,49 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
   FadeIn,
   BounceIn,
 } from 'react-native-reanimated';
 import { API_URL } from '../../config';
 
 type DebuggingChallenge = {
-  id: string;
-  title_en: string;
-  title_ms: string;
-  description_en: string;
-  description_ms: string;
+  title: { en: string; ms: string };
+  description: { en: string; ms: string };
   codeBlock: string;
   buggyLineIndex: number;
-  explanation_en: string;
-  explanation_ms: string;
+  explanation: { en: string; ms: string };
   basePoints: number;
 };
 
-type ResultData = {
-  isCorrect: boolean;
-  score?: number;
-  explanation: string;
+type QuizResultData = {
+  isComplete: boolean;
+  totalScore: number;
+  correctCount: number;
+  totalQuestions: number;
 };
 
 export default function DebuggingChallengeScreen() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
 
-  const [challenge, setChallenge] = useState<DebuggingChallenge | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [challenges, setChallenges] = useState<DebuggingChallenge[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [userAnswers, setUserAnswers] = useState<Array<{ challenge: DebuggingChallenge; selectedLine: number }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
   const [startTime, setStartTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showResult, setShowResult] = useState(false);
-  const [resultData, setResultData] = useState<ResultData | null>(null);
+  const [resultData, setResultData] = useState<QuizResultData | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [correctSound, setCorrectSound] = useState<Audio.Sound | null>(null);
   const [wrongSound, setWrongSound] = useState<Audio.Sound | null>(null);
 
   const currentLang = i18n.language?.split('-')[0] || 'en';
+  const challenge = challenges[currentQuestionIndex];
   const codeLines = challenge?.codeBlock.split('\n') || [];
 
   // Load sounds - optional, continue if they don't exist
@@ -140,9 +135,9 @@ export default function DebuggingChallengeScreen() {
     };
   }, []);
 
-  // Timer effect - update every second
+  // Timer effect - update every 100ms
   useEffect(() => {
-    if (showResult || loading || !challenge) {
+    if (showResult || isLoading || !challenge) {
       return;
     }
 
@@ -151,47 +146,73 @@ export default function DebuggingChallengeScreen() {
     }, 100); // Update every 100ms for smoother display
 
     return () => clearInterval(interval);
-  }, [startTime, showResult, loading, challenge]);
+  }, [startTime, showResult, isLoading, challenge]);
 
+  // Fetch quiz on mount
   useEffect(() => {
-    if (!user?.id || !id) {
-      router.replace('/games');
-      return;
-    }
-
-    fetchChallenge();
-  }, [user, id]);
-
-  const fetchChallenge = useCallback(async () => {
-    if (!user?.id || !id) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch(
-        `${API_URL}/api/games/debugging/${id}?userId=${user.id}`
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || t('game_ui.error'));
+    const fetchQuiz = async () => {
+      if (!user?.id) {
+        router.replace('/games');
+        return;
       }
 
-      setChallenge(data);
-      // Reset start time when challenge loads
-      const newStartTime = Date.now();
-      setStartTime(newStartTime);
-      setElapsedTime(0);
-    } catch (err) {
-      console.error('Fetch challenge error', err);
-      Alert.alert(t('common.error'), t('game_ui.error'), [
-        { text: t('common.ok'), onPress: () => router.back() },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, id, t, router]);
+      try {
+        setIsLoading(true);
+        
+        if (!token) {
+          throw new Error('No authentication token available');
+        }
+        
+        const url = `${API_URL}/api/games/debugging/quiz`;
+        console.log('Fetching quiz from:', url);
+        
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        // Check content type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await response.text();
+          console.error('Server returned non-JSON response:', text.substring(0, 200));
+          throw new Error('Server returned invalid response. Expected JSON but got: ' + contentType);
+        }
+        
+        const data = await response.json();
 
-  const handleSubmit = useCallback(async () => {
+        if (!response.ok) {
+          throw new Error(data.error || data.details || t('game_ui.error'));
+        }
+
+        if (!Array.isArray(data)) {
+          console.error('Invalid quiz data format:', data);
+          throw new Error('Invalid quiz data format');
+        }
+
+        console.log('Quiz fetched successfully:', data.length, 'challenges');
+        setChallenges(data);
+        setIsLoading(false);
+        setStartTime(Date.now()); // Start timer
+        setElapsedTime(0);
+        setCurrentQuestionIndex(0);
+        setSelectedLine(null);
+        setUserAnswers([]);
+      } catch (err: any) {
+        console.error('Failed to fetch quiz', err);
+        setIsLoading(false);
+        const errorMsg = err.message || t('game_ui.error');
+        Alert.alert(t('common.error'), errorMsg, [
+          { text: t('common.ok'), onPress: () => router.back() },
+        ]);
+      }
+    };
+
+    fetchQuiz();
+  }, [user, token, router, t]);
+
+  const handleNextOrSubmit = useCallback(async () => {
     if (selectedLine === null) {
       Alert.alert(t('common.error'), t('game_ui.no_selection'));
       return;
@@ -201,47 +222,78 @@ export default function DebuggingChallengeScreen() {
 
     try {
       setSubmitting(true);
-      const timeTakenMs = Date.now() - startTime;
+      
+      // Store the user's answer
+      const currentChallenge = challenges[currentQuestionIndex];
+      const newAnswers = [...userAnswers, {
+        challenge: currentChallenge,
+        selectedLine: selectedLine,
+      }];
+      setUserAnswers(newAnswers);
 
-      const response = await fetch(
-        `${API_URL}/api/games/debugging/${challenge.id}/submit?lang=${currentLang}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.id,
-            selectedLine,
-            timeTakenMs,
-          }),
+      const isLastQuestion = currentQuestionIndex === 9;
+
+      if (isLastQuestion) {
+        // Submit the entire quiz
+        const totalTimeMs = Date.now() - startTime;
+
+        try {
+          if (!token) {
+            throw new Error('No authentication token available');
+          }
+          
+          const response = await fetch(
+            `${API_URL}/api/games/submit-quiz`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                answers: newAnswers,
+                totalTimeMs: totalTimeMs,
+              }),
+            }
+          );
+
+          const result: QuizResultData = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || t('common.error'));
+          }
+
+          // Show final result modal
+          setResultData(result);
+          setShowResult(true);
+
+          // Play sound based on performance (play correct if >50%, wrong if <=50%)
+          try {
+            const correctRate = result.correctCount / result.totalQuestions;
+            if (correctRate > 0.5 && correctSound) {
+              await correctSound.replayAsync();
+            } else if (correctRate <= 0.5 && wrongSound) {
+              await wrongSound.replayAsync();
+            }
+          } catch (soundError) {
+            console.warn('Sound playback error:', soundError);
+          }
+        } catch (err) {
+          console.error('Submit quiz error', err);
+          Alert.alert(t('common.error'), t('common.network_error'));
         }
-      );
-
-      const data: ResultData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.explanation || t('common.error'));
-      }
-
-      setResultData(data);
-      setShowResult(true);
-
-      // Play sound
-      try {
-        if (data.isCorrect && correctSound) {
-          await correctSound.replayAsync();
-        } else if (!data.isCorrect && wrongSound) {
-          await wrongSound.replayAsync();
-        }
-      } catch (soundError) {
-        console.warn('Sound playback error:', soundError);
+      } else {
+        // Go to next question
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setSelectedLine(null); // Reset selection
       }
     } catch (err) {
-      console.error('Submit error', err);
+      console.error('Error in handleNextOrSubmit', err);
       Alert.alert(t('common.error'), t('common.network_error'));
     } finally {
       setSubmitting(false);
     }
-  }, [selectedLine, user, challenge, submitting, startTime, currentLang, t, correctSound, wrongSound]);
+  }, [selectedLine, user, challenge, submitting, startTime, currentQuestionIndex, challenges, userAnswers, token, router, t, correctSound, wrongSound]);
 
   const handleNext = useCallback(() => {
     setShowResult(false);
@@ -260,7 +312,7 @@ export default function DebuggingChallengeScreen() {
     return `${totalSeconds}s`;
   }, []);
 
-  if (loading || !challenge) {
+  if (isLoading || !challenge) {
     return (
       <ThemedView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -280,16 +332,45 @@ export default function DebuggingChallengeScreen() {
     );
   }
 
+  const isLastQuestion = currentQuestionIndex === 9;
+  const buttonText = isLastQuestion ? t('game_ui.submit_answer') : t('game_ui.next_question');
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Progress Indicator */}
+        <View
+          style={[
+            styles.progressContainer,
+            {
+              backgroundColor:
+                colorScheme === 'dark'
+                  ? 'rgba(59, 130, 246, 0.1)'
+                  : 'rgba(59, 130, 246, 0.05)',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.progressText,
+              {
+                color: colorScheme === 'dark' ? '#E2E8F0' : '#0F172A',
+              },
+            ]}
+          >
+            {t('game_ui.question_progress')
+              .replace('{{current}}', String(currentQuestionIndex + 1))
+              .replace('{{total}}', '10')}
+          </Text>
+        </View>
+
         {/* Header */}
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>
-            {currentLang === 'ms' ? challenge.title_ms : challenge.title_en}
+            {currentLang === 'ms' ? challenge.title.ms : challenge.title.en}
           </ThemedText>
           <Text
             style={[
@@ -300,8 +381,8 @@ export default function DebuggingChallengeScreen() {
             ]}
           >
             {currentLang === 'ms'
-              ? challenge.description_ms
-              : challenge.description_en}
+              ? challenge.description.ms
+              : challenge.description.en}
           </Text>
         </View>
 
@@ -402,7 +483,7 @@ export default function DebuggingChallengeScreen() {
           ))}
         </View>
 
-        {/* Submit Button */}
+        {/* Submit/Next Button */}
         <Pressable
           style={({ pressed }) => [
             styles.submitButton,
@@ -412,14 +493,14 @@ export default function DebuggingChallengeScreen() {
               transform: [{ scale: pressed && !submitting ? 0.98 : 1 }],
             },
           ]}
-          onPress={handleSubmit}
+          onPress={handleNextOrSubmit}
           disabled={submitting || selectedLine === null}
         >
           {submitting ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <Text style={styles.submitButtonText}>
-              {t('game_ui.submit_answer')}
+              {buttonText}
             </Text>
           )}
         </Pressable>
@@ -448,19 +529,19 @@ export default function DebuggingChallengeScreen() {
               style={styles.modalHeader}
             >
               <IconSymbol
-                name={resultData?.isCorrect ? 'checkmark.circle.fill' : 'xmark.circle.fill'}
+                name={resultData && resultData.correctCount > resultData.totalQuestions / 2 ? 'checkmark.circle.fill' : 'xmark.circle.fill'}
                 size={64}
-                color={resultData?.isCorrect ? '#10B981' : '#EF4444'}
+                color={resultData && resultData.correctCount > resultData.totalQuestions / 2 ? '#10B981' : '#EF4444'}
               />
               <Text
                 style={[
                   styles.modalTitle,
                   {
-                    color: resultData?.isCorrect ? '#10B981' : '#EF4444',
+                    color: resultData && resultData.correctCount > resultData.totalQuestions / 2 ? '#10B981' : '#EF4444',
                   },
                 ]}
               >
-                {resultData?.isCorrect
+                {resultData && resultData.correctCount > resultData.totalQuestions / 2
                   ? t('game_ui.correct')
                   : t('game_ui.incorrect')}
               </Text>
@@ -471,43 +552,41 @@ export default function DebuggingChallengeScreen() {
                 entering={FadeIn.delay(200)}
                 style={styles.modalBody}
               >
-                {resultData.isCorrect && resultData.score !== undefined && (
-                  <View style={styles.scoreContainer}>
-                    <Text
-                      style={[
-                        styles.scoreLabel,
-                        {
-                          color:
-                            colorScheme === 'dark' ? '#CBD5F5' : '#475569',
-                        },
-                      ]}
-                    >
-                      {t('game_ui.score')}:
-                    </Text>
-                    <Text
-                      style={[
-                        styles.scoreValue,
-                        {
-                          color:
-                            colorScheme === 'dark' ? '#E2E8F0' : '#0F172A',
-                        },
-                      ]}
-                    >
-                      {resultData.score}
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.scoreContainer}>
+                  <Text
+                    style={[
+                      styles.scoreLabel,
+                      {
+                        color:
+                          colorScheme === 'dark' ? '#CBD5F5' : '#475569',
+                      },
+                    ]}
+                  >
+                    {t('game_ui.score')}:
+                  </Text>
+                  <Text
+                    style={[
+                      styles.scoreValue,
+                      {
+                        color:
+                          colorScheme === 'dark' ? '#E2E8F0' : '#0F172A',
+                      },
+                    ]}
+                  >
+                    {resultData.totalScore}
+                  </Text>
+                </View>
 
                 <Text
                   style={[
-                    styles.explanationText,
+                    styles.resultText,
                     {
                       color:
                         colorScheme === 'dark' ? '#CBD5F5' : '#475569',
                     },
                   ]}
                 >
-                  {resultData.explanation}
+                  {resultData.correctCount} / {resultData.totalQuestions}
                 </Text>
               </Animated.View>
             )}
@@ -548,6 +627,15 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     },
     loadingText: {
       fontSize: 14,
+    },
+    progressContainer: {
+      padding: 12,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    progressText: {
+      fontSize: 14,
+      fontWeight: '600',
     },
     header: {
       gap: 8,
@@ -650,6 +738,7 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     },
     modalBody: {
       gap: 16,
+      alignItems: 'center',
     },
     scoreContainer: {
       flexDirection: 'row',
@@ -671,9 +760,9 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       fontSize: 24,
       fontWeight: '700',
     },
-    explanationText: {
-      fontSize: 14,
-      lineHeight: 20,
+    resultText: {
+      fontSize: 18,
+      fontWeight: '600',
       textAlign: 'center',
     },
     nextButton: {
@@ -690,4 +779,3 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     },
   });
 };
-

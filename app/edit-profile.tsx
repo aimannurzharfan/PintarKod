@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,8 +18,9 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from './config';
+import { API_URL } from '../config';
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {

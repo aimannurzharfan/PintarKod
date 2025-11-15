@@ -1,7 +1,7 @@
 import { AIChatbot } from '@/components/ai-chatbot';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_URL } from '../config';
+import { API_URL } from '../../config';
 import * as DocumentPicker from 'expo-document-picker';
 import { EncodingType } from 'expo-file-system';
 import { readAsStringAsync } from 'expo-file-system/legacy';

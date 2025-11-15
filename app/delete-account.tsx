@@ -18,7 +18,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from './config';
+import { API_URL } from '../config';
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {

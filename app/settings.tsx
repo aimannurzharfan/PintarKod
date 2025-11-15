@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -11,6 +10,7 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';

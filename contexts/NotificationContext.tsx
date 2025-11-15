@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 
-import { API_URL } from '@/app/config';
+import { API_URL } from '../config';
 import { useAuth } from './AuthContext';
 
 export type NotificationType =

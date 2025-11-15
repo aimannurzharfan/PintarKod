@@ -49,7 +49,7 @@ export default function GamesIndexScreen() {
         id: 'debugging',
         title: t('game_ui.debugging_title'),
         description: t('game_ui.debugging_desc'),
-        icon: 'alert-circle',
+        icon: 'alert-triangle',
         enabled: true,
         onPress: onPlayRandomChallenge,
       },
@@ -57,7 +57,7 @@ export default function GamesIndexScreen() {
         id: 'troubleshooting',
         title: t('game_ui.troubleshooting_title'),
         description: t('game_ui.troubleshooting_desc'),
-        icon: 'wrench',
+        icon: 'settings',
         enabled: false,
       },
       {

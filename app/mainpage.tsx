@@ -20,7 +20,7 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
-import { API_URL } from './config';
+import { API_URL } from '../config';
 
 const CHEVRON_RIGHT = 'chevron.right' as IconSymbolName;
 
@@ -274,7 +274,7 @@ export default function MainPage() {
                 : 'rgba(59, 130, 246, 0.15)',
             },
           ]}>
-            <Feather name="book-open" size={24} color="#000000" />
+            <Feather name="star" size={24} color="#000000" />
           </View>
           <View style={styles.heroTextWrapper}>
             <Text style={[styles.heroTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#0F172A' }]}>

@@ -1,3 +1,4 @@
+import { AIChatbot } from '@/components/ai-chatbot';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_URL } from '../config';
@@ -96,6 +97,7 @@ export default function LearningMaterialsScreen() {
   const [formRemoveFile, setFormRemoveFile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pickingFile, setPickingFile] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
 
   const isTeacher = user?.role === 'Teacher';
   const userIdNumber = useMemo(() => {
@@ -920,6 +922,18 @@ export default function LearningMaterialsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Floating Chat Bubble */}
+      <Pressable
+        style={styles.floatingChatButton}
+        onPress={() => setShowChatbot(true)}
+        accessibilityLabel={t('main.chat_accessibility')}
+      >
+        <IconSymbol name="message.fill" size={28} color="#FFFFFF" />
+      </Pressable>
+
+      {/* AI Chatbot Modal */}
+      <AIChatbot visible={showChatbot} onClose={() => setShowChatbot(false)} />
     </View>
   );
 }
@@ -1411,6 +1425,22 @@ const styles = StyleSheet.create({
   },
   chipPressed: {
     opacity: 0.85,
+  },
+  floatingChatButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });
 

@@ -66,6 +66,7 @@
     "search_button": "Cari",
     "load_error": "Gagal memuatkan maklumat profil.",
     "joined": "Tarikh Daftar",
+    "class": "Kelas",
     "validation_username": "Sila masukkan nama pengguna."
   },
   "tabs": {
@@ -315,6 +316,7 @@
     "search_button_accessibility": "Cari pelajar",
     "select_student": "Pilih pelajar ini",
     "student_role": "Peranan: {{role}}",
+    "student_class": "Kelas: {{className}}",
     "student_joined": "Tarikh daftar: {{date}}",
     "network_error": "Ralat rangkaian."
   },
@@ -334,6 +336,12 @@
     "notifications_reply": "Balasan pada perbincangan saya",
     "notifications_reply_hint": "Maklumkan saya apabila seseorang membalas thread forum saya."
   },
+  "teacher_ui": {
+    "dashboard": "Papan Pemuka Guru",
+    "dashboard_desc": "Urus akaun pelajar dan tetapan.",
+    "register_user": "Daftar Pengguna",
+    "remove_student": "Padam Pelajar"
+  },
   "game_ui": {
     "title": "Cabaran Permainan",
     "start_coding_title": "Mula Mengatur Cara",
@@ -342,6 +350,12 @@
     "start_learning_desc": "Cabaran interaktif untuk menguasai kemahiran anda.",
     "debugging_title": "Cabaran Pembetul Pepijat",
     "debugging_desc": "Cari pepijat di dalam kod!",
+    "troubleshooting_title": "Mencari Punca Masalah",
+    "troubleshooting_desc": "Cari punca masalah (Akan Datang)",
+    "programming_title": "Membina Atur Cara",
+    "programming_desc": "Susun blok kod untuk selesaikan masalah (Akan Datang)",
+    "puzzle_title": "Teka Logik",
+    "puzzle_desc": "Ramal output algoritma (Akan Datang)",
     "submit_answer": "Hantar Jawapan",
     "correct": "Betul!",
     "incorrect": "Salah!",

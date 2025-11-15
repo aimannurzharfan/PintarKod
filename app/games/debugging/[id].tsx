@@ -57,7 +57,8 @@ export default function DebuggingChallengeScreen() {
   const [challenge, setChallenge] = useState<DebuggingChallenge | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
-  const [startTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(Date.now());
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -75,9 +76,21 @@ export default function DebuggingChallengeScreen() {
     const loadSounds = async () => {
       try {
         // Try to load sound files, but continue without them if they don't exist
+        // Try MP3 first, then WAV (expo-av supports both)
         try {
-          // Dynamic import to avoid errors if files don't exist
-          const correctSoundModule = require('@/assets/sounds/correct.mp3');
+          let correctSoundModule;
+          try {
+            // Try MP3 first
+            correctSoundModule = require('@/assets/sounds/correct.mp3');
+          } catch (e1) {
+            // Fall back to WAV if MP3 doesn't exist
+            try {
+              correctSoundModule = require('@/assets/sounds/correct.wav');
+            } catch (e2) {
+              throw e1; // Use original error
+            }
+          }
+          
           const { sound: correctSoundLoaded } = await Audio.Sound.createAsync(
             correctSoundModule,
             { shouldPlay: false, volume: 0.5 }
@@ -86,12 +99,23 @@ export default function DebuggingChallengeScreen() {
           setCorrectSound(correct);
           console.log('Correct sound loaded successfully');
         } catch (e) {
-          console.warn('Correct sound not found, continuing without it:', e);
+          console.warn('Correct sound not found, continuing without it');
         }
 
         try {
-          // Dynamic import to avoid errors if files don't exist
-          const wrongSoundModule = require('@/assets/sounds/wrong.mp3');
+          let wrongSoundModule;
+          try {
+            // Try MP3 first
+            wrongSoundModule = require('@/assets/sounds/wrong.mp3');
+          } catch (e1) {
+            // Fall back to WAV if MP3 doesn't exist
+            try {
+              wrongSoundModule = require('@/assets/sounds/wrong.wav');
+            } catch (e2) {
+              throw e1; // Use original error
+            }
+          }
+          
           const { sound: wrongSoundLoaded } = await Audio.Sound.createAsync(
             wrongSoundModule,
             { shouldPlay: false, volume: 0.5 }
@@ -100,7 +124,7 @@ export default function DebuggingChallengeScreen() {
           setWrongSound(wrong);
           console.log('Wrong sound loaded successfully');
         } catch (e) {
-          console.warn('Wrong sound not found, continuing without it:', e);
+          console.warn('Wrong sound not found, continuing without it');
         }
       } catch (error) {
         console.warn('Failed to load sounds:', error);
@@ -115,6 +139,19 @@ export default function DebuggingChallengeScreen() {
       wrong?.unloadAsync().catch(console.warn);
     };
   }, []);
+
+  // Timer effect - update every second
+  useEffect(() => {
+    if (showResult || loading || !challenge) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setElapsedTime(Date.now() - startTime);
+    }, 100); // Update every 100ms for smoother display
+
+    return () => clearInterval(interval);
+  }, [startTime, showResult, loading, challenge]);
 
   useEffect(() => {
     if (!user?.id || !id) {
@@ -140,6 +177,10 @@ export default function DebuggingChallengeScreen() {
       }
 
       setChallenge(data);
+      // Reset start time when challenge loads
+      const newStartTime = Date.now();
+      setStartTime(newStartTime);
+      setElapsedTime(0);
     } catch (err) {
       console.error('Fetch challenge error', err);
       Alert.alert(t('common.error'), t('game_ui.error'), [
@@ -210,16 +251,14 @@ export default function DebuggingChallengeScreen() {
   }, [router]);
 
   const formatTime = useCallback((ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
     if (minutes > 0) {
-      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
-    return `${seconds}s`;
+    return `${totalSeconds}s`;
   }, []);
-
-  const elapsedTime = Date.now() - startTime;
 
   if (loading || !challenge) {
     return (

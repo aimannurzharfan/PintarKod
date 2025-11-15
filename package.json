@@ -50,8 +50,10 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "node-wav": "^0.0.2",
     "prisma": "^6.18.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "wavefile": "^11.0.0"
   },
   "scripts": {
     "start:dev": "node ./scripts/set-api-url.js && npx expo start",
@@ -64,7 +66,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "db:seed": "npx ts-node prisma/seed.ts",
-    "download-sounds": "node ./scripts/download-sounds.js"
+    "generate-sounds": "node ./scripts/generate-sounds.js",
+    "download-sounds": "node ./scripts/download-sounds-simple.js",
+    "download-sounds-advanced": "node ./scripts/download-sounds-advanced.js"
   },
   "private": true
 }

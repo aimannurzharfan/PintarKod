@@ -1181,13 +1181,29 @@ app.get('/api/games/debugging', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const challenges = await prisma.debuggingChallenge.findMany({
-      orderBy: { id: 'asc' },
-    });
-    res.json(challenges);
+    // Fetch all challenges and randomize order
+    const allChallenges = await prisma.debuggingChallenge.findMany();
+    
+    // Shuffle array using Fisher-Yates algorithm
+    for (let i = allChallenges.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allChallenges[i], allChallenges[j]] = [allChallenges[j], allChallenges[i]];
+    }
+    
+    res.json(allChallenges);
   } catch (err) {
     console.error('Get debugging challenges error', err);
-    res.status(500).json({ error: 'Internal server error' });
+    // Provide more detailed error for debugging
+    const errorMessage = err.message || 'Internal server error';
+    console.error('Error details:', {
+      message: errorMessage,
+      code: err.code,
+      meta: err.meta,
+    });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    });
   }
 });
 

@@ -158,6 +158,12 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.infoList}>
           <InfoRow label={t('register.role')} value={searchedUser.role} />
+          {searchedUser.className && (
+            <InfoRow 
+              label={t('profile.class')} 
+              value={searchedUser.role === 'Teacher' ? 'Educator' : searchedUser.className} 
+            />
+          )}
           <InfoRow label={t('profile.joined')} value={formatTimestamp(searchedUser.createdAt)} />
         </View>
       </View>

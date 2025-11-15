@@ -66,6 +66,7 @@
     "search_button": "Search",
     "load_error": "Failed to load profile information.",
     "joined": "Joined",
+    "class": "Class",
     "validation_username": "Please enter a username."
   },
   "tabs": {
@@ -315,6 +316,7 @@
     "search_button_accessibility": "Search student",
     "select_student": "Select this student",
     "student_role": "Role: {{role}}",
+    "student_class": "Class: {{className}}",
     "student_joined": "Joined: {{date}}",
     "network_error": "Network error."
   },
@@ -334,6 +336,12 @@
     "notifications_reply": "Replies to my discussions",
     "notifications_reply_hint": "Alert me when someone replies to my forum thread."
   },
+  "teacher_ui": {
+    "dashboard": "Teacher Dashboard",
+    "dashboard_desc": "Manage student accounts and site settings.",
+    "register_user": "Register User",
+    "remove_student": "Remove Student"
+  },
   "game_ui": {
     "title": "Game Challenges",
     "start_coding_title": "Start Coding",
@@ -342,6 +350,12 @@
     "start_learning_desc": "Interactive challenges to master your skills.",
     "debugging_title": "Debugging Challenge",
     "debugging_desc": "Find the bug in the code!",
+    "troubleshooting_title": "Troubleshooting",
+    "troubleshooting_desc": "Find the root cause of the problem (Coming Soon)",
+    "programming_title": "Build-a-Code",
+    "programming_desc": "Arrange code blocks to solve a problem (Coming Soon)",
+    "puzzle_title": "Logic Puzzles",
+    "puzzle_desc": "Predict the output of the algorithm (Coming Soon)",
     "submit_answer": "Submit Answer",
     "correct": "Correct!",
     "incorrect": "Incorrect!",

@@ -79,6 +79,7 @@ export default function RootLayout() {
       <Stack.Screen name="games/index" options={{ title: 'Games' }} />
       <Stack.Screen name="games/debugging/play" options={{ title: 'Debugging Challenge' }} />
       <Stack.Screen name="register" options={{ title: 'Register' }} />
+      <Stack.Screen name="teacher-dashboard/index" options={{ title: 'Teacher Dashboard' }} />
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />
       <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />

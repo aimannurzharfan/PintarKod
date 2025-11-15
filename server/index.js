@@ -302,11 +302,24 @@ app.get('/api/users/search', async (req, res) => {
         username: true,
         email: true,
         role: true,
+        className: true,
         avatarUrl: true,
         profileImage: true,
         createdAt: true,
       },
     });
+
+    // Debug: Log to verify className is being returned
+    console.log('Search users - Found', users.length, 'users');
+    if (users.length > 0) {
+      console.log('First user sample:', JSON.stringify(users[0], null, 2));
+      // Check for Aiman specifically
+      const aimanUser = users.find(u => u.username?.toLowerCase().includes('aiman'));
+      if (aimanUser) {
+        console.log('Found Aiman user:', JSON.stringify(aimanUser, null, 2));
+        console.log('Aiman className:', aimanUser.className);
+      }
+    }
 
     res.json(users);
   } catch (err) {

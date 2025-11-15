@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
@@ -18,7 +19,7 @@ type GameCard = {
   id: string;
   title: string;
   description: string;
-  icon: string;
+  icon: keyof typeof Feather.glyphMap;
   enabled: boolean;
   onPress?: () => void;
 };
@@ -48,29 +49,29 @@ export default function GamesIndexScreen() {
         id: 'debugging',
         title: t('game_ui.debugging_title'),
         description: t('game_ui.debugging_desc'),
-        icon: 'ladybug.fill',
+        icon: 'alert-circle',
         enabled: true,
         onPress: onPlayRandomChallenge,
       },
       {
         id: 'troubleshooting',
-        title: 'Troubleshooting',
-        description: 'Coming soon...',
-        icon: 'wrench.and.screwdriver.fill',
+        title: t('game_ui.troubleshooting_title'),
+        description: t('game_ui.troubleshooting_desc'),
+        icon: 'wrench',
         enabled: false,
       },
       {
         id: 'programming',
-        title: 'Programming',
-        description: 'Coming soon...',
-        icon: 'terminal.fill',
+        title: t('game_ui.programming_title'),
+        description: t('game_ui.programming_desc'),
+        icon: 'code',
         enabled: false,
       },
       {
         id: 'puzzle',
-        title: 'Puzzle',
-        description: 'Coming soon...',
-        icon: 'puzzlepiece.extension.fill',
+        title: t('game_ui.puzzle_title'),
+        description: t('game_ui.puzzle_desc'),
+        icon: 'grid',
         enabled: false,
       },
     ],
@@ -129,18 +130,10 @@ export default function GamesIndexScreen() {
                   },
                 ]}
               >
-                <IconSymbol
-                  name={game.icon as any}
-                  size={32}
-                  color={
-                    game.enabled
-                      ? colorScheme === 'dark'
-                        ? '#93C5FD'
-                        : '#3B82F6'
-                      : colorScheme === 'dark'
-                      ? '#64748B'
-                      : '#94A3B8'
-                  }
+                <Feather
+                  name={game.icon}
+                  size={24}
+                  color={game.enabled ? "#000000" : (colorScheme === 'dark' ? '#64748B' : '#94A3B8')}
                 />
               </View>
               <View style={styles.gameCardContent}>

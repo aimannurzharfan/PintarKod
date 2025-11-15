@@ -37,6 +37,7 @@ type QuizResultData = {
   totalScore: number;
   correctCount: number;
   totalQuestions: number;
+  feedback?: Array<{ title: string; explanation: string }>;
 };
 
 export default function DebuggingChallengeScreen() {
@@ -55,6 +56,7 @@ export default function DebuggingChallengeScreen() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [resultData, setResultData] = useState<QuizResultData | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [correctSound, setCorrectSound] = useState<Audio.Sound | null>(null);
   const [wrongSound, setWrongSound] = useState<Audio.Sound | null>(null);
@@ -242,8 +244,9 @@ export default function DebuggingChallengeScreen() {
             throw new Error('No authentication token available');
           }
           
+          const lang = currentLang || 'en';
           const response = await fetch(
-            `${API_URL}/api/games/submit-quiz`,
+            `${API_URL}/api/games/submit-quiz?lang=${lang}`,
             {
               method: 'POST',
               headers: {
@@ -592,15 +595,101 @@ export default function DebuggingChallengeScreen() {
             )}
 
             <Animated.View entering={FadeIn.delay(300)}>
+              {resultData && resultData.feedback && resultData.feedback.length > 0 && (
+                <Pressable
+                  style={styles.feedbackButton}
+                  onPress={() => setShowFeedback(true)}
+                >
+                  <Text style={styles.feedbackButtonText}>
+                    {t('game_ui.get_feedback')}
+                  </Text>
+                </Pressable>
+              )}
               <Pressable
                 style={styles.nextButton}
                 onPress={handleNext}
               >
-                <Text style={styles.nextButtonText}>{t('game_ui.next')}</Text>
+                <Text style={styles.nextButtonText}>{t('game_ui.close_game')}</Text>
               </Pressable>
             </Animated.View>
           </Animated.View>
         </Pressable>
+      </Modal>
+
+      {/* Modal 2: Feedback Modal */}
+      <Modal
+        transparent={true}
+        visible={showFeedback}
+        animationType="fade"
+        onRequestClose={() => setShowFeedback(false)}
+      >
+        <Pressable 
+          style={styles.feedbackOverlay}
+          onPress={() => setShowFeedback(false)}
+        >
+          <Animated.View 
+            style={[
+              styles.feedbackContainer,
+              {
+                backgroundColor: colorScheme === 'dark' ? '#1E293B' : '#FFFFFF',
+              }
+            ]}
+            entering={FadeIn.duration(300)}
+            exiting={FadeIn.duration(300)}
+            onStartShouldSetResponder={() => true}
+          >
+              <Text 
+                style={[
+                  styles.reviewTitle,
+                  {
+                    color: colorScheme === 'dark' ? '#E2E8F0' : '#0F172A',
+                  }
+                ]}
+              >
+                {t('game_ui.review_wrong_answers')}
+              </Text>
+              <ScrollView style={styles.feedbackScroll}>
+                {resultData?.feedback?.map((item, index) => (
+                  <View 
+                    key={index} 
+                    style={[
+                      styles.feedbackItem,
+                      {
+                        backgroundColor: colorScheme === 'dark' ? '#334155' : '#F1F5F9',
+                      }
+                    ]}
+                  >
+                    <Text 
+                      style={[
+                        styles.feedbackTitle,
+                        {
+                          color: colorScheme === 'dark' ? '#CBD5E1' : '#334155',
+                        }
+                      ]}
+                    >
+                      {item.title}
+                    </Text>
+                    <Text 
+                      style={[
+                        styles.feedbackText,
+                        {
+                          color: colorScheme === 'dark' ? '#94A3B8' : '#475569',
+                        }
+                      ]}
+                    >
+                      {item.explanation}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setShowFeedback(false)}
+              >
+                <Text style={styles.buttonText}>{t('game_ui.close')}</Text>
+              </Pressable>
+            </Animated.View>
+          </Pressable>
       </Modal>
     </ThemedView>
   );
@@ -773,6 +862,73 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       justifyContent: 'center',
     },
     nextButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    // Styles for "Get Feedback" button
+    feedbackButton: {
+      backgroundColor: isDark ? '#334155' : '#E2E8F0',
+      borderRadius: 12,
+      padding: 16,
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    feedbackButtonText: {
+      color: isDark ? '#F1F5F9' : '#1E293B',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    // Styles for Feedback Modal
+    feedbackOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    feedbackContainer: {
+      width: '100%',
+      maxWidth: 400,
+      borderRadius: 16,
+      padding: 20,
+      maxHeight: '60%',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    reviewTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    feedbackScroll: {
+      marginBottom: 16,
+    },
+    feedbackItem: {
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 10,
+    },
+    feedbackTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    feedbackText: {
+      fontSize: 14,
+      marginTop: 5,
+    },
+    closeButton: {
+      backgroundColor: '#2563EB',
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    buttonText: {
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',

@@ -369,7 +369,11 @@
     "no_challenges": "Tiada cabaran tersedia",
     "start_game": "Mula Cabaran Baru",
     "next_question": "Seterusnya",
-    "question_progress": "Soalan {{current}} daripada {{total}}"
+    "question_progress": "Soalan {{current}} daripada {{total}}",
+    "review_wrong_answers": "Semak Jawapan Salah",
+    "get_feedback": "Dapatkan Maklum Balas",
+    "close_game": "Tutup Permainan",
+    "close": "Tutup"
   }
 }
 

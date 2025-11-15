@@ -96,13 +96,13 @@ npm run db:seed
 
 Open **two separate terminals**.
 
-### Terminal 1 — Start Backend Server
+### Terminal 1 - Start Backend Server
 
 ```bash
 npm run start:server
 ```
 
-### Terminal 2 — Start Frontend (Expo)
+### Terminal 2 - Start Frontend (Expo)
 
 ```bash
 npm run start

@@ -3,19 +3,25 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   useColorScheme,
   View,
-  Alert,
 } from 'react-native';
-import { API_URL } from '../config';
+
+type GameCard = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  enabled: boolean;
+  onPress?: () => void;
+};
 
 export default function GamesIndexScreen() {
   const { user } = useAuth();
@@ -32,9 +38,44 @@ export default function GamesIndexScreen() {
       return;
     }
 
-    // Just navigate to the game screen - it will fetch its own quiz
+    // Navigate to the game screen - it will fetch its own quiz
     router.push('/games/debugging/play');
   }, [user, router]);
+
+  const gameCards: GameCard[] = useMemo(
+    () => [
+      {
+        id: 'debugging',
+        title: t('game_ui.debugging_title'),
+        description: t('game_ui.debugging_desc'),
+        icon: 'ladybug.fill',
+        enabled: true,
+        onPress: onPlayRandomChallenge,
+      },
+      {
+        id: 'troubleshooting',
+        title: 'Troubleshooting',
+        description: 'Coming soon...',
+        icon: 'wrench.and.screwdriver.fill',
+        enabled: false,
+      },
+      {
+        id: 'programming',
+        title: 'Programming',
+        description: 'Coming soon...',
+        icon: 'terminal.fill',
+        enabled: false,
+      },
+      {
+        id: 'puzzle',
+        title: 'Puzzle',
+        description: 'Coming soon...',
+        icon: 'puzzlepiece.extension.fill',
+        enabled: false,
+      },
+    ],
+    [t, onPlayRandomChallenge]
+  );
 
   return (
     <ThemedView style={styles.container}>
@@ -46,55 +87,105 @@ export default function GamesIndexScreen() {
           {t('game_ui.title')}
         </ThemedText>
 
-        <View style={styles.section}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: colorScheme === 'dark' ? '#E2E8F0' : '#0F172A' },
-            ]}
-          >
-            {t('game_ui.debugging_title')}
-          </Text>
-          <Text
-            style={[
-              styles.sectionDescription,
-              { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' },
-            ]}
-          >
-            {t('game_ui.debugging_desc')}
-          </Text>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.playButton,
-              {
-                backgroundColor: colorScheme === 'dark'
-                  ? 'rgba(59, 130, 246, 0.2)'
-                  : 'rgba(59, 130, 246, 0.1)',
-                borderColor: colorScheme === 'dark'
-                  ? 'rgba(59, 130, 246, 0.4)'
-                  : 'rgba(59, 130, 246, 0.3)',
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              },
-            ]}
-            onPress={onPlayRandomChallenge}
-          >
-            <IconSymbol
-              name="play.fill"
-              size={24}
-              color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'}
-            />
-            <Text
-              style={[
-                styles.playButtonText,
+        <View style={styles.gamesGrid}>
+          {gameCards.map((game) => (
+            <Pressable
+              key={game.id}
+              style={({ pressed }) => [
+                styles.gameCard,
+                !game.enabled && styles.gameCardDisabled,
                 {
-                  color: colorScheme === 'dark' ? '#E2E8F0' : '#0F172A',
+                  backgroundColor: game.enabled
+                    ? colorScheme === 'dark'
+                      ? 'rgba(59, 130, 246, 0.1)'
+                      : 'rgba(59, 130, 246, 0.05)'
+                    : colorScheme === 'dark'
+                    ? 'rgba(148, 163, 184, 0.05)'
+                    : 'rgba(148, 163, 184, 0.02)',
+                  borderColor: game.enabled
+                    ? colorScheme === 'dark'
+                      ? 'rgba(59, 130, 246, 0.3)'
+                      : 'rgba(59, 130, 246, 0.2)'
+                    : colorScheme === 'dark'
+                    ? 'rgba(148, 163, 184, 0.2)'
+                    : 'rgba(148, 163, 184, 0.1)',
+                  transform: [{ scale: pressed && game.enabled ? 0.98 : 1 }],
                 },
               ]}
+              onPress={game.enabled ? game.onPress : undefined}
+              disabled={!game.enabled}
             >
-              {t('game_ui.start_game')}
-            </Text>
-          </Pressable>
+              <View
+                style={[
+                  styles.iconWrapper,
+                  {
+                    backgroundColor: game.enabled
+                      ? colorScheme === 'dark'
+                        ? 'rgba(59, 130, 246, 0.15)'
+                        : 'rgba(59, 130, 246, 0.1)'
+                      : colorScheme === 'dark'
+                      ? 'rgba(148, 163, 184, 0.1)'
+                      : 'rgba(148, 163, 184, 0.05)',
+                  },
+                ]}
+              >
+                <IconSymbol
+                  name={game.icon as any}
+                  size={32}
+                  color={
+                    game.enabled
+                      ? colorScheme === 'dark'
+                        ? '#93C5FD'
+                        : '#3B82F6'
+                      : colorScheme === 'dark'
+                      ? '#64748B'
+                      : '#94A3B8'
+                  }
+                />
+              </View>
+              <View style={styles.gameCardContent}>
+                <Text
+                  style={[
+                    styles.gameCardTitle,
+                    {
+                      color: game.enabled
+                        ? colorScheme === 'dark'
+                          ? '#FFFFFF'
+                          : '#0F172A'
+                        : colorScheme === 'dark'
+                        ? '#64748B'
+                        : '#94A3B8',
+                    },
+                  ]}
+                >
+                  {game.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.gameCardDescription,
+                    {
+                      color: game.enabled
+                        ? colorScheme === 'dark'
+                          ? '#CBD5F5'
+                          : '#475569'
+                        : colorScheme === 'dark'
+                        ? '#64748B'
+                        : '#94A3B8',
+                    },
+                  ]}
+                >
+                  {game.description}
+                </Text>
+              </View>
+              {game.enabled && (
+                <IconSymbol
+                  name="chevron.right"
+                  size={20}
+                  color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'}
+                />
+              )}
+            </Pressable>
+          ))}
         </View>
       </ScrollView>
     </ThemedView>
@@ -118,30 +209,38 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       marginBottom: 24,
       textAlign: 'center',
     },
-    section: {
+    gamesGrid: {
       gap: 16,
     },
-    sectionTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-    },
-    sectionDescription: {
-      fontSize: 14,
-      lineHeight: 20,
-    },
-    playButton: {
+    gameCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: 12,
       padding: 20,
-      borderRadius: 16,
+      borderRadius: 18,
       borderWidth: 2,
-      marginTop: 8,
+      gap: 16,
     },
-    playButtonText: {
+    gameCardDisabled: {
+      opacity: 0.6,
+    },
+    iconWrapper: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    gameCardContent: {
+      flex: 1,
+      gap: 6,
+    },
+    gameCardTitle: {
       fontSize: 18,
-      fontWeight: '600',
+      fontWeight: '700',
+    },
+    gameCardDescription: {
+      fontSize: 14,
+      lineHeight: 20,
     },
   });
 };

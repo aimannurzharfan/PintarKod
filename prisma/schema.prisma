@@ -112,21 +112,6 @@ model Notification {
   @@index([userId, createdAt])
 }
 
-model DebuggingChallenge {
-  id             String   @id @default(cuid())
-  title_en       String
-  title_ms       String
-  description_en String
-  description_ms String
-  codeBlock      String   @db.Text
-  buggyLineIndex Int
-  explanation_en String   @db.Text
-  explanation_ms String
-  basePoints     Int      @default(1000)
-
-  @@index([id])
-}
-
 model GameScore {
   id          String   @id @default(cuid())
   userId      Int

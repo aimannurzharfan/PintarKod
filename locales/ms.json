@@ -350,7 +350,10 @@
     "error": "Gagal memuatkan cabaran",
     "select_line": "Pilih baris kod yang mempunyai pepijat",
     "no_selection": "Sila pilih baris sebelum menghantar",
-    "no_challenges": "Tiada cabaran tersedia"
+    "no_challenges": "Tiada cabaran tersedia",
+    "start_game": "Mula Cabaran Baru",
+    "next_question": "Seterusnya",
+    "question_progress": "Soalan {{current}} daripada {{total}}"
   }
 }
 

@@ -5,6 +5,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { generateRandomDebugChallenge } = require('./gameGenerator');
 
 const app = express();
 app.use(cors());
@@ -105,6 +107,45 @@ function saveBase64File(fileData) {
 }
 
 const prisma = new PrismaClient();
+
+// JWT Secret (in production, use environment variable)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// JWT Authentication middleware
+const authMiddleware = async (req, res, next) => {
+  try {
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized - No token provided' });
+    }
+    
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    try {
+      // Verify JWT token
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      // Get user from database
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+      
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized - User not found' });
+      }
+      
+      // Attach user to request object
+      req.user = user;
+      next();
+    } catch (jwtError) {
+      console.error('JWT verification error:', jwtError);
+      return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+    }
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(500).json({ error: 'Authentication error', details: err.message });
+  }
+};
 
 async function createNotificationsForUsers(userIds, payload) {
   if (!Array.isArray(userIds) || !userIds.length) return;
@@ -218,8 +259,15 @@ app.post('/api/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: 'Invalid email or password' });
 
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' } // Token expires in 7 days
+    );
+
     const { password: _pw, ...userSafe } = user;
-    res.status(200).json({ user: userSafe });
+    res.status(200).json({ user: userSafe, token });
   } catch (err) {
     console.error('Login error', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -1166,141 +1214,81 @@ app.put('/api/notifications/preferences', async (req, res) => {
 
 // Game API Routes
 
-// GET /api/games/debugging - Fetch all debugging challenges
-app.get('/api/games/debugging', async (req, res) => {
+// GET A 10-QUESTION QUIZ
+app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
   try {
-    const { userId } = req.query || {};
-    const id = Number(userId);
-    if (!Number.isInteger(id)) {
-      return res.status(400).json({ error: 'Valid userId is required' });
-    }
+    // Get the user ID from the middleware
+    const userId = req.user?.id;
     
-    // Verify user exists
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Fetch all challenges and randomize order
-    const allChallenges = await prisma.debuggingChallenge.findMany();
-    
-    // Shuffle array using Fisher-Yates algorithm
-    for (let i = allChallenges.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allChallenges[i], allChallenges[j]] = [allChallenges[j], allChallenges[i]];
+    console.log('Generating quiz for user:', userId);
+
+    // Generate 10 random challenges
+    const challenges = [];
+    for (let i = 0; i < 10; i++) {
+      challenges.push(generateRandomDebugChallenge());
     }
     
-    res.json(allChallenges);
+    console.log('Generated', challenges.length, 'challenges');
+    res.json(challenges); // Returns an array of 10 challenges
   } catch (err) {
-    console.error('Get debugging challenges error', err);
-    // Provide more detailed error for debugging
-    const errorMessage = err.message || 'Internal server error';
-    console.error('Error details:', {
-      message: errorMessage,
-      code: err.code,
-      meta: err.meta,
-    });
-    res.status(500).json({ 
-      error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-    });
+    console.error('Error generating quiz:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
   }
 });
 
-// GET /api/games/debugging/:id - Fetch a single debugging challenge
-app.get('/api/games/debugging/:id', async (req, res) => {
+// POST /api/games/submit-quiz - Submits a full 10-question quiz
+app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
   try {
-    const { userId } = req.query || {};
-    const id = Number(userId);
-    if (!Number.isInteger(id)) {
-      return res.status(400).json({ error: 'Valid userId is required' });
-    }
-    
-    // Verify user exists
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Get the user ID from the middleware
+    const userId = req.user.id;
+    const { answers, totalTimeMs } = req.body || {};
+
+    // 'answers' is an array: [{ challenge, selectedLine }, ...]
+    if (!Array.isArray(answers) || !totalTimeMs) {
+      return res.status(400).json({ error: 'Invalid quiz submission' });
     }
 
-    const challengeId = req.params.id;
-    const challenge = await prisma.debuggingChallenge.findUnique({
-      where: { id: challengeId },
-    });
-    
-    if (!challenge) {
-      return res.status(404).json({ error: 'Challenge not found' });
-    }
-    
-    res.json(challenge);
-  } catch (err) {
-    console.error('Get debugging challenge error', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+    let totalScore = 0;
+    let correctCount = 0;
+    const timePerQuestion = totalTimeMs / answers.length;
 
-// POST /api/games/debugging/:id/submit - Submit answer and calculate score
-app.post('/api/games/debugging/:id/submit', async (req, res) => {
-  try {
-    const { userId, selectedLine, timeTakenMs } = req.body || {};
-    const id = Number(userId);
-    if (!Number.isInteger(id)) {
-      return res.status(400).json({ error: 'Valid userId is required' });
-    }
-    
-    // Verify user exists
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    for (const answer of answers) {
+      const { challenge, selectedLine } = answer;
+      const isCorrect = (challenge.buggyLineIndex === selectedLine);
+
+      if (isCorrect) {
+        correctCount++;
+        // Calculate score for this *one* question
+        const score = Math.max(100, challenge.basePoints - Math.floor(timePerQuestion / 100));
+        totalScore += score;
+      }
     }
 
-    const challengeId = req.params.id;
-    const challenge = await prisma.debuggingChallenge.findUnique({
-      where: { id: challengeId },
-    });
-    
-    if (!challenge) {
-      return res.status(404).json({ error: 'Challenge not found' });
-    }
-
-    if (typeof selectedLine !== 'number' || typeof timeTakenMs !== 'number') {
-      return res.status(400).json({ error: 'selectedLine and timeTakenMs are required' });
-    }
-
-    const isCorrect = selectedLine === challenge.buggyLineIndex;
-    
-    if (!isCorrect) {
-      // Return incorrect response without saving score
-      const explanation = req.query.lang === 'ms' ? challenge.explanation_ms : challenge.explanation_en;
-      return res.json({
-        isCorrect: false,
-        explanation,
-      });
-    }
-
-    // Calculate score: basePoints - (timeTakenMs / 100), minimum 100
-    const score = Math.max(100, challenge.basePoints - Math.floor(timeTakenMs / 100));
-
-    // Save the score
+    // Save ONE record for the entire quiz
     await prisma.gameScore.create({
       data: {
-        userId: id,
-        challengeId: challengeId,
-        gameType: 'DEBUGGING',
-        score: score,
-        timeTakenMs: timeTakenMs,
+        userId: userId, // Use the correct ID from req.user
+        challengeId: `DEBUG_QUIZ_${Date.now()}`,
+        gameType: 'DEBUGGING_QUIZ',
+        score: totalScore,
+        timeTakenMs: totalTimeMs,
       },
     });
 
-    const explanation = req.query.lang === 'ms' ? challenge.explanation_ms : challenge.explanation_en;
-    
     res.json({
-      isCorrect: true,
-      score: score,
-      explanation,
+      isComplete: true,
+      totalScore: totalScore,
+      correctCount: correctCount,
+      totalQuestions: answers.length,
     });
   } catch (err) {
-    console.error('Submit debugging challenge error', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error submitting quiz:', err);
+    res.status(500).json({ error: 'Failed to submit quiz' });
   }
 });
 

@@ -350,7 +350,10 @@
     "error": "Failed to load challenge",
     "select_line": "Select the buggy line",
     "no_selection": "Please select a line before submitting",
-    "no_challenges": "No challenges available"
+    "no_challenges": "No challenges available",
+    "start_game": "Start New Challenge",
+    "next_question": "Next",
+    "question_progress": "Question {{current}} of {{total}}"
   }
 }
 

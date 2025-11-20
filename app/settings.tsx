@@ -13,7 +13,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import {
   useNotifications,
   type NotificationPreferences,
@@ -62,14 +61,6 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol
-            name="chevron.left"
-            size={20}
-            color={colorScheme === 'dark' ? '#F8FAFC' : '#1E293B'}
-          />
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </Pressable>
         <Text style={styles.title}>{t('settings.title')}</Text>
         <Text style={styles.subtitle}>{t('settings.description')}</Text>
       </View>
@@ -77,11 +68,6 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <IconSymbol
-              name="globe"
-              size={20}
-              color={colorScheme === 'dark' ? '#BFDBFE' : '#2563EB'}
-            />
             <Text style={styles.cardTitle}>{t('settings.language_title')}</Text>
           </View>
           <Text style={styles.cardDescription}>{t('settings.language_hint')}</Text>
@@ -114,11 +100,6 @@ export default function SettingsScreen() {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <IconSymbol
-              name="bell"
-              size={20}
-              color={colorScheme === 'dark' ? '#FCD34D' : '#F59E0B'}
-            />
             <Text style={styles.cardTitle}>{t('settings.notifications_title')}</Text>
           </View>
           <Text style={styles.cardDescription}>{t('settings.notifications_hint')}</Text>
@@ -191,17 +172,6 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       paddingHorizontal: 24,
       paddingVertical: 20,
       gap: 6,
-    },
-    backButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      alignSelf: 'flex-start',
-    },
-    backText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: isDark ? '#E2E8F0' : '#334155',
     },
     title: {
       fontSize: 24,

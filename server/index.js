@@ -1519,6 +1519,56 @@ app.get('/api/teacher/students', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/teacher/students/:id/logs - Get chat logs for a specific student
+app.get('/api/teacher/students/:id/logs', authMiddleware, async (req, res) => {
+  try {
+    // Check if user is a teacher
+    if (req.user.role !== 'Teacher') {
+      return res.status(403).json({ error: 'Forbidden - Only teachers can access this endpoint' });
+    }
+
+    const studentId = parseInt(req.params.id, 10);
+    if (isNaN(studentId)) {
+      return res.status(400).json({ error: 'Invalid student ID' });
+    }
+
+    // Verify the student exists and is actually a student
+    const student = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: { id: true, role: true },
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (student.role !== 'Student') {
+      return res.status(400).json({ error: 'User is not a student' });
+    }
+
+    // Fetch all chat logs for this student
+    const logs = await prisma.chatLog.findMany({
+      where: {
+        userId: studentId,
+      },
+      select: {
+        id: true,
+        message: true,
+        response: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc', // Newest first
+      },
+    });
+
+    res.json(logs);
+  } catch (err) {
+    console.error('Error fetching student logs:', err);
+    res.status(500).json({ error: 'Failed to fetch student logs' });
+  }
+});
+
 // AI Chatbot Proxy Endpoint
 app.post('/api/chat', authMiddleware, async (req, res) => {
   try {
@@ -1565,6 +1615,20 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     
     // Extract the text from Gemini's response format
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+    
+    // Save the chat log to database
+    try {
+      await prisma.chatLog.create({
+        data: {
+          userId: req.user.id,
+          message: message,
+          response: text,
+        },
+      });
+    } catch (logError) {
+      // Log error but don't fail the request
+      console.error('Error saving chat log:', logError);
+    }
     
     res.json({ text });
   } catch (err) {

@@ -344,7 +344,11 @@
     "monitor_title": "Monitor Students",
     "search_placeholder": "Search student name...",
     "attempts": "Attempts",
-    "best_score": "Best Score"
+    "best_score": "Best Score",
+    "chat_history": "Chat History",
+    "no_logs_found": "No logs found",
+    "student_prompts": "Student Prompts",
+    "chat_response": "Response"
   },
   "game_ui": {
     "title": "Game Challenges",

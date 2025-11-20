@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -25,6 +28,13 @@ type Student = {
   profileImage: string | null;
   attempts: number;
   bestScore: number;
+};
+
+type ChatLog = {
+  id: number;
+  message: string;
+  response: string | null;
+  createdAt: string;
 };
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
@@ -53,6 +63,9 @@ export default function StudentMonitorScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [logs, setLogs] = useState<ChatLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Set header options
   useEffect(() => {
@@ -120,42 +133,106 @@ export default function StudentMonitorScreen() {
     }
   };
 
+  const handleStudentClick = async (student: Student) => {
+    setSelectedStudent(student);
+    setLoadingLogs(true);
+    setLogs([]);
+
+    try {
+      const response = await fetch(`${API_URL}/api/teacher/students/${student.id}/logs`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch chat logs');
+      }
+
+      const data: ChatLog[] = await response.json();
+      setLogs(data);
+    } catch (err) {
+      console.error('Error fetching logs:', err);
+      setLogs([]);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
+
   const renderStudentCard = ({ item }: { item: Student }) => {
     const avatarUri = resolveAvatarUri(item.profileImage, item.avatarUrl);
 
     return (
       <View style={styles.studentCard}>
-        <View style={styles.studentCardLeft}>
-          {avatarUri ? (
-            <Image
-              source={{ uri: avatarUri }}
-              style={styles.studentAvatar}
-              resizeMode="cover"
-              onError={() => {
-                console.log('Failed to load avatar for student:', item.username);
-              }}
-            />
-          ) : (
-            <View style={[styles.studentAvatar, styles.studentAvatarFallback]}>
-              <Feather
-                name="user"
-                size={24}
-                color={colorScheme === 'dark' ? '#94A3B8' : '#64748B'}
+        <View style={styles.studentCardTop}>
+          <View style={styles.studentCardLeft}>
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={styles.studentAvatar}
+                resizeMode="cover"
+                onError={() => {
+                  console.log('Failed to load avatar for student:', item.username);
+                }}
               />
+            ) : (
+              <View style={[styles.studentAvatar, styles.studentAvatarFallback]}>
+                <Feather
+                  name="user"
+                  size={24}
+                  color={colorScheme === 'dark' ? '#94A3B8' : '#64748B'}
+                />
+              </View>
+            )}
+            <View style={styles.studentInfo}>
+              <Text style={styles.studentUsername}>{item.username}</Text>
+              <Text style={styles.studentBestScore}>
+                {t('teacher_ui.best_score')}: {item.bestScore.toLocaleString()}
+              </Text>
             </View>
-          )}
-          <View style={styles.studentInfo}>
-            <Text style={styles.studentUsername}>{item.username}</Text>
-            <Text style={styles.studentBestScore}>
-              {t('teacher_ui.best_score')}: {item.bestScore.toLocaleString()}
+          </View>
+          <View style={styles.attemptsBadge}>
+            <Text style={styles.attemptsText}>
+              {item.attempts} {t('teacher_ui.attempts')}
             </Text>
           </View>
         </View>
-        <View style={styles.attemptsBadge}>
-          <Text style={styles.attemptsText}>
-            {item.attempts} {t('teacher_ui.attempts')}
+        <Pressable
+          style={({ pressed }) => [
+            styles.chatHistoryButton,
+            pressed && styles.chatHistoryButtonPressed,
+          ]}
+          onPress={() => handleStudentClick(item)}
+        >
+          <Feather
+            name="message-circle"
+            size={16}
+            color={colorScheme === 'dark' ? '#93C5FD' : '#2563EB'}
+          />
+          <Text style={styles.chatHistoryButtonText}>
+            {t('teacher_ui.chat_history')}
           </Text>
-        </View>
+        </Pressable>
+      </View>
+    );
+  };
+
+  const renderLogItem = ({ item }: { item: ChatLog }) => {
+    return (
+      <View style={styles.logCard}>
+        <Text style={styles.logDate}>{formatDate(item.createdAt)}</Text>
+        <Text style={styles.logMessage}>{item.message}</Text>
+        {item.response && (
+          <View style={styles.logResponseContainer}>
+            <Text style={styles.logResponseLabel}>{t('teacher_ui.chat_response') || 'Response:'}</Text>
+            <Text style={styles.logResponse}>{item.response}</Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -233,6 +310,52 @@ export default function StudentMonitorScreen() {
           }
           showsVerticalScrollIndicator={false}
         />
+
+        {/* Chat Logs Modal */}
+        <Modal
+          visible={selectedStudent !== null}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setSelectedStudent(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {selectedStudent ? `${t('teacher_ui.chat_history')} - ${selectedStudent.username}` : ''}
+                </Text>
+                <Pressable
+                  onPress={() => setSelectedStudent(null)}
+                  style={styles.closeButton}
+                >
+                  <Feather
+                    name="x"
+                    size={24}
+                    color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'}
+                  />
+                </Pressable>
+              </View>
+
+              {loadingLogs ? (
+                <View style={styles.modalLoading}>
+                  <ActivityIndicator size="large" color={colorScheme === 'dark' ? '#FACC15' : '#1E293B'} />
+                </View>
+              ) : logs.length === 0 ? (
+                <View style={styles.modalEmpty}>
+                  <Text style={styles.modalEmptyText}>{t('teacher_ui.no_logs_found')}</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={logs}
+                  renderItem={renderLogItem}
+                  keyExtractor={(item) => `log-${item.id}`}
+                  contentContainerStyle={styles.logsListContent}
+                  showsVerticalScrollIndicator={true}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </ThemedView>
   );
@@ -296,15 +419,18 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       paddingBottom: 20,
     },
     studentCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.05)' : 'rgba(148, 163, 184, 0.02)',
       borderRadius: 12,
       padding: 16,
       marginBottom: 12,
       borderWidth: 1,
       borderColor: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.05)',
+      gap: 12,
+    },
+    studentCardTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
     },
     studentCardLeft: {
       flexDirection: 'row',
@@ -349,6 +475,26 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       fontWeight: '600',
       color: isDark ? '#93C5FD' : '#2563EB',
     },
+    chatHistoryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+      borderRadius: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.15)',
+    },
+    chatHistoryButtonPressed: {
+      opacity: 0.7,
+    },
+    chatHistoryButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDark ? '#93C5FD' : '#2563EB',
+    },
     emptyContainer: {
       paddingVertical: 40,
       alignItems: 'center',
@@ -357,6 +503,91 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       fontSize: 16,
       color: isDark ? '#94A3B8' : '#64748B',
       textAlign: 'center',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '90%',
+      minHeight: '50%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: isDark ? '#FFFFFF' : '#000000',
+      flex: 1,
+    },
+    closeButton: {
+      padding: 4,
+    },
+    modalLoading: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 40,
+    },
+    modalEmpty: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 40,
+    },
+    modalEmptyText: {
+      fontSize: 16,
+      color: isDark ? '#94A3B8' : '#64748B',
+      textAlign: 'center',
+    },
+    logsListContent: {
+      padding: 20,
+    },
+    logCard: {
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.05)' : 'rgba(148, 163, 184, 0.02)',
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.05)',
+    },
+    logDate: {
+      fontSize: 12,
+      color: isDark ? '#94A3B8' : '#64748B',
+      marginBottom: 8,
+    },
+    logMessage: {
+      fontSize: 16,
+      color: isDark ? '#E2E8F0' : '#1E293B',
+      marginBottom: 8,
+      lineHeight: 22,
+    },
+    logResponseContainer: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.05)',
+    },
+    logResponseLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: isDark ? '#94A3B8' : '#64748B',
+      marginBottom: 4,
+    },
+    logResponse: {
+      fontSize: 14,
+      color: isDark ? '#CBD5F5' : '#475569',
+      lineHeight: 20,
     },
   });
 };

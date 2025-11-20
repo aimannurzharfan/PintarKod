@@ -23,6 +23,7 @@ type LeaderboardEntry = {
   userId: number;
   username: string;
   avatarUrl: string | null;
+  profileImage: string | null;
   role: string;
   totalScore: number;
 };
@@ -32,15 +33,17 @@ type LeaderboardData = {
   userRank: LeaderboardEntry | null;
 };
 
-const resolveAvatarUri = (avatarUrl: string | null) => {
-  if (!avatarUrl || avatarUrl.trim() === '') return null;
+const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
+  // Check profileImage first (base64 data) - exactly like profile.tsx
+  if (profileImage) {
+    return profileImage.startsWith('data:') ? profileImage : `data:image/jpeg;base64,${profileImage}`;
+  }
+  // Fall back to avatarUrl
+  if (!avatarUrl) return undefined;
   if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
     return avatarUrl;
   }
-  // Handle URL construction to avoid double slashes
-  const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
-  const path = avatarUrl.startsWith('/') ? avatarUrl : `/${avatarUrl}`;
-  return `${baseUrl}${path}`;
+  return `${API_URL}${avatarUrl}`;
 };
 
 export default function LeaderboardScreen() {
@@ -88,6 +91,13 @@ export default function LeaderboardScreen() {
       }
 
       const result: LeaderboardData = await response.json();
+      // Debug: Log to see what data we're receiving
+      console.log('Leaderboard data received:', JSON.stringify(result, null, 2));
+      if (result.leaderboard && result.leaderboard.length > 0) {
+        console.log('First leaderboard entry:', JSON.stringify(result.leaderboard[0], null, 2));
+        console.log('First entry profileImage:', result.leaderboard[0].profileImage ? 'exists' : 'null');
+        console.log('First entry avatarUrl:', result.leaderboard[0].avatarUrl);
+      }
       setData(result);
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
@@ -122,20 +132,28 @@ export default function LeaderboardScreen() {
           const isSecond = actualRank === 2;
           const isThird = actualRank === 3;
 
-          let medalColor = '#94A3B8';
-          let podiumHeight = 80;
+          let podiumHeight = 200;
+          let avatarSize = 70;
           if (isFirst) {
-            medalColor = '#FFD700'; // Gold
-            podiumHeight = 120;
+            podiumHeight = 240;
+            avatarSize = 80;
           } else if (isSecond) {
-            medalColor = '#C0C0C0'; // Silver
-            podiumHeight = 100;
+            podiumHeight = 220;
+            avatarSize = 75;
           } else if (isThird) {
-            medalColor = '#CD7F32'; // Bronze
-            podiumHeight = 90;
+            podiumHeight = 210;
+            avatarSize = 72;
           }
 
-          const avatarUri = resolveAvatarUri(entry.avatarUrl);
+          const avatarUri = resolveAvatarUri(entry.profileImage, entry.avatarUrl);
+          // Debug logging for podium
+          if (index === 0) {
+            console.log(`Podium entry ${entry.username}:`, {
+              profileImage: entry.profileImage ? 'exists' : 'null',
+              avatarUrl: entry.avatarUrl,
+              resolvedUri: avatarUri ? 'exists' : 'null'
+            });
+          }
 
           return (
             <View
@@ -151,24 +169,24 @@ export default function LeaderboardScreen() {
                     {avatarUri ? (
                       <Image
                         source={{ uri: avatarUri }}
-                        style={styles.podiumAvatar}
+                        style={[styles.podiumAvatar, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}
                         resizeMode="cover"
-                        onError={() => {
-                          console.log('Failed to load avatar for user:', entry.username);
+                        onError={(error) => {
+                          console.log('Failed to load avatar for user:', entry.username, error);
+                        }}
+                        onLoad={() => {
+                          console.log('Successfully loaded avatar for user:', entry.username);
                         }}
                       />
                     ) : (
-                      <View style={[styles.podiumAvatar, styles.podiumAvatarFallback]}>
+                      <View style={[styles.podiumAvatar, styles.podiumAvatarFallback, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}>
                         <Feather
                           name="user"
-                          size={isFirst ? 40 : 32}
+                          size={avatarSize * 0.5}
                           color={colorScheme === 'dark' ? '#94A3B8' : '#64748B'}
                         />
                       </View>
                     )}
-                    <View style={styles.medalContainer}>
-                      <Feather name="award" size={isFirst ? 32 : 24} color={medalColor} />
-                    </View>
                   </View>
                   <Text style={styles.podiumRank}>#{actualRank}</Text>
                   <Text style={styles.podiumUsername} numberOfLines={1}>
@@ -185,7 +203,7 @@ export default function LeaderboardScreen() {
   };
 
   const renderListItem = ({ item }: { item: LeaderboardEntry }) => {
-    const avatarUri = resolveAvatarUri(item.avatarUrl);
+    const avatarUri = resolveAvatarUri(item.profileImage, item.avatarUrl);
     const isCurrentUser = item.userId === Number(user?.id);
 
     return (
@@ -202,8 +220,11 @@ export default function LeaderboardScreen() {
               source={{ uri: avatarUri }}
               style={styles.listItemAvatar}
               resizeMode="cover"
-              onError={() => {
-                console.log('Failed to load avatar for user:', item.username);
+              onError={(error) => {
+                console.log('Failed to load avatar for user:', item.username, error);
+              }}
+              onLoad={() => {
+                console.log('Successfully loaded avatar for user:', item.username);
               }}
             />
           ) : (
@@ -283,13 +304,16 @@ export default function LeaderboardScreen() {
                 <Text style={styles.stickyUserBarRank}>
                   {data.userRank.rank ? `#${data.userRank.rank}` : '—'}
                 </Text>
-                {resolveAvatarUri(data.userRank.avatarUrl) ? (
+                {resolveAvatarUri(data.userRank.profileImage, data.userRank.avatarUrl) ? (
                   <Image
-                    source={{ uri: resolveAvatarUri(data.userRank.avatarUrl)! }}
+                    source={{ uri: resolveAvatarUri(data.userRank.profileImage, data.userRank.avatarUrl)! }}
                     style={styles.stickyUserBarAvatar}
                     resizeMode="cover"
-                    onError={() => {
-                      console.log('Failed to load avatar for user:', data.userRank.username);
+                    onError={(error) => {
+                      console.log('Failed to load avatar for user:', data.userRank.username, error);
+                    }}
+                    onLoad={() => {
+                      console.log('Successfully loaded avatar for user:', data.userRank.username);
                     }}
                   />
                 ) : (
@@ -363,12 +387,13 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       alignItems: 'flex-end',
       marginBottom: 32,
       paddingTop: 20,
-      gap: 12,
+      gap: 8,
+      paddingHorizontal: 10,
     },
     podiumItem: {
       flex: 1,
       alignItems: 'center',
-      maxWidth: 120,
+      maxWidth: 110,
     },
     podiumItemFirst: {
       zIndex: 1,
@@ -379,33 +404,36 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       borderRadius: 16,
       borderWidth: 2,
       borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)',
-      padding: 12,
+      padding: 16,
+      paddingTop: 20,
       alignItems: 'center',
+      justifyContent: 'flex-start',
     },
     podiumContent: {
       alignItems: 'center',
       width: '100%',
+      justifyContent: 'flex-start',
     },
     avatarMedalContainer: {
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 8,
-      position: 'relative',
+      marginBottom: 12,
+      width: '100%',
     },
     podiumAvatar: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
       backgroundColor: '#ccc',
+      borderWidth: 3,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
     },
     podiumAvatarFallback: {
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.1)',
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 3,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
     },
     medalContainer: {
-      position: 'absolute',
-      bottom: -8,
+      marginTop: 8,
       alignItems: 'center',
       justifyContent: 'center',
     },

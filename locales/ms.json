@@ -344,7 +344,11 @@
     "monitor_title": "Pantau Pelajar",
     "search_placeholder": "Cari nama pelajar...",
     "attempts": "Percubaan",
-    "best_score": "Markah Tertinggi"
+    "best_score": "Markah Tertinggi",
+    "chat_history": "Sejarah Sembang",
+    "no_logs_found": "Tiada log ditemui",
+    "student_prompts": "Soalan Pelajar",
+    "chat_response": "Jawapan"
   },
   "game_ui": {
     "title": "Cabaran Permainan",

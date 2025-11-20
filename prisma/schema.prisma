@@ -23,6 +23,7 @@ model User {
   learningMaterials LearningMaterial[]
   notifications     Notification[]
   gameScores        GameScore[]
+  chatLogs          ChatLog[]
   notifyNewForumThreads      Boolean @default(true)
   notifyNewLearningMaterials Boolean @default(true)
   notifyForumReplies         Boolean @default(true)
@@ -120,6 +121,18 @@ model GameScore {
 
   userId      Int
   user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model ChatLog {
+  id        Int      @id @default(autoincrement())
+  message   String   @db.Text // The student's prompt
+  response  String?  @db.Text // Optional: The AI's answer
+  createdAt DateTime @default(now())
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }

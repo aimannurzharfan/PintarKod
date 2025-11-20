@@ -1239,11 +1239,22 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
 
     console.log('Generating quiz for user:', userId);
 
-    // Generate 10 random challenges
-    const challenges = [];
-    for (let i = 0; i < 10; i++) {
-      challenges.push(generateRandomDebugChallenge());
+    // Generate a pool of challenges (more than needed to ensure variety)
+    const challengePool = [];
+    const poolSize = 30; // Generate 30 challenges to ensure variety
+    
+    for (let i = 0; i < poolSize; i++) {
+      challengePool.push(generateRandomDebugChallenge());
     }
+
+    // Fisher-Yates shuffle algorithm
+    for (let i = challengePool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [challengePool[i], challengePool[j]] = [challengePool[j], challengePool[i]];
+    }
+
+    // Take the first 10 unique challenges
+    const challenges = challengePool.slice(0, 10);
     
     console.log('Generated', challenges.length, 'challenges');
     res.json(challenges); // Returns an array of 10 challenges
@@ -1295,11 +1306,9 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     // Save ONE record for the entire quiz
     await prisma.gameScore.create({
       data: {
-        userId: userId, // Use the correct ID from req.user
-        challengeId: `DEBUG_QUIZ_${Date.now()}`,
-        gameType: 'DEBUGGING_QUIZ',
+        userId: userId,
         score: totalScore,
-        timeTakenMs: totalTimeMs,
+        gameType: 'DEBUGGING_QUIZ'
       },
     });
 
@@ -1313,6 +1322,101 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Error submitting quiz:', err);
     res.status(500).json({ error: 'Failed to submit quiz' });
+  }
+});
+
+// GET /api/leaderboard - Get top 50 users and current user's rank
+app.get('/api/leaderboard', authMiddleware, async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+
+    // Get all scores grouped by userId with user information
+    const scoresByUser = await prisma.gameScore.groupBy({
+      by: ['userId'],
+      _sum: {
+        score: true,
+      },
+    });
+
+    // Sort by total score descending
+    scoresByUser.sort((a, b) => (b._sum.score || 0) - (a._sum.score || 0));
+
+    // Get user details for all users with scores
+    const userIds = scoresByUser.map((item) => item.userId);
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+      },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        role: true,
+      },
+    });
+
+    // Create a map for quick user lookup
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    // Build leaderboard array with top 50
+    const leaderboard = scoresByUser.slice(0, 50).map((item, index) => {
+      const user = userMap.get(item.userId);
+      return {
+        rank: index + 1,
+        userId: item.userId,
+        username: user?.username || 'Unknown',
+        avatarUrl: user?.avatarUrl || null,
+        role: user?.role || 'Student',
+        totalScore: item._sum.score || 0,
+      };
+    });
+
+    // Find current user's rank and score
+    const currentUserIndex = scoresByUser.findIndex((item) => item.userId === currentUserId);
+    let userRank = null;
+
+    if (currentUserIndex !== -1) {
+      const currentUserItem = scoresByUser[currentUserIndex];
+      const currentUser = userMap.get(currentUserId);
+      userRank = {
+        rank: currentUserIndex + 1,
+        userId: currentUserId,
+        username: currentUser?.username || 'Unknown',
+        avatarUrl: currentUser?.avatarUrl || null,
+        role: currentUser?.role || 'Student',
+        totalScore: currentUserItem._sum.score || 0,
+      };
+    } else {
+      // User has no scores yet
+      const currentUser = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: {
+          id: true,
+          username: true,
+          avatarUrl: true,
+          role: true,
+        },
+      });
+
+      if (currentUser) {
+        userRank = {
+          rank: null,
+          userId: currentUserId,
+          username: currentUser.username,
+          avatarUrl: currentUser.avatarUrl,
+          role: currentUser.role,
+          totalScore: 0,
+        };
+      }
+    }
+
+    res.json({
+      leaderboard,
+      userRank,
+    });
+  } catch (err) {
+    console.error('Error fetching leaderboard:', err);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
   }
 });
 

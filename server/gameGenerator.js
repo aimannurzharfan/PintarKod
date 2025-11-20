@@ -129,6 +129,98 @@ const comparisonTemplates = [
   },
 ];
 
+// --- BUG TEMPLATE 5: Wrong Comparison (Assignment in Condition) ---
+const wrongComparisonTemplates = [
+  {
+    code: `if (score = 100) {\n  console.log("Perfect!");\n}`,
+    buggyLine: 0,
+    explanation: {
+      en: "Single = assigns a value. Use == or === to compare values.",
+      ms: "Tanda = tunggal menugaskan nilai. Gunakan == atau === untuk membandingkan nilai."
+    }
+  },
+];
+
+// --- BUG TEMPLATE 6: String Math (Type Coercion) ---
+const stringMathTemplates = [
+  {
+    code: `let total = "10" + 5;\nconsole.log(total); // Result is 105`,
+    buggyLine: 0,
+    explanation: {
+      en: "Adding a number to a string performs concatenation. Convert the string to a number first using parseInt().",
+      ms: "Menambah nombor kepada rentetan melakukan penyambungan. Tukar rentetan kepada nombor terlebih dahulu menggunakan parseInt()."
+    }
+  },
+  {
+    code: `let result = "5" + 3 + 2;\nconsole.log(result); // Result is 532`,
+    buggyLine: 0,
+    explanation: {
+      en: "Adding a number to a string performs concatenation. Convert the string to a number first using parseInt().",
+      ms: "Menambah nombor kepada rentetan melakukan penyambungan. Tukar rentetan kepada nombor terlebih dahulu menggunakan parseInt()."
+    }
+  },
+];
+
+// --- BUG TEMPLATE 7: Off By One Error ---
+const offByOneTemplates = [
+  {
+    code: `let arr = [1, 2, 3];\nconsole.log(arr[3]);`,
+    buggyLine: 1,
+    explanation: {
+      en: "Array indices start at 0. The last item in an array of length 3 is at index 2.",
+      ms: "Indeks tatasusunan bermula pada 0. Item terakhir dalam tatasusunan panjang 3 berada pada indeks 2."
+    }
+  },
+  {
+    code: `let numbers = [10, 20, 30];\nfor (let i = 0; i <= numbers.length; i++) {\n  console.log(numbers[i]);\n}`,
+    buggyLine: 1,
+    explanation: {
+      en: "Array indices start at 0. The loop should use < instead of <= to avoid accessing index 3.",
+      ms: "Indeks tatasusunan bermula pada 0. Gelung sepatutnya menggunakan < dan bukannya <= untuk mengelakkan akses indeks 3."
+    }
+  },
+];
+
+// --- BUG TEMPLATE 8: Unreachable Code ---
+const unreachableCodeTemplates = [
+  {
+    code: `function test() {\n  return true;\n  console.log("Done");\n}`,
+    buggyLine: 1,
+    explanation: {
+      en: "The return statement ends the function immediately. Any code after it is ignored.",
+      ms: "Pernyataan return menamatkan fungsi dengan segera. Sebarang kod selepasnya diabaikan."
+    }
+  },
+  {
+    code: `function calculate() {\n  return 10;\n  let result = 5 * 2;\n  return result;\n}`,
+    buggyLine: 1,
+    explanation: {
+      en: "The return statement ends the function immediately. Any code after it is ignored.",
+      ms: "Pernyataan return menamatkan fungsi dengan segera. Sebarang kod selepasnya diabaikan."
+    }
+  },
+];
+
+// --- BUG TEMPLATE 9: Variable Scope ---
+const variableScopeTemplates = [
+  {
+    code: `if (true) {\n  let message = "Hi";\n}\nconsole.log(message);`,
+    buggyLine: 3,
+    explanation: {
+      en: "Variables declared with let only exist inside the {} block where they were created.",
+      ms: "Pemboleh ubah yang diisytiharkan dengan let hanya wujud di dalam blok {} di mana ia dicipta."
+    }
+  },
+  {
+    code: `for (let i = 0; i < 5; i++) {\n  let count = i;\n}\nconsole.log(count);`,
+    buggyLine: 3,
+    explanation: {
+      en: "Variables declared with let only exist inside the {} block where they were created.",
+      ms: "Pemboleh ubah yang diisytiharkan dengan let hanya wujud di dalam blok {} di mana ia dicipta."
+    }
+  },
+];
+
 // --- Helper Functions ---
 function generateTypoChallenge() {
   const t = typoTemplates[Math.floor(Math.random() * typoTemplates.length)];
@@ -204,6 +296,81 @@ function generateComparisonChallenge() {
   };
 }
 
+function generateWrongComparisonChallenge() {
+  const t = wrongComparisonTemplates[Math.floor(Math.random() * wrongComparisonTemplates.length)];
+  return {
+    title: { en: "Wrong Comparison", ms: "Perbandingan Yang Salah" },
+    description: { 
+      en: "Find the line with the wrong comparison operator.", 
+      ms: "Cari baris dengan operator perbandingan yang salah." 
+    },
+    codeBlock: t.code,
+    buggyLineIndex: t.buggyLine,
+    explanation: t.explanation,
+    basePoints: 1000
+  };
+}
+
+function generateStringMathChallenge() {
+  const t = stringMathTemplates[Math.floor(Math.random() * stringMathTemplates.length)];
+  return {
+    title: { en: "String Math", ms: "Matematik Rentetan" },
+    description: { 
+      en: "Find the bug in the calculation.", 
+      ms: "Cari pepijat dalam pengiraan." 
+    },
+    codeBlock: t.code,
+    buggyLineIndex: t.buggyLine,
+    explanation: t.explanation,
+    basePoints: 1100
+  };
+}
+
+function generateOffByOneChallenge() {
+  const t = offByOneTemplates[Math.floor(Math.random() * offByOneTemplates.length)];
+  return {
+    title: { en: "Off By One Error", ms: "Ralat Satu Indeks" },
+    description: { 
+      en: "Find the array access error.", 
+      ms: "Cari ralat akses tatasusunan." 
+    },
+    codeBlock: t.code,
+    buggyLineIndex: t.buggyLine,
+    explanation: t.explanation,
+    basePoints: 1200
+  };
+}
+
+function generateUnreachableCodeChallenge() {
+  const t = unreachableCodeTemplates[Math.floor(Math.random() * unreachableCodeTemplates.length)];
+  return {
+    title: { en: "Unreachable Code", ms: "Kod Tidak Dapat Dicapai" },
+    description: { 
+      en: "Find the code that never runs.", 
+      ms: "Cari kod yang tidak pernah berjalan." 
+    },
+    codeBlock: t.code,
+    buggyLineIndex: t.buggyLine,
+    explanation: t.explanation,
+    basePoints: 1100
+  };
+}
+
+function generateVariableScopeChallenge() {
+  const t = variableScopeTemplates[Math.floor(Math.random() * variableScopeTemplates.length)];
+  return {
+    title: { en: "Variable Scope", ms: "Skop Pemboleh Ubah" },
+    description: { 
+      en: "Find the variable scope error.", 
+      ms: "Cari ralat skop pemboleh ubah." 
+    },
+    codeBlock: t.code,
+    buggyLineIndex: t.buggyLine,
+    explanation: t.explanation,
+    basePoints: 1200
+  };
+}
+
 // --- MAIN GENERATOR FUNCTION ---
 function generateRandomDebugChallenge() {
   const allGenerators = [
@@ -211,6 +378,11 @@ function generateRandomDebugChallenge() {
     generateLoopChallenge,
     generateReturnChallenge,
     generateComparisonChallenge,
+    generateWrongComparisonChallenge,
+    generateStringMathChallenge,
+    generateOffByOneChallenge,
+    generateUnreachableCodeChallenge,
+    generateVariableScopeChallenge,
   ];
   
   const randomGenerator = allGenerators[Math.floor(Math.random() * allGenerators.length)];

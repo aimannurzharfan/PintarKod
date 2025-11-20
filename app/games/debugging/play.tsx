@@ -153,6 +153,11 @@ export default function DebuggingChallengeScreen() {
   // Fetch quiz on mount
   useEffect(() => {
     const fetchQuiz = async () => {
+      if (!token) {
+        console.log('Token not ready yet');
+        return;
+      }
+
       if (!user?.id) {
         router.replace('/games');
         return;
@@ -160,10 +165,6 @@ export default function DebuggingChallengeScreen() {
 
       try {
         setIsLoading(true);
-        
-        if (!token) {
-          throw new Error('No authentication token available');
-        }
         
         const url = `${API_URL}/api/games/debugging/quiz`;
         console.log('Fetching quiz from:', url);

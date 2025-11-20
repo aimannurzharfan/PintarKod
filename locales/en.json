@@ -373,7 +373,11 @@
     "review_wrong_answers": "Review Your Wrong Answers",
     "get_feedback": "Get Feedback",
     "close_game": "Close Game",
-    "close": "Close"
+    "close": "Close",
+    "challenges_title": "Challenges",
+    "rankings_title": "Rankings",
+    "leaderboard_title": "Leaderboard",
+    "leaderboard_desc": "See your rank among other students!"
   }
 }
 

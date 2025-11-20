@@ -1350,10 +1350,24 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
       select: {
         id: true,
         username: true,
-        avatarUrl: true,
+        avatarUrl: true,     // Explicitly select avatarUrl
+        profileImage: true,  // Explicitly select profileImage
         role: true,
       },
     });
+
+    // Debug: Log to verify image data is being fetched
+    console.log('Leaderboard - Fetched users:', users.length);
+    if (users.length > 0) {
+      const sampleUser = users[0];
+      console.log('Sample user data:', {
+        username: sampleUser.username,
+        hasAvatarUrl: !!sampleUser.avatarUrl,
+        hasProfileImage: !!sampleUser.profileImage,
+        avatarUrlLength: sampleUser.avatarUrl?.length || 0,
+        profileImageLength: sampleUser.profileImage?.length || 0,
+      });
+    }
 
     // Create a map for quick user lookup
     const userMap = new Map(users.map((user) => [user.id, user]));
@@ -1361,14 +1375,26 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
     // Build leaderboard array with top 50
     const leaderboard = scoresByUser.slice(0, 50).map((item, index) => {
       const user = userMap.get(item.userId);
-      return {
+      const entry = {
         rank: index + 1,
         userId: item.userId,
         username: user?.username || 'Unknown',
-        avatarUrl: user?.avatarUrl || null,
+        avatarUrl: user?.avatarUrl || null,      // Explicitly include avatarUrl
+        profileImage: user?.profileImage || null, // Explicitly include profileImage
         role: user?.role || 'Student',
         totalScore: item._max.score || 0,
       };
+      
+      // Debug: Log first entry to verify data
+      if (index === 0) {
+        console.log('First leaderboard entry:', {
+          username: entry.username,
+          hasAvatarUrl: !!entry.avatarUrl,
+          hasProfileImage: !!entry.profileImage,
+        });
+      }
+      
+      return entry;
     });
 
     // Find current user's rank and score
@@ -1383,6 +1409,7 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
         userId: currentUserId,
         username: currentUser?.username || 'Unknown',
         avatarUrl: currentUser?.avatarUrl || null,
+        profileImage: currentUser?.profileImage || null,
         role: currentUser?.role || 'Student',
         totalScore: currentUserItem._max.score || 0,
       };
@@ -1394,6 +1421,7 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
           id: true,
           username: true,
           avatarUrl: true,
+          profileImage: true,
           role: true,
         },
       });
@@ -1404,10 +1432,28 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
           userId: currentUserId,
           username: currentUser.username,
           avatarUrl: currentUser.avatarUrl,
+          profileImage: currentUser.profileImage,
           role: currentUser.role,
           totalScore: 0,
         };
       }
+    }
+
+    // Debug: Log final response structure
+    console.log('Leaderboard response - entries:', leaderboard.length);
+    if (leaderboard.length > 0) {
+      console.log('First entry in response:', {
+        username: leaderboard[0].username,
+        hasAvatarUrl: !!leaderboard[0].avatarUrl,
+        hasProfileImage: !!leaderboard[0].profileImage,
+      });
+    }
+    if (userRank) {
+      console.log('User rank in response:', {
+        username: userRank.username,
+        hasAvatarUrl: !!userRank.avatarUrl,
+        hasProfileImage: !!userRank.profileImage,
+      });
     }
 
     res.json({

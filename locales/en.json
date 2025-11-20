@@ -340,7 +340,11 @@
     "dashboard": "Teacher Dashboard",
     "dashboard_desc": "Manage student accounts and site settings.",
     "register_user": "Register User",
-    "remove_student": "Remove Student"
+    "remove_student": "Remove Student",
+    "monitor_title": "Monitor Students",
+    "search_placeholder": "Search student name...",
+    "attempts": "Attempts",
+    "best_score": "Best Score"
   },
   "game_ui": {
     "title": "Game Challenges",

@@ -1466,6 +1466,59 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/teacher/students - Get all students with their progress stats
+app.get('/api/teacher/students', authMiddleware, async (req, res) => {
+  try {
+    // Check if user is a teacher
+    if (req.user.role !== 'Teacher') {
+      return res.status(403).json({ error: 'Forbidden - Only teachers can access this endpoint' });
+    }
+
+    // Fetch all students with their game score statistics
+    const students = await prisma.user.findMany({
+      where: {
+        role: 'Student',
+      },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        profileImage: true,
+        gameScores: {
+          select: {
+            score: true,
+          },
+        },
+      },
+      orderBy: {
+        username: 'asc',
+      },
+    });
+
+    // Process students to include stats
+    const studentsWithStats = students.map((student) => {
+      const attempts = student.gameScores ? student.gameScores.length : 0;
+      const bestScore = student.gameScores && student.gameScores.length > 0
+        ? Math.max(...student.gameScores.map((s) => s.score))
+        : 0;
+
+      return {
+        id: student.id,
+        username: student.username,
+        avatarUrl: student.avatarUrl,
+        profileImage: student.profileImage,
+        attempts: attempts,
+        bestScore: bestScore,
+      };
+    });
+
+    res.json(studentsWithStats);
+  } catch (err) {
+    console.error('Error fetching students:', err);
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
 // AI Chatbot Proxy Endpoint
 app.post('/api/chat', authMiddleware, async (req, res) => {
   try {

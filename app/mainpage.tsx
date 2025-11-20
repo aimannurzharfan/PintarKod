@@ -431,15 +431,29 @@ export default function MainPage() {
             </Pressable>
 
             {user?.role === 'Teacher' && (
-              <Pressable
-                style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
-                onPress={handleDeleteAccount}
-              >
-                <Text style={[styles.menuItemText, { color: '#b00' }]}>
-                  {t('main.menu_delete_account')}
-                </Text>
-                <IconSymbol name={CHEVRON_RIGHT} size={18} color="#b00" />
-              </Pressable>
+              <>
+                <Pressable
+                  style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
+                  onPress={() => {
+                    closeMenu();
+                    router.push('/teacher/monitor' as any);
+                  }}
+                >
+                  <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+                    {t('teacher_ui.monitor_title')}
+                  </Text>
+                  <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+                </Pressable>
+                <Pressable
+                  style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
+                  onPress={handleDeleteAccount}
+                >
+                  <Text style={[styles.menuItemText, { color: '#b00' }]}>
+                    {t('main.menu_delete_account')}
+                  </Text>
+                  <IconSymbol name={CHEVRON_RIGHT} size={18} color="#b00" />
+                </Pressable>
+              </>
             )}
 
               <Pressable style={styles.menuItem} onPress={handleLogout}>

@@ -1333,13 +1333,13 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
     // Get all scores grouped by userId with user information
     const scoresByUser = await prisma.gameScore.groupBy({
       by: ['userId'],
-      _sum: {
+      _max: {
         score: true,
       },
     });
 
-    // Sort by total score descending
-    scoresByUser.sort((a, b) => (b._sum.score || 0) - (a._sum.score || 0));
+    // Sort by high score descending
+    scoresByUser.sort((a, b) => (b._max.score || 0) - (a._max.score || 0));
 
     // Get user details for all users with scores
     const userIds = scoresByUser.map((item) => item.userId);
@@ -1367,7 +1367,7 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
         username: user?.username || 'Unknown',
         avatarUrl: user?.avatarUrl || null,
         role: user?.role || 'Student',
-        totalScore: item._sum.score || 0,
+        totalScore: item._max.score || 0,
       };
     });
 
@@ -1384,7 +1384,7 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
         username: currentUser?.username || 'Unknown',
         avatarUrl: currentUser?.avatarUrl || null,
         role: currentUser?.role || 'Student',
-        totalScore: currentUserItem._sum.score || 0,
+        totalScore: currentUserItem._max.score || 0,
       };
     } else {
       // User has no scores yet

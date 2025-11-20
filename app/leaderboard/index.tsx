@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/AuthContext';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -33,19 +33,31 @@ type LeaderboardData = {
 };
 
 const resolveAvatarUri = (avatarUrl: string | null) => {
-  if (!avatarUrl) return null;
+  if (!avatarUrl || avatarUrl.trim() === '') return null;
   if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
     return avatarUrl;
   }
-  return `${API_URL}${avatarUrl}`;
+  // Handle URL construction to avoid double slashes
+  const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+  const path = avatarUrl.startsWith('/') ? avatarUrl : `/${avatarUrl}`;
+  return `${baseUrl}${path}`;
 };
 
 export default function LeaderboardScreen() {
   const { user, token } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const colorScheme = useColorScheme();
   const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
+
+  // Set header options
+  useEffect(() => {
+    navigation.setOptions({
+      headerTitle: t('game_ui.leaderboard_title'),
+      headerBackTitleVisible: false,
+    });
+  }, [navigation, t]);
 
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -135,22 +147,28 @@ export default function LeaderboardScreen() {
             >
               <View style={[styles.podiumBase, { height: podiumHeight }]}>
                 <View style={styles.podiumContent}>
-                  {avatarUri ? (
-                    <Image
-                      source={{ uri: avatarUri }}
-                      style={styles.podiumAvatar}
-                    />
-                  ) : (
-                    <View style={[styles.podiumAvatar, styles.podiumAvatarFallback]}>
-                      <Feather
-                        name="user"
-                        size={isFirst ? 40 : 32}
-                        color={colorScheme === 'dark' ? '#94A3B8' : '#64748B'}
+                  <View style={styles.avatarMedalContainer}>
+                    {avatarUri ? (
+                      <Image
+                        source={{ uri: avatarUri }}
+                        style={styles.podiumAvatar}
+                        resizeMode="cover"
+                        onError={() => {
+                          console.log('Failed to load avatar for user:', entry.username);
+                        }}
                       />
+                    ) : (
+                      <View style={[styles.podiumAvatar, styles.podiumAvatarFallback]}>
+                        <Feather
+                          name="user"
+                          size={isFirst ? 40 : 32}
+                          color={colorScheme === 'dark' ? '#94A3B8' : '#64748B'}
+                        />
+                      </View>
+                    )}
+                    <View style={styles.medalContainer}>
+                      <Feather name="award" size={isFirst ? 32 : 24} color={medalColor} />
                     </View>
-                  )}
-                  <View style={styles.medalContainer}>
-                    <Feather name="award" size={isFirst ? 32 : 24} color={medalColor} />
                   </View>
                   <Text style={styles.podiumRank}>#{actualRank}</Text>
                   <Text style={styles.podiumUsername} numberOfLines={1}>
@@ -180,7 +198,14 @@ export default function LeaderboardScreen() {
         <View style={styles.listItemLeft}>
           <Text style={styles.listItemRank}>#{item.rank}</Text>
           {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.listItemAvatar} />
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.listItemAvatar}
+              resizeMode="cover"
+              onError={() => {
+                console.log('Failed to load avatar for user:', item.username);
+              }}
+            />
           ) : (
             <View style={[styles.listItemAvatar, styles.listItemAvatarFallback]}>
               <Feather
@@ -214,19 +239,6 @@ export default function LeaderboardScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['top']}>
-          <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Feather
-                name="arrow-left"
-                size={24}
-                color={colorScheme === 'dark' ? '#FFFFFF' : '#0F172A'}
-              />
-            </Pressable>
-            <ThemedText type="title" style={styles.headerTitle}>
-              {t('game_ui.leaderboard_title')}
-            </ThemedText>
-            <View style={styles.backButton} />
-          </View>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colorScheme === 'dark' ? '#FACC15' : '#1E293B'} />
           </View>
@@ -239,19 +251,6 @@ export default function LeaderboardScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={['top']}>
-          <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Feather
-                name="arrow-left"
-                size={24}
-                color={colorScheme === 'dark' ? '#FFFFFF' : '#0F172A'}
-              />
-            </Pressable>
-            <ThemedText type="title" style={styles.headerTitle}>
-              {t('game_ui.leaderboard_title')}
-            </ThemedText>
-            <View style={styles.backButton} />
-          </View>
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error || 'Failed to load leaderboard'}</Text>
             <Pressable onPress={fetchLeaderboard} style={styles.retryButton}>
@@ -266,23 +265,6 @@ export default function LeaderboardScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Feather
-              name="arrow-left"
-              size={24}
-              color={colorScheme === 'dark' ? '#FFFFFF' : '#0F172A'}
-            />
-          </Pressable>
-          <ThemedText type="title" style={styles.headerTitle}>
-            {t('game_ui.leaderboard_title')}
-          </ThemedText>
-          <View style={styles.backButton} />
-        </View>
-
-        <ThemedText style={styles.description}>
-          {t('game_ui.leaderboard_desc')}
-        </ThemedText>
 
         <FlatList
           data={restOfLeaderboard}
@@ -305,6 +287,10 @@ export default function LeaderboardScreen() {
                   <Image
                     source={{ uri: resolveAvatarUri(data.userRank.avatarUrl)! }}
                     style={styles.stickyUserBarAvatar}
+                    resizeMode="cover"
+                    onError={() => {
+                      console.log('Failed to load avatar for user:', data.userRank.username);
+                    }}
                   />
                 ) : (
                   <View style={[styles.stickyUserBarAvatar, styles.stickyUserBarAvatarFallback]}>
@@ -338,29 +324,6 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     },
     safeArea: {
       flex: 1,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-    },
-    backButton: {
-      width: 40,
-      height: 40,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerTitle: {
-      fontSize: 24,
-      fontWeight: '700',
-    },
-    description: {
-      fontSize: 14,
-      paddingHorizontal: 20,
-      paddingBottom: 16,
-      opacity: 0.7,
     },
     loadingContainer: {
       flex: 1,
@@ -423,11 +386,17 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       alignItems: 'center',
       width: '100%',
     },
+    avatarMedalContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
+      position: 'relative',
+    },
     podiumAvatar: {
       width: 64,
       height: 64,
       borderRadius: 32,
-      marginBottom: 8,
+      backgroundColor: '#ccc',
     },
     podiumAvatarFallback: {
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.1)',
@@ -435,7 +404,10 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       justifyContent: 'center',
     },
     medalContainer: {
-      marginBottom: 4,
+      position: 'absolute',
+      bottom: -8,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     podiumRank: {
       fontSize: 18,
@@ -486,6 +458,7 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       width: 40,
       height: 40,
       borderRadius: 20,
+      backgroundColor: '#ccc',
     },
     listItemAvatarFallback: {
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.1)',
@@ -551,6 +524,7 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       width: 40,
       height: 40,
       borderRadius: 20,
+      backgroundColor: '#ccc',
     },
     stickyUserBarAvatarFallback: {
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.1)',

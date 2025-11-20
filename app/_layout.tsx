@@ -78,6 +78,7 @@ export default function RootLayout() {
       <Stack.Screen name="learning-materials/index" options={{ title: 'Learning Materials' }} />
       <Stack.Screen name="games/index" options={{ title: 'Games' }} />
       <Stack.Screen name="games/debugging/play" options={{ title: 'Debugging Challenge' }} />
+      <Stack.Screen name="leaderboard/index" options={{ title: 'Leaderboard', headerBackTitleVisible: false }} />
       <Stack.Screen name="register" options={{ title: 'Register' }} />
       <Stack.Screen name="teacher-dashboard/index" options={{ title: 'Teacher Dashboard' }} />
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />

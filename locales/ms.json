@@ -373,7 +373,11 @@
     "review_wrong_answers": "Semak Jawapan Salah",
     "get_feedback": "Dapatkan Maklum Balas",
     "close_game": "Tutup Permainan",
-    "close": "Tutup"
+    "close": "Tutup",
+    "challenges_title": "Cabaran",
+    "rankings_title": "Kedudukan",
+    "leaderboard_title": "Papan Pendahulu",
+    "leaderboard_desc": "Lihat kedudukan anda antara pelajar lain!"
   }
 }
 

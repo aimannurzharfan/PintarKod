@@ -78,6 +78,10 @@ export default function GamesIndexScreen() {
     [t, onPlayRandomChallenge]
   );
 
+  const onNavigateToLeaderboard = useCallback(() => {
+    router.push('/leaderboard');
+  }, [router]);
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView
@@ -88,97 +92,166 @@ export default function GamesIndexScreen() {
           {t('game_ui.title')}
         </ThemedText>
 
-        <View style={styles.gamesGrid}>
-          {gameCards.map((game) => (
-            <Pressable
-              key={game.id}
-              style={({ pressed }) => [
-                styles.gameCard,
-                !game.enabled && styles.gameCardDisabled,
-                {
-                  backgroundColor: game.enabled
-                    ? colorScheme === 'dark'
-                      ? 'rgba(59, 130, 246, 0.1)'
-                      : 'rgba(59, 130, 246, 0.05)'
-                    : colorScheme === 'dark'
-                    ? 'rgba(148, 163, 184, 0.05)'
-                    : 'rgba(148, 163, 184, 0.02)',
-                  borderColor: game.enabled
-                    ? colorScheme === 'dark'
-                      ? 'rgba(59, 130, 246, 0.3)'
-                      : 'rgba(59, 130, 246, 0.2)'
-                    : colorScheme === 'dark'
-                    ? 'rgba(148, 163, 184, 0.2)'
-                    : 'rgba(148, 163, 184, 0.1)',
-                  transform: [{ scale: pressed && game.enabled ? 0.98 : 1 }],
-                },
-              ]}
-              onPress={game.enabled ? game.onPress : undefined}
-              disabled={!game.enabled}
-            >
-              <View
-                style={[
-                  styles.iconWrapper,
+        {/* Section 1: Challenges */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            {t('game_ui.challenges_title')}
+          </ThemedText>
+          <View style={styles.challengesGrid}>
+            {gameCards.map((game) => (
+              <Pressable
+                key={game.id}
+                style={({ pressed }) => [
+                  styles.challengeCard,
+                  !game.enabled && styles.challengeCardDisabled,
                   {
                     backgroundColor: game.enabled
                       ? colorScheme === 'dark'
-                        ? 'rgba(59, 130, 246, 0.15)'
-                        : 'rgba(59, 130, 246, 0.1)'
+                        ? 'rgba(59, 130, 246, 0.1)'
+                        : 'rgba(59, 130, 246, 0.05)'
                       : colorScheme === 'dark'
-                      ? 'rgba(148, 163, 184, 0.1)'
-                      : 'rgba(148, 163, 184, 0.05)',
+                      ? 'rgba(148, 163, 184, 0.05)'
+                      : 'rgba(148, 163, 184, 0.02)',
+                    borderColor: game.enabled
+                      ? colorScheme === 'dark'
+                        ? 'rgba(59, 130, 246, 0.3)'
+                        : 'rgba(59, 130, 246, 0.2)'
+                      : colorScheme === 'dark'
+                      ? 'rgba(148, 163, 184, 0.2)'
+                      : 'rgba(148, 163, 184, 0.1)',
+                    transform: [{ scale: pressed && game.enabled ? 0.98 : 1 }],
+                  },
+                ]}
+                onPress={game.enabled ? game.onPress : undefined}
+                disabled={!game.enabled}
+              >
+                <View
+                  style={[
+                    styles.challengeIconWrapper,
+                    {
+                      backgroundColor: game.enabled
+                        ? colorScheme === 'dark'
+                          ? 'rgba(59, 130, 246, 0.15)'
+                          : 'rgba(59, 130, 246, 0.1)'
+                        : colorScheme === 'dark'
+                        ? 'rgba(148, 163, 184, 0.1)'
+                        : 'rgba(148, 163, 184, 0.05)',
+                    },
+                  ]}
+                >
+                  <Feather
+                    name={game.icon}
+                    size={20}
+                    color={game.enabled ? "#000000" : (colorScheme === 'dark' ? '#64748B' : '#94A3B8')}
+                  />
+                </View>
+                <View style={styles.challengeCardContent}>
+                  <Text
+                    style={[
+                      styles.challengeCardTitle,
+                      {
+                        color: game.enabled
+                          ? colorScheme === 'dark'
+                            ? '#FFFFFF'
+                            : '#0F172A'
+                          : colorScheme === 'dark'
+                          ? '#64748B'
+                          : '#94A3B8',
+                      },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {game.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.challengeCardDescription,
+                      {
+                        color: game.enabled
+                          ? colorScheme === 'dark'
+                            ? '#CBD5F5'
+                            : '#475569'
+                          : colorScheme === 'dark'
+                          ? '#64748B'
+                          : '#94A3B8',
+                      },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {game.description}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Section 2: Rankings */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            {t('game_ui.rankings_title')}
+          </ThemedText>
+          <Pressable
+            style={({ pressed }) => [
+              styles.leaderboardCard,
+              {
+                backgroundColor: colorScheme === 'dark'
+                  ? 'rgba(250, 204, 21, 0.15)'
+                  : 'rgba(250, 204, 21, 0.1)',
+                borderColor: colorScheme === 'dark'
+                  ? 'rgba(250, 204, 21, 0.4)'
+                  : 'rgba(250, 204, 21, 0.3)',
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              },
+            ]}
+            onPress={onNavigateToLeaderboard}
+          >
+            <View style={styles.leaderboardCardContent}>
+              <View
+                style={[
+                  styles.leaderboardIconWrapper,
+                  {
+                    backgroundColor: colorScheme === 'dark'
+                      ? 'rgba(250, 204, 21, 0.2)'
+                      : 'rgba(250, 204, 21, 0.15)',
                   },
                 ]}
               >
                 <Feather
-                  name={game.icon}
-                  size={24}
-                  color={game.enabled ? "#000000" : (colorScheme === 'dark' ? '#64748B' : '#94A3B8')}
+                  name="award"
+                  size={32}
+                  color={colorScheme === 'dark' ? '#FACC15' : '#EAB308'}
                 />
               </View>
-              <View style={styles.gameCardContent}>
+              <View style={styles.leaderboardCardText}>
                 <Text
                   style={[
-                    styles.gameCardTitle,
+                    styles.leaderboardCardTitle,
                     {
-                      color: game.enabled
-                        ? colorScheme === 'dark'
-                          ? '#FFFFFF'
-                          : '#0F172A'
-                        : colorScheme === 'dark'
-                        ? '#64748B'
-                        : '#94A3B8',
+                      color: colorScheme === 'dark' ? '#FACC15' : '#EAB308',
                     },
                   ]}
                 >
-                  {game.title}
+                  {t('game_ui.leaderboard_title')}
                 </Text>
                 <Text
                   style={[
-                    styles.gameCardDescription,
+                    styles.leaderboardCardDescription,
                     {
-                      color: game.enabled
-                        ? colorScheme === 'dark'
-                          ? '#CBD5F5'
-                          : '#475569'
-                        : colorScheme === 'dark'
-                        ? '#64748B'
-                        : '#94A3B8',
+                      color: colorScheme === 'dark' ? '#E2E8F0' : '#475569',
                     },
                   ]}
                 >
-                  {game.description}
+                  {t('game_ui.leaderboard_desc')}
                 </Text>
               </View>
-              {game.enabled && (
-                <IconSymbol
-                  name="chevron.right"
-                  size={20}
-                  color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'}
-                />
-              )}
-            </Pressable>
-          ))}
+              <IconSymbol
+                name="chevron.right"
+                size={24}
+                color={colorScheme === 'dark' ? '#FACC15' : '#EAB308'}
+              />
+            </View>
+          </Pressable>
         </View>
       </ScrollView>
     </ThemedView>
@@ -195,43 +268,83 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     },
     scrollContent: {
       padding: 20,
+      paddingBottom: 40,
     },
     title: {
       fontSize: 28,
       fontWeight: '700',
-      marginBottom: 24,
+      marginBottom: 32,
       textAlign: 'center',
     },
-    gamesGrid: {
-      gap: 16,
+    section: {
+      marginBottom: 32,
     },
-    gameCard: {
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      marginBottom: 16,
+    },
+    challengesGrid: {
       flexDirection: 'row',
-      alignItems: 'center',
-      padding: 20,
-      borderRadius: 18,
-      borderWidth: 2,
-      gap: 16,
+      flexWrap: 'wrap',
+      gap: 12,
     },
-    gameCardDisabled: {
+    challengeCard: {
+      width: '48%',
+      padding: 16,
+      borderRadius: 16,
+      borderWidth: 2,
+      gap: 12,
+    },
+    challengeCardDisabled: {
       opacity: 0.6,
     },
-    iconWrapper: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+    challengeIconWrapper: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    gameCardContent: {
-      flex: 1,
+    challengeCardContent: {
       gap: 6,
     },
-    gameCardTitle: {
-      fontSize: 18,
+    challengeCardTitle: {
+      fontSize: 16,
       fontWeight: '700',
+      marginBottom: 4,
     },
-    gameCardDescription: {
+    challengeCardDescription: {
+      fontSize: 12,
+      lineHeight: 16,
+    },
+    leaderboardCard: {
+      padding: 20,
+      borderRadius: 18,
+      borderWidth: 2,
+    },
+    leaderboardCardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    leaderboardIconWrapper: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    leaderboardCardText: {
+      flex: 1,
+      gap: 4,
+    },
+    leaderboardCardTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    leaderboardCardDescription: {
       fontSize: 14,
       lineHeight: 20,
     },

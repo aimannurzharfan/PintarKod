@@ -113,14 +113,13 @@ model Notification {
 }
 
 model GameScore {
-  id          String   @id @default(cuid())
+  id          Int      @id @default(autoincrement())
+  score       Int
+  gameType    String   // e.g., "DEBUGGING_QUIZ"
+  createdAt   DateTime @default(now())
+
   userId      Int
   user        User     @relation(fields: [userId], references: [id])
-  challengeId String
-  gameType    String
-  score       Int
-  timeTakenMs Int
-  createdAt   DateTime @default(now())
 
   @@index([userId])
 }

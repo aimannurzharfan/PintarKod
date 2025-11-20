@@ -266,16 +266,6 @@ export default function MainPage() {
         onPress={() => router.push('/games' as any)}
       >
         <View style={styles.heroContent}>
-          <View style={[
-            styles.heroIconWrapper,
-            {
-              backgroundColor: colorScheme === 'dark'
-                ? 'rgba(59, 130, 246, 0.2)'
-                : 'rgba(59, 130, 246, 0.15)',
-            },
-          ]}>
-            <Feather name="star" size={24} color="#000000" />
-          </View>
           <View style={styles.heroTextWrapper}>
             <Text style={[styles.heroTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#0F172A' }]}>
               {t('game_ui.start_learning')}
@@ -738,13 +728,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-  },
-  heroIconWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   heroTextWrapper: {
     flex: 1,

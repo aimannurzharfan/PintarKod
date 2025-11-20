@@ -340,7 +340,11 @@
     "dashboard": "Papan Pemuka Guru",
     "dashboard_desc": "Urus akaun pelajar dan tetapan.",
     "register_user": "Daftar Pengguna",
-    "remove_student": "Padam Pelajar"
+    "remove_student": "Padam Pelajar",
+    "monitor_title": "Pantau Pelajar",
+    "search_placeholder": "Cari nama pelajar...",
+    "attempts": "Percubaan",
+    "best_score": "Markah Tertinggi"
   },
   "game_ui": {
     "title": "Cabaran Permainan",

@@ -48,6 +48,12 @@ export default function TeacherDashboardScreen() {
         onPress: () => router.push('/register' as any),
       },
       {
+        id: 'monitor',
+        title: t('teacher_ui.monitor_title'),
+        icon: 'activity',
+        onPress: () => router.push('/teacher/monitor' as any),
+      },
+      {
         id: 'remove',
         title: t('teacher_ui.remove_student'),
         icon: 'user-minus',

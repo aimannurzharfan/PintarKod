@@ -81,6 +81,7 @@ export default function RootLayout() {
       <Stack.Screen name="leaderboard/index" options={{ title: 'Leaderboard', headerBackTitleVisible: false }} />
       <Stack.Screen name="register" options={{ title: 'Register' }} />
       <Stack.Screen name="teacher-dashboard/index" options={{ title: 'Teacher Dashboard' }} />
+      <Stack.Screen name="teacher/monitor/index" options={{ title: 'Student Monitor', headerBackTitleVisible: false }} />
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />
       <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />

@@ -1,3 +1,4 @@
+import { API_URL } from '@/config';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Button, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
@@ -10,15 +11,23 @@ export default function ForgotPassword() {
   const styles = getStyles(colorScheme);
 
   async function handleSubmit() {
-    if (!email) {
+    if (!email.trim()) {
       Alert.alert('Validation', 'Please enter your registered email');
       return;
     }
     setLoading(true);
     try {
-      // Configuration / API integration will be implemented later.
-      // For now, show a confirmation message.
-      Alert.alert('If that email is registered', 'We will send password reset instructions to the provided email.');
+      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        Alert.alert('Error', data.error || 'Unable to send reset link');
+        return;
+      }
+      Alert.alert('Check your email (console)', 'Reset link sent to console for now.');
       router.back();
     } catch (err) {
       console.error(err);

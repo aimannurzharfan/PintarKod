@@ -274,6 +274,76 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.trim() } });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Email does not exist' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 3600000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetToken: token,
+        resetTokenExpiry: expiry,
+      },
+    });
+
+    const resetLink = `http://localhost:8081/reset-password?token=${token}`;
+    console.log('Password reset link:', resetLink);
+
+    res.json({ success: true, message: 'Reset link sent to console' });
+  } catch (err) {
+    console.error('Forgot password error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+    if (!token || typeof token !== 'string' || !newPassword || typeof newPassword !== 'string') {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashed,
+        resetToken: null,
+        resetTokenExpiry: null,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reset password error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Search users (supports role and partial username match)
 app.get('/api/users/search', async (req, res) => {
   try {

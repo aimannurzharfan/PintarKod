@@ -27,6 +27,8 @@ model User {
   notifyNewForumThreads      Boolean @default(true)
   notifyNewLearningMaterials Boolean @default(true)
   notifyForumReplies         Boolean @default(true)
+  resetToken        String?            @unique
+  resetTokenExpiry  DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }

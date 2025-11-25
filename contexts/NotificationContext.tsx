@@ -42,6 +42,8 @@ type NotificationContextValue = {
   unreadCount: number;
   refreshNotifications: () => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  markNotificationAsRead: (notificationId: number) => Promise<void>;
+  removeNotification: (notificationId: number) => Promise<void>;
   clearNotifications: () => Promise<void>;
   updatePreferences: (next: Partial<NotificationPreferences>) => Promise<void>;
 };
@@ -121,6 +123,49 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
     } catch (err) {
       console.error('Mark notifications read error', err);
+    }
+  }, [userIdNumber]);
+
+  const markNotificationAsRead = useCallback(async (notificationId: number) => {
+    if (!userIdNumber) return;
+    try {
+      const response = await fetch(`${API_URL}/api/notifications/${notificationId}/mark-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userIdNumber }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to mark notification as read');
+      }
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
+      );
+    } catch (err) {
+      console.error('Mark notification read error', err);
+      // Optimistically update even if API call fails
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
+      );
+    }
+  }, [userIdNumber]);
+
+  const removeNotification = useCallback(async (notificationId: number) => {
+    if (!userIdNumber) return;
+    try {
+      const response = await fetch(`${API_URL}/api/notifications/${notificationId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userIdNumber }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete notification');
+      }
+      // Remove from local state
+      setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
+    } catch (err) {
+      console.error('Remove notification error', err);
+      // Optimistically remove even if API call fails
+      setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
     }
   }, [userIdNumber]);
 
@@ -222,6 +267,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       unreadCount,
       refreshNotifications,
       markAllAsRead,
+      markNotificationAsRead,
+      removeNotification,
       clearNotifications,
       updatePreferences,
     }),
@@ -233,6 +280,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       updatingPreferences,
       unreadCount,
       markAllAsRead,
+      markNotificationAsRead,
+      removeNotification,
       clearNotifications,
       updatePreferences,
     ]

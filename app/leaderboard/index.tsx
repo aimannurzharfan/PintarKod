@@ -1,4 +1,4 @@
-import { ThemedText } from '@/components/themed-text';
+import { Badge } from '@/components/Badge';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/AuthContext';
 import { Feather } from '@expo/vector-icons';
@@ -26,6 +26,7 @@ type LeaderboardEntry = {
   profileImage: string | null;
   role: string;
   totalScore: number;
+  badgeType?: 'Champion' | 'RisingStar' | 'Student' | 'Teacher';
 };
 
 type LeaderboardData = {
@@ -189,9 +190,14 @@ export default function LeaderboardScreen() {
                     )}
                   </View>
                   <Text style={styles.podiumRank}>#{actualRank}</Text>
-                  <Text style={styles.podiumUsername} numberOfLines={1}>
-                    {entry.username}
-                  </Text>
+                  <View style={styles.podiumUsernameRow}>
+                    <Text style={styles.podiumUsername} numberOfLines={1}>
+                      {entry.username}
+                    </Text>
+                    {entry.badgeType && (
+                      <Badge badgeType={entry.badgeType} size="small" />
+                    )}
+                  </View>
                   <Text style={styles.podiumScore}>{entry.totalScore.toLocaleString()}</Text>
                 </View>
               </View>
@@ -237,15 +243,20 @@ export default function LeaderboardScreen() {
             </View>
           )}
           <View style={styles.listItemInfo}>
-            <Text
-              style={[
-                styles.listItemUsername,
-                isCurrentUser && styles.listItemUsernameCurrent,
-              ]}
-              numberOfLines={1}
-            >
-              {item.username}
-            </Text>
+            <View style={styles.listItemUsernameRow}>
+              <Text
+                style={[
+                  styles.listItemUsername,
+                  isCurrentUser && styles.listItemUsernameCurrent,
+                ]}
+                numberOfLines={1}
+              >
+                {item.username}
+              </Text>
+              {item.badgeType && (
+                <Badge badgeType={item.badgeType} size="small" />
+              )}
+            </View>
             {isCurrentUser && (
               <Text style={styles.listItemYouLabel}>(You)</Text>
             )}
@@ -325,9 +336,14 @@ export default function LeaderboardScreen() {
                     />
                   </View>
                 )}
-                <Text style={styles.stickyUserBarUsername} numberOfLines={1}>
-                  {data.userRank.username}
-                </Text>
+                <View style={styles.stickyUserBarUsernameRow}>
+                  <Text style={styles.stickyUserBarUsername} numberOfLines={1}>
+                    {data.userRank.username}
+                  </Text>
+                  {data.userRank.badgeType && (
+                    <Badge badgeType={data.userRank.badgeType} size="small" />
+                  )}
+                </View>
               </View>
               <Text style={styles.stickyUserBarScore}>
                 {data.userRank.totalScore.toLocaleString()}
@@ -443,11 +459,18 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       color: isDark ? '#FFFFFF' : '#0F172A',
       marginBottom: 4,
     },
+    podiumUsernameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      marginBottom: 4,
+    },
     podiumUsername: {
       fontSize: 14,
       fontWeight: '600',
       color: isDark ? '#E2E8F0' : '#1E293B',
-      marginBottom: 4,
       textAlign: 'center',
     },
     podiumScore: {
@@ -495,6 +518,12 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     },
     listItemInfo: {
       flex: 1,
+    },
+    listItemUsernameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
     },
     listItemUsername: {
       fontSize: 16,
@@ -558,6 +587,12 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.1)',
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    stickyUserBarUsernameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
     },
     stickyUserBarUsername: {
       fontSize: 16,

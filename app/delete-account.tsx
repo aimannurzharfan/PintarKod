@@ -1,8 +1,10 @@
+import { Badge } from '@/components/Badge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +19,6 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import { API_URL } from '../config';
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
@@ -43,6 +44,8 @@ export default function DeleteAccountScreen() {
   const [confirmUsername, setConfirmUsername] = useState('');
   const [searching, setSearching] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedStudentBadge, setSelectedStudentBadge] = useState<{ badgeType: 'Champion' | 'RisingStar' | 'Student' | 'Teacher' } | null>(null);
+  const [studentBadges, setStudentBadges] = useState<Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'>>({});
   const { t } = useTranslation();
 
   const StudentAvatar = ({ profileImage, avatarUrl }: { profileImage?: string | null; avatarUrl?: string | null }) => {
@@ -68,20 +71,58 @@ export default function DeleteAccountScreen() {
     }
   }, [currentUser, router, t]);
 
-  // Debug: Log when selectedStudent changes
+  // Fetch badge when selectedStudent changes
   useEffect(() => {
-    if (selectedStudent) {
-      console.log('=== Selected Student Changed ===');
-      console.log('Full selectedStudent object:', JSON.stringify(selectedStudent, null, 2));
-      console.log('className:', selectedStudent.className);
-      console.log('className type:', typeof selectedStudent.className);
-      console.log('className truthy?', !!selectedStudent.className);
-      if (selectedStudent.className) {
-        console.log('className.trim():', selectedStudent.className.trim());
-        console.log('className.trim() length:', selectedStudent.className.trim().length);
-      }
+    if (selectedStudent?.id) {
+      const fetchBadge = async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/users/${selectedStudent.id}/badge`);
+          if (res.ok) {
+            const badgeData = await res.json();
+            setSelectedStudentBadge(badgeData);
+          } else {
+            setSelectedStudentBadge(null);
+          }
+        } catch (err) {
+          console.error('Error fetching badge:', err);
+          setSelectedStudentBadge(null);
+        }
+      };
+      fetchBadge();
+    } else {
+      setSelectedStudentBadge(null);
     }
   }, [selectedStudent]);
+
+  // Fetch badges for search results
+  useEffect(() => {
+    if (searchResults.length === 0) {
+      setStudentBadges({});
+      return;
+    }
+
+    const fetchBadges = async () => {
+      const badgeMap: Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'> = {};
+      
+      for (const student of searchResults) {
+        if (student.id) {
+          try {
+            const res = await fetch(`${API_URL}/api/users/${student.id}/badge`);
+            if (res.ok) {
+              const badgeData = await res.json();
+              badgeMap[student.id] = badgeData.badgeType;
+            }
+          } catch (err) {
+            console.error('Error fetching badge for student:', err);
+          }
+        }
+      }
+      
+      setStudentBadges(badgeMap);
+    };
+
+    fetchBadges();
+  }, [searchResults]);
 
   // Search students function
   const searchStudents = async (query: string) => {
@@ -191,15 +232,20 @@ export default function DeleteAccountScreen() {
                 avatarUrl={selectedStudent.avatarUrl}
               />
               <View style={styles.studentDetails}>
-                <View style={styles.studentNameRow}>
-                  <Text
-                    style={[
-                      styles.studentName,
-                      { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' },
-                    ]}
-                  >
-                    {selectedStudent.username}
-                  </Text>
+                <View style={styles.studentHeader}>
+                  <View style={styles.studentNameRow}>
+                    <Text
+                      style={[
+                        styles.studentName,
+                        { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' },
+                      ]}
+                    >
+                      {selectedStudent.username}
+                    </Text>
+                    {selectedStudentBadge && (
+                      <Badge badgeType={selectedStudentBadge.badgeType} size="small" />
+                    )}
+                  </View>
                   <Feather name="trash-2" size={18} color="#b00" />
                 </View>
                 <Text
@@ -252,7 +298,11 @@ export default function DeleteAccountScreen() {
                     ]}
                   >
                     {t('delete_student.student_joined', {
-                      date: new Date(selectedStudent.createdAt).toLocaleDateString(),
+                      date: new Date(selectedStudent.createdAt).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      }),
                     })}
                   </Text>
                 ) : null}
@@ -266,9 +316,14 @@ export default function DeleteAccountScreen() {
               <View style={styles.studentInfo}>
                 <StudentAvatar profileImage={student.profileImage} avatarUrl={student.avatarUrl} />
                 <View style={styles.studentDetails}>
-                  <Text style={[styles.studentName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                    {student.username}
-                  </Text>
+                  <View style={styles.studentNameRow}>
+                    <Text style={[styles.studentName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+                      {student.username}
+                    </Text>
+                    {student.id && studentBadges[student.id] && (
+                      <Badge badgeType={studentBadges[student.id]} size="small" />
+                    )}
+                  </View>
                   <Text style={[styles.studentEmail, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
                     {student.email}
                   </Text>
@@ -396,6 +451,12 @@ const getStyles = (colorScheme: any) => StyleSheet.create({
   loading: {
     marginVertical: 20,
   },
+  studentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   studentCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -431,8 +492,8 @@ const getStyles = (colorScheme: any) => StyleSheet.create({
   studentNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 8,
+    flexWrap: 'wrap',
   },
   studentName: {
     fontSize: 16,

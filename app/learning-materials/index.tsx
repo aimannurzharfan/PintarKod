@@ -236,8 +236,8 @@ export default function LearningMaterialsScreen() {
       setEditingMaterial(material);
       setFormTitle(material.title);
       setFormDescription(material.description ?? '');
-      setFormTopic(material.topic);
-      setFormType(material.materialType);
+      setFormTopic(isTopicValue(material.topic) ? material.topic : TOPIC_VALUES[0]);
+      setFormType(isTypeValue(material.materialType) ? material.materialType : TYPE_VALUES[0]);
       setFormVideoUrl(material.videoUrl ?? '');
       setFormExistingFilePath(material.filePath);
       setFormExistingFileUrl(material.fileUrl);

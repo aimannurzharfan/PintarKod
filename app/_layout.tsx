@@ -1,12 +1,12 @@
-import '../i18n';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ForumProvider } from '@/contexts/ForumContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
-import i18n from '../i18n';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import '../i18n';
+import i18n from '../i18n';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -86,8 +86,6 @@ export default function RootLayout() {
       <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-      <Stack.Screen name="reset-password" options={{ title: 'Reset Password' }} />
-      <Stack.Screen name="forgot-password" options={{ title: 'Forgot Password' }} />
           </Stack>
         </ForumProvider>
       </NotificationProvider>

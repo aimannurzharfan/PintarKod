@@ -297,7 +297,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       },
     });
 
-    const resetLink = `app://reset-password?token=${token}`;
+    const resetLink = `http://localhost:8081/reset-password?token=${token}`;
     console.log('Password reset link:', resetLink);
 
     res.json({ success: true, message: 'Reset link sent to console' });
@@ -1201,6 +1201,61 @@ app.delete('/api/learning-materials/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete learning material error', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Download endpoint for learning materials
+app.get('/api/learning-materials/download/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid material id' });
+    }
+
+    const material = await prisma.learningMaterial.findUnique({
+      where: { id },
+    });
+
+    if (!material || !material.fileUrl) {
+      return res.status(404).send('File not found');
+    }
+
+    // Resolve the file path
+    const relativePath = material.fileUrl.replace('/uploads/', '');
+    const fullPath = path.join(uploadsDir, relativePath);
+
+    // Security check: ensure the path is within uploads directory
+    if (!fullPath.startsWith(uploadsDir)) {
+      return res.status(403).json({ error: 'Invalid file path' });
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).send('File not found on server');
+    }
+
+    // Extract filename from fileUrl for Content-Disposition header
+    const filename = path.basename(material.fileUrl) || `material_${id}.pdf`;
+
+    // Set headers to force download
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+
+    // Stream the file
+    const fileStream = fs.createReadStream(fullPath);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (err) => {
+      console.error('File stream error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error reading file' });
+      }
+    });
+  } catch (err) {
+    console.error('Download learning material error', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 

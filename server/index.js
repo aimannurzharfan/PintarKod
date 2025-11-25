@@ -297,7 +297,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       },
     });
 
-    const resetLink = `http://localhost:8081/reset-password?token=${token}`;
+    const resetLink = `app://reset-password?token=${token}`;
     console.log('Password reset link:', resetLink);
 
     res.json({ success: true, message: 'Reset link sent to console' });

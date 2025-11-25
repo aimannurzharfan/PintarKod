@@ -86,6 +86,8 @@ export default function RootLayout() {
       <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen name="reset-password" options={{ title: 'Reset Password' }} />
+      <Stack.Screen name="forgot-password" options={{ title: 'Forgot Password' }} />
           </Stack>
         </ForumProvider>
       </NotificationProvider>

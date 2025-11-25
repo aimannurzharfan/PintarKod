@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForum } from '@/contexts/ForumContext';
-import { useNotifications } from '@/contexts/NotificationContext';
+import { AppNotification, useNotifications } from '@/contexts/NotificationContext';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -67,6 +67,8 @@ export default function MainPage() {
     unreadCount,
     refreshNotifications,
     markAllAsRead,
+    markNotificationAsRead,
+    removeNotification,
     clearNotifications,
     loading: notificationsLoading,
   } = useNotifications();
@@ -124,6 +126,52 @@ export default function MainPage() {
   const handleClearNotifications = useCallback(() => {
     clearNotifications();
   }, [clearNotifications]);
+
+  const handleNotificationPress = useCallback(
+    (notification: AppNotification) => {
+      closeNotificationsPanel();
+      
+      if (!notification.data) {
+        console.warn('Notification has no data to navigate to');
+        return;
+      }
+
+      try {
+        switch (notification.type) {
+          case 'NEW_FORUM_THREAD':
+          case 'FORUM_REPLY': {
+            const threadId = notification.data.threadId;
+            if (threadId) {
+              router.push(`/forum/${threadId}` as any);
+            } else {
+              console.warn('Notification missing threadId');
+            }
+            break;
+          }
+          case 'NEW_LEARNING_MATERIAL': {
+            const materialId = notification.data.materialId;
+            if (materialId) {
+              router.push('/learning-materials' as any);
+              // Note: Learning materials screen doesn't support direct navigation to a specific material yet
+              // This navigates to the list. If you want to navigate to a specific material, 
+              // you'd need to add that functionality to the learning materials screen.
+            } else {
+              console.warn('Notification missing materialId');
+            }
+            break;
+          }
+          default:
+            console.warn('Unknown notification type:', notification.type);
+        }
+
+        // Remove notification from list after navigation
+        removeNotification(notification.id);
+      } catch (err) {
+        console.error('Error handling notification press:', err);
+      }
+    },
+    [router, removeNotification, closeNotificationsPanel]
+  );
 
   const userAvatarUri = useMemo(
     () => resolveAvatarUri(user?.profileImage ?? undefined, user?.avatarUrl ?? undefined),
@@ -494,15 +542,17 @@ export default function MainPage() {
                 contentContainerStyle={styles.notificationsListContent}
               >
                 {notifications.map((notification) => (
-                  <View
+                  <Pressable
                     key={notification.id}
-                    style={[
+                    onPress={() => handleNotificationPress(notification)}
+                    style={({ pressed }) => [
                       styles.notificationItem,
                       {
                         backgroundColor:
                           colorScheme === 'dark'
                             ? 'rgba(148, 163, 184, 0.16)'
                             : 'rgba(148, 163, 184, 0.12)',
+                        opacity: pressed ? 0.7 : 1,
                       },
                     ]}
                   >
@@ -534,7 +584,7 @@ export default function MainPage() {
                         {formatRelativeTime(notification.createdAt)}
                       </Text>
                     </View>
-                  </View>
+                  </Pressable>
                 ))}
               </ScrollView>
             ) : (
@@ -580,16 +630,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   headerIconButton: {
     position: 'relative',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    overflow: 'visible',
   },
   headerAvatarButton: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
   headerAvatarFallback: {
     width: 28,
@@ -601,15 +653,17 @@ const styles = StyleSheet.create({
   },
   notificationBadge: {
     position: 'absolute',
-    top: -4,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   notificationBadgeText: {
     color: '#FFFFFF',

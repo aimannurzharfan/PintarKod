@@ -24,6 +24,8 @@ model User {
   notifications     Notification[]
   gameScores        GameScore[]
   chatLogs          ChatLog[]
+  materialProgress  StudentMaterialProgress[]
+  badge             Badge?
   notifyNewForumThreads      Boolean @default(true)
   notifyNewLearningMaterials Boolean @default(true)
   notifyForumReplies         Boolean @default(true)
@@ -91,6 +93,7 @@ model LearningMaterial {
   author       User                  @relation(fields: [authorId], references: [id])
   fileUrl      String?
   videoUrl     String?
+  progress     StudentMaterialProgress[]
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
 }
@@ -135,6 +138,40 @@ model ChatLog {
 
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model StudentMaterialProgress {
+  id          Int              @id @default(autoincrement())
+  studentId   Int
+  student     User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  materialId  Int
+  material    LearningMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  isCompleted Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([studentId, materialId])
+  @@index([studentId])
+  @@index([materialId])
+}
+
+enum BadgeType {
+  Champion
+  RisingStar
+  Student
+  Teacher
+}
+
+model Badge {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeType BadgeType
+  score     Int?      // Latest game score for automatic badge calculation
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([userId])
 }

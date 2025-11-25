@@ -69,7 +69,7 @@ const FILE_MIME_FILTER = ['image/*', 'application/pdf'];
 
 export default function LearningMaterialsScreen() {
   const colorScheme = useColorScheme();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t } = useTranslation();
 
   const [materials, setMaterials] = useState<LearningMaterial[]>([]);
@@ -100,7 +100,16 @@ export default function LearningMaterialsScreen() {
   const [pickingFile, setPickingFile] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
 
+  // Student progress tracking
+  const [completedMaterials, setCompletedMaterials] = useState<Set<string>>(new Set());
   const isTeacher = user?.role === 'Teacher';
+  const isStudent = user?.role === 'Student';
+
+  // Calculate progress percentage
+  const progressPercentage = useMemo(() => {
+    if (!isStudent || materials.length === 0) return 0;
+    return Math.round((completedMaterials.size / materials.length) * 100);
+  }, [completedMaterials.size, materials.length, isStudent]);
   const userIdNumber = useMemo(() => {
     if (!user?.id) return null;
     const numeric = Number(user.id);
@@ -176,11 +185,41 @@ export default function LearningMaterialsScreen() {
     [debouncedQuery, topicFilter, typeFilter, normalizeMaterial, t]
   );
 
+  // Fetch student progress from API
+  const loadProgress = useCallback(async () => {
+    if (!isStudent || !token) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/progress`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Failed to load progress');
+        return;
+      }
+
+      const completedIds = await response.json();
+      setCompletedMaterials(new Set(completedIds));
+    } catch (err) {
+      console.error('Error loading progress:', err);
+    }
+  }, [isStudent, token]);
+
   useEffect(() => {
     const controller = new AbortController();
     loadMaterials({ signal: controller.signal });
     return () => controller.abort();
   }, [loadMaterials]);
+
+  // Load progress when component mounts or user changes
+  useEffect(() => {
+    if (isStudent && token) {
+      loadProgress();
+    }
+  }, [isStudent, token, loadProgress]);
 
   const topicChips = useMemo(
     () => [
@@ -583,21 +622,86 @@ export default function LearningMaterialsScreen() {
     [t]
   );
 
+  // Toggle material completion status with API call
+  const toggleMaterialCompletion = useCallback(
+    async (materialId: string) => {
+      if (!token) {
+        Alert.alert('Error', 'Please log in to track progress');
+        return;
+      }
+
+      // Optimistic update
+      const wasCompleted = completedMaterials.has(materialId);
+      setCompletedMaterials((prev) => {
+        const newSet = new Set(prev);
+        if (wasCompleted) {
+          newSet.delete(materialId);
+        } else {
+          newSet.add(materialId);
+        }
+        return newSet;
+      });
+
+      try {
+        const response = await fetch(`${API_URL}/api/progress/toggle`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ materialId }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to update progress');
+        }
+
+        const result = await response.json();
+        // Sync with server response
+        setCompletedMaterials((prev) => {
+          const newSet = new Set(prev);
+          if (result.isCompleted) {
+            newSet.add(materialId);
+          } else {
+            newSet.delete(materialId);
+          }
+          return newSet;
+        });
+      } catch (err: any) {
+        // Revert optimistic update on error
+        setCompletedMaterials((prev) => {
+          const newSet = new Set(prev);
+          if (wasCompleted) {
+            newSet.add(materialId);
+          } else {
+            newSet.delete(materialId);
+          }
+          return newSet;
+        });
+        console.error('Error toggling progress:', err);
+        Alert.alert('Error', err?.message || 'Failed to update progress');
+      }
+    },
+    [token, completedMaterials]
+  );
+
   const renderMaterial = useCallback(
     ({ item }: { item: LearningMaterial }) => {
       const topicLabel = t(`materials_topics.${item.topic}`, {
         defaultValue: item.topic,
       });
       const isOwner = canEditMaterial(item);
+      const isCompleted = completedMaterials.has(item.id);
 
       return (
         <View style={styles.card}>
-          {/* Header Row: Title + Edit/Delete buttons */}
+          {/* Header Row: Title + Edit/Delete buttons (teachers) or Mark as Done (students) */}
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle} numberOfLines={2}>
               {item.title}
             </Text>
-            {isOwner && (
+            {isTeacher && isOwner && (
               <View style={styles.headerActions}>
                 <Pressable
                   onPress={() => openEditModal(item)}
@@ -618,6 +722,22 @@ export default function LearningMaterialsScreen() {
                   <MaterialIcons name="delete" size={24} color="#6B7280" />
                 </Pressable>
               </View>
+            )}
+            {isStudent && (
+              <Pressable
+                onPress={() => toggleMaterialCompletion(item.id)}
+                style={({ pressed }) => [
+                  styles.markDoneButton,
+                  isCompleted && styles.markDoneButtonCompleted,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <MaterialIcons
+                  name={isCompleted ? 'check-circle' : 'radio-button-unchecked'}
+                  size={24}
+                  color={isCompleted ? '#10B981' : '#6B7280'}
+                />
+              </Pressable>
             )}
           </View>
 
@@ -671,7 +791,7 @@ export default function LearningMaterialsScreen() {
               >
                 <MaterialIcons name="download" size={18} color="#6B7280" />
                 <Text style={styles.downloadButtonText}>
-                  {t('materials.button_download')}
+                  Download
                 </Text>
               </Pressable>
             )}
@@ -679,7 +799,7 @@ export default function LearningMaterialsScreen() {
         </View>
       );
     },
-    [canEditMaterial, openResource, handleDownload, openEditModal, handleDelete, t]
+    [canEditMaterial, isTeacher, isStudent, completedMaterials, openResource, handleDownload, openEditModal, handleDelete, toggleMaterialCompletion, t]
   );
 
   return (
@@ -739,6 +859,34 @@ export default function LearningMaterialsScreen() {
           ))}
         </ScrollView>
       </View>
+
+      {/* Progress Bar - Only for Students */}
+      {isStudent && materials.length > 0 && (
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressTitle}>
+              {progressPercentage === 100 ? 'Great Job!' : 'Your Progress'}
+            </Text>
+            <Text style={styles.progressPercentage}>
+              {progressPercentage}%
+            </Text>
+          </View>
+          <View style={styles.progressBarContainer}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${progressPercentage}%` },
+                progressPercentage === 100 && styles.progressBarComplete,
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {progressPercentage === 100
+              ? 'All materials completed!'
+              : `${completedMaterials.size} of ${materials.length} materials completed`}
+          </Text>
+        </View>
+      )}
 
       {isTeacher ? (
         <Pressable style={styles.createButton} onPress={openCreateModal}>
@@ -980,10 +1128,10 @@ function formatTimestamp(
 ) {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return translate('materials_alerts.unknown_date');
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -1188,6 +1336,58 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.85,
+  },
+  markDoneButton: {
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+  },
+  markDoneButtonCompleted: {
+    backgroundColor: '#ECFDF5',
+  },
+  progressContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  progressPercentage: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#2563EB',
+    borderRadius: 4,
+  },
+  progressBarComplete: {
+    backgroundColor: '#10B981',
+  },
+  progressText: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',

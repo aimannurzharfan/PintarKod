@@ -108,6 +108,104 @@ function saveBase64File(fileData) {
 
 const prisma = new PrismaClient();
 
+// Helper function to calculate and assign badges based on game score rankings
+async function updateAllBadges() {
+  try {
+    // Get all students with their best game scores
+    const students = await prisma.user.findMany({
+      where: {
+        role: 'Student',
+      },
+      include: {
+        gameScores: {
+          select: {
+            score: true,
+          },
+        },
+      },
+    });
+
+    // Calculate best score for each student
+    const studentScores = students.map((student) => {
+      const bestScore = student.gameScores.length > 0
+        ? Math.max(...student.gameScores.map((s) => s.score))
+        : 0;
+      return {
+        id: student.id,
+        bestScore: bestScore,
+      };
+    });
+
+    // Sort by best score (descending), then by id for consistency
+    studentScores.sort((a, b) => {
+      if (b.bestScore !== a.bestScore) {
+        return b.bestScore - a.bestScore;
+      }
+      return a.id - b.id;
+    });
+
+    // Assign badges based on ranking
+    for (let i = 0; i < studentScores.length; i++) {
+      const student = studentScores[i];
+      let badgeType;
+      
+      if (student.bestScore === 0) {
+        // No scores yet - Student badge
+        badgeType = 'Student';
+      } else if (i < 3) {
+        // Top 3 - Champion
+        badgeType = 'Champion';
+      } else if (i < 10) {
+        // Top 4-10 - Rising Star
+        badgeType = 'RisingStar';
+      } else {
+        // Others - Student
+        badgeType = 'Student';
+      }
+
+      // Upsert badge (create or update)
+      await prisma.badge.upsert({
+        where: { userId: student.id },
+        update: {
+          badgeType: badgeType,
+          score: student.bestScore,
+        },
+        create: {
+          userId: student.id,
+          badgeType: badgeType,
+          score: student.bestScore,
+        },
+      });
+    }
+
+    // Assign Teacher badges to all teachers
+    const teachers = await prisma.user.findMany({
+      where: {
+        role: 'Teacher',
+      },
+    });
+
+    for (const teacher of teachers) {
+      await prisma.badge.upsert({
+        where: { userId: teacher.id },
+        update: {
+          badgeType: 'Teacher',
+          score: null,
+        },
+        create: {
+          userId: teacher.id,
+          badgeType: 'Teacher',
+          score: null,
+        },
+      });
+    }
+
+    console.log(`Updated badges for ${studentScores.length} students and ${teachers.length} teachers`);
+  } catch (err) {
+    console.error('Error updating badges:', err);
+  }
+}
+
 // JWT Secret (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -585,6 +683,71 @@ app.get('/api/forum/threads', async (req, res) => {
     res.json(threads);
   } catch (err) {
     console.error('List threads error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Advanced search endpoint
+app.get('/api/forum/search', async (req, res) => {
+  try {
+    const { 
+      keyword = '', 
+      author = '', 
+      sortBy = 'latest',
+      startDate = '',
+      endDate = ''
+    } = req.query;
+
+    const searchKeyword = (keyword || '').toString().trim();
+    const searchAuthor = (author || '').toString().trim();
+    const sortOrder = sortBy === 'oldest' ? 'asc' : 'desc';
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    // Build dynamic where clause
+    const whereConditions = [];
+
+    // Keyword search (title OR content)
+    if (searchKeyword) {
+      whereConditions.push({
+        OR: [
+          { title: { contains: searchKeyword } },
+          { content: { contains: searchKeyword } }
+        ]
+      });
+    }
+
+    // Author search
+    if (searchAuthor) {
+      whereConditions.push({
+        author: {
+          username: { contains: searchAuthor }
+        }
+      });
+    }
+
+    // Date range filter
+    if (start) {
+      whereConditions.push({
+        createdAt: { gte: start }
+      });
+    }
+    if (end) {
+      whereConditions.push({
+        createdAt: { lte: end }
+      });
+    }
+
+    const whereClause = whereConditions.length > 0 ? { AND: whereConditions } : undefined;
+
+    const threads = await prisma.forumThread.findMany({
+      where: whereClause,
+      include: forumThreadInclude,
+      orderBy: { updatedAt: sortOrder }
+    });
+    res.json(threads);
+  } catch (err) {
+    console.error('Advanced search error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1295,6 +1458,79 @@ app.post('/api/notifications/mark-read', async (req, res) => {
   }
 });
 
+app.post('/api/notifications/:id/mark-read', async (req, res) => {
+  try {
+    const notificationId = Number(req.params.id);
+    const { userId } = req.body || {};
+    const userIdNum = Number(userId);
+    
+    if (!Number.isInteger(notificationId)) {
+      return res.status(400).json({ error: 'Invalid notification id' });
+    }
+    if (!Number.isInteger(userIdNum)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    if (notification.userId !== userIdNum) {
+      return res.status(403).json({ error: 'Not authorized to mark this notification' });
+    }
+
+    await prisma.notification.update({
+      where: { id: notificationId },
+      data: { isRead: true },
+    });
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark notification read error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/notifications/:id', async (req, res) => {
+  try {
+    const notificationId = Number(req.params.id);
+    const { userId } = req.body || {};
+    const userIdNum = Number(userId);
+    
+    if (!Number.isInteger(notificationId)) {
+      return res.status(400).json({ error: 'Invalid notification id' });
+    }
+    if (!Number.isInteger(userIdNum)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    if (notification.userId !== userIdNum) {
+      return res.status(403).json({ error: 'Not authorized to delete this notification' });
+    }
+
+    await prisma.notification.delete({
+      where: { id: notificationId },
+    });
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete notification error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.post('/api/notifications/clear', async (req, res) => {
   try {
     const { userId } = req.body || {};
@@ -1437,6 +1673,9 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
       },
     });
 
+    // Update all badges after new score is submitted
+    await updateAllBadges();
+
     res.json({
       isComplete: true,
       totalScore: totalScore,
@@ -1478,6 +1717,11 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
         avatarUrl: true,     // Explicitly select avatarUrl
         profileImage: true,  // Explicitly select profileImage
         role: true,
+        badge: {
+          select: {
+            badgeType: true,
+          },
+        },
       },
     });
 
@@ -1508,6 +1752,7 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
         profileImage: user?.profileImage || null, // Explicitly include profileImage
         role: user?.role || 'Student',
         totalScore: item._max.score || 0,
+        badgeType: user?.badge?.badgeType || 'Student',
       };
       
       // Debug: Log first entry to verify data
@@ -1537,6 +1782,7 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
         profileImage: currentUser?.profileImage || null,
         role: currentUser?.role || 'Student',
         totalScore: currentUserItem._max.score || 0,
+        badgeType: currentUser?.badge?.badgeType || 'Student',
       };
     } else {
       // User has no scores yet
@@ -1548,6 +1794,11 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
           avatarUrl: true,
           profileImage: true,
           role: true,
+          badge: {
+            select: {
+              badgeType: true,
+            },
+          },
         },
       });
 
@@ -1560,6 +1811,7 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
           profileImage: currentUser.profileImage,
           role: currentUser.role,
           totalScore: 0,
+          badgeType: currentUser.badge?.badgeType || 'Student',
         };
       }
     }
@@ -1599,7 +1851,7 @@ app.get('/api/teacher/students', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Forbidden - Only teachers can access this endpoint' });
     }
 
-    // Fetch all students with their game score statistics
+    // Fetch all students with their statistics
     const students = await prisma.user.findMany({
       where: {
         role: 'Student',
@@ -1607,11 +1859,21 @@ app.get('/api/teacher/students', authMiddleware, async (req, res) => {
       select: {
         id: true,
         username: true,
+        email: true,
+        className: true,
         avatarUrl: true,
         profileImage: true,
         gameScores: {
           select: {
             score: true,
+            gameType: true,
+          },
+        },
+        _count: {
+          select: {
+            chatLogs: true,
+            forumThreads: true,
+            forumComments: true,
           },
         },
       },
@@ -1627,13 +1889,32 @@ app.get('/api/teacher/students', authMiddleware, async (req, res) => {
         ? Math.max(...student.gameScores.map((s) => s.score))
         : 0;
 
+      // Group game scores by gameType
+      const gameStats = {};
+      if (student.gameScores && student.gameScores.length > 0) {
+        student.gameScores.forEach((score) => {
+          const gameType = score.gameType || 'UNKNOWN';
+          if (!gameStats[gameType]) {
+            gameStats[gameType] = { attempts: 0, bestScore: 0 };
+          }
+          gameStats[gameType].attempts += 1;
+          gameStats[gameType].bestScore = Math.max(gameStats[gameType].bestScore, score.score);
+        });
+      }
+
       return {
         id: student.id,
         username: student.username,
+        email: student.email,
+        className: student.className,
         avatarUrl: student.avatarUrl,
         profileImage: student.profileImage,
         attempts: attempts,
         bestScore: bestScore,
+        chatLogsCount: student._count.chatLogs,
+        forumThreadsCount: student._count.forumThreads,
+        forumCommentsCount: student._count.forumComments,
+        gameStats: gameStats,
       };
     });
 
@@ -1644,7 +1925,156 @@ app.get('/api/teacher/students', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/teacher/students/:id/logs - Get chat logs for a specific student
+// GET /api/teacher/students/:id/details - Get detailed stats for a specific student
+app.get('/api/teacher/students/:id/details', authMiddleware, async (req, res) => {
+  try {
+    console.log('GET /api/teacher/students/:id/details - Request received', {
+      studentId: req.params.id,
+      userId: req.user?.id,
+      role: req.user?.role
+    });
+
+    // Check if user is a teacher
+    if (req.user.role !== 'Teacher') {
+      return res.status(403).json({ error: 'Forbidden - Only teachers can access this endpoint' });
+    }
+
+    const studentId = parseInt(req.params.id, 10);
+    if (isNaN(studentId)) {
+      return res.status(400).json({ error: 'Invalid student ID' });
+    }
+
+    // Verify the student exists and is actually a student
+    const student = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: { id: true, role: true },
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (student.role !== 'Student') {
+      return res.status(400).json({ error: 'User is not a student' });
+    }
+
+    // Fetch full profile info
+    console.log('Fetching profile for student:', studentId);
+    const profile = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        className: true,
+        avatarUrl: true,
+        profileImage: true,
+      },
+    });
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Student profile not found' });
+    }
+
+    // Fetch game stats grouped by gameType
+    console.log('Fetching game scores for student:', studentId);
+    const gameScores = await prisma.gameScore.findMany({
+      where: { userId: studentId },
+      select: {
+        score: true,
+        gameType: true,
+      },
+    });
+
+    const gameStats = {};
+    gameScores.forEach((score) => {
+      const gameType = score.gameType || 'UNKNOWN';
+      if (!gameStats[gameType]) {
+        gameStats[gameType] = { attempts: 0, bestScore: 0 };
+      }
+      gameStats[gameType].attempts += 1;
+      gameStats[gameType].bestScore = Math.max(gameStats[gameType].bestScore, score.score);
+    });
+
+    // Fetch material progress
+    console.log('Fetching material progress for student:', studentId);
+    const materialProgress = await prisma.studentMaterialProgress.findMany({
+      where: {
+        studentId: studentId,
+        isCompleted: true,
+      },
+      select: {
+        materialId: true,
+      },
+    });
+
+    // Get total materials count
+    const totalMaterials = await prisma.learningMaterial.count();
+    const completedCount = materialProgress.length;
+    const progressPercentage = totalMaterials > 0 
+      ? Math.round((completedCount / totalMaterials) * 100) 
+      : 0;
+
+    // Fetch chat logs (last 50)
+    console.log('Fetching chat logs for student:', studentId);
+    const chatLogs = await prisma.chatLog.findMany({
+      where: {
+        userId: studentId,
+      },
+      select: {
+        id: true,
+        message: true,
+        response: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 50,
+    });
+
+    // Fetch forum stats
+    console.log('Fetching forum stats for student:', studentId);
+    const forumStats = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: {
+        _count: {
+          select: {
+            forumThreads: true,
+            forumComments: true,
+          },
+        },
+      },
+    });
+
+    const responseData = {
+      profile,
+      gameStats,
+      materialProgress: {
+        completed: completedCount,
+        total: totalMaterials,
+        percentage: progressPercentage,
+      },
+      chatLogs,
+      forumStats: {
+        threads: forumStats?._count.forumThreads || 0,
+        comments: forumStats?._count.forumComments || 0,
+      },
+    };
+
+    console.log('Successfully fetched student details for:', studentId);
+    res.json(responseData);
+  } catch (err) {
+    console.error('Error fetching student details:', err);
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ 
+      error: 'Failed to fetch student details',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
+// GET /api/teacher/students/:id/logs - Get chat logs for a specific student (kept for backward compatibility)
 app.get('/api/teacher/students/:id/logs', authMiddleware, async (req, res) => {
   try {
     // Check if user is a teacher
@@ -1762,7 +2192,156 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
   }
 });
 
+// Student Material Progress API Routes
+
+// GET /api/progress - Get all completed material IDs for the current user
+app.get('/api/progress', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const progressRecords = await prisma.studentMaterialProgress.findMany({
+      where: {
+        studentId: userId,
+        isCompleted: true,
+      },
+      select: {
+        materialId: true,
+      },
+    });
+
+    const completedMaterialIds = progressRecords.map((record) => String(record.materialId));
+    res.json(completedMaterialIds);
+  } catch (err) {
+    console.error('Get progress error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/progress/toggle - Toggle completion status for a material
+app.post('/api/progress/toggle', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { materialId } = req.body;
+
+    if (!materialId) {
+      return res.status(400).json({ error: 'materialId is required' });
+    }
+
+    const materialIdNum = Number(materialId);
+    if (!Number.isInteger(materialIdNum)) {
+      return res.status(400).json({ error: 'Invalid materialId' });
+    }
+
+    // Check if material exists
+    const material = await prisma.learningMaterial.findUnique({
+      where: { id: materialIdNum },
+    });
+
+    if (!material) {
+      return res.status(404).json({ error: 'Learning material not found' });
+    }
+
+    // Check if progress record exists
+    const existingProgress = await prisma.studentMaterialProgress.findUnique({
+      where: {
+        studentId_materialId: {
+          studentId: userId,
+          materialId: materialIdNum,
+        },
+      },
+    });
+
+    let result;
+    if (existingProgress) {
+      // Toggle the completion status
+      result = await prisma.studentMaterialProgress.update({
+        where: {
+          id: existingProgress.id,
+        },
+        data: {
+          isCompleted: !existingProgress.isCompleted,
+        },
+      });
+    } else {
+      // Create new record with isCompleted = true
+      result = await prisma.studentMaterialProgress.create({
+        data: {
+          studentId: userId,
+          materialId: materialIdNum,
+          isCompleted: true,
+        },
+      });
+    }
+
+    res.json({ materialId: String(result.materialId), isCompleted: result.isCompleted });
+  } catch (err) {
+    console.error('Toggle progress error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/:id/badge - Get badge info for a user
+app.get('/api/users/:id/badge', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    const badge = await prisma.badge.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!badge) {
+      // If no badge exists, check if user is a teacher and assign Teacher badge
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (user && user.role === 'Teacher') {
+        // Create Teacher badge
+        const newBadge = await prisma.badge.create({
+          data: {
+            userId: userId,
+            badgeType: 'Teacher',
+            score: null,
+          },
+        });
+        return res.json(newBadge);
+      }
+
+      return res.status(404).json({ error: 'Badge not found' });
+    }
+
+    res.json(badge);
+  } catch (err) {
+    console.error('Error fetching badge:', err);
+    res.status(500).json({ error: 'Failed to fetch badge' });
+  }
+});
+
+// Initialize badges for all existing users on server start
+async function initializeBadges() {
+  try {
+    console.log('Initializing badges for all users...');
+    await updateAllBadges();
+    console.log('Badge initialization complete');
+  } catch (err) {
+    console.error('Error initializing badges:', err);
+  }
+}
+
 const port = process.env.PORT || 4000;
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server listening on http://localhost:${port}`);
+  // Initialize badges on server start
+  await initializeBadges();
 });

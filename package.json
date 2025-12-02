@@ -5,7 +5,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@google/genai": "^1.29.0",
-    "@prisma/client": "^6.18.0",
+    "@prisma/client": "^6.19.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
@@ -48,7 +48,7 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "prisma": "^6.18.0",
+    "prisma": "^6.19.0",
     "typescript": "~5.9.2"
   },
   "scripts": {
@@ -61,6 +61,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "private": true
 }

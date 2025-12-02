@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,18 +9,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
   useColorScheme,
 } from 'react-native';
-import { API_URL } from './config';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { API_URL } from '../config';
 
 export default function Index() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { setUser } = useAuth();
@@ -44,7 +46,7 @@ export default function Index() {
       if (!res.ok) {
         Alert.alert(t('login.title'), data.error || t('login.error'));
       } else if (data.user) {
-        setUser(data.user);
+        setUser(data.user, data.token);
         router.replace('/mainpage');
       } else {
         Alert.alert(t('login.title'), t('login.missing_user'));
@@ -70,28 +72,58 @@ export default function Index() {
             <View style={styles.form}>
               <View style={styles.field}>
                 <Text style={styles.label}>{t('login.email')}</Text>
-                <TextInput
-                  placeholder={t('login.email')}
-                  placeholderTextColor={placeholderColor}
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  style={styles.input}
-                  textContentType="username"
-                />
+                <View style={styles.inputWrapper}>
+                  <Feather
+                    name="user"
+                    size={18}
+                    color={placeholderColor}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder={t('login.email')}
+                    placeholderTextColor={placeholderColor}
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    style={styles.inputField}
+                    textContentType="username"
+                  />
+                </View>
               </View>
               <View style={styles.field}>
                 <Text style={styles.label}>{t('login.password')}</Text>
-                <TextInput
-                  placeholder={t('login.password')}
-                  placeholderTextColor={placeholderColor}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  style={styles.input}
-                  textContentType="password"
-                />
+                <View style={styles.inputWrapper}>
+                  <Feather
+                    name="lock"
+                    size={18}
+                    color={placeholderColor}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    placeholder={t('login.password')}
+                    placeholderTextColor={placeholderColor}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!passwordVisible}
+                    style={styles.inputField}
+                    textContentType="password"
+                  />
+                  <Pressable
+                    onPress={() => setPasswordVisible((prev) => !prev)}
+                    style={({ pressed }) => [
+                      styles.passwordToggle,
+                      pressed && styles.passwordTogglePressed,
+                    ]}
+                    hitSlop={8}
+                  >
+                    <Feather
+                      name={passwordVisible ? 'eye-off' : 'eye'}
+                      size={18}
+                      color={placeholderColor}
+                    />
+                  </Pressable>
+                </View>
               </View>
               <Pressable
                 style={({ pressed }) => [
@@ -203,15 +235,30 @@ const getStyles = (colorScheme: any) => {
       fontWeight: '600',
       color: palette.text,
     },
-    input: {
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
       backgroundColor: palette.input,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: palette.border,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
+      paddingHorizontal: 14,
+    },
+    inputIcon: {
+      marginTop: 1,
+    },
+    inputField: {
+      flex: 1,
       color: palette.text,
       fontSize: 15,
+      paddingVertical: 12,
+    },
+    passwordToggle: {
+      padding: 4,
+    },
+    passwordTogglePressed: {
+      opacity: 0.75,
     },
     primaryButton: {
       marginTop: 12,

@@ -1,10 +1,25 @@
+import { Badge } from '@/components/Badge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from './config';
+import {
+  ActivityIndicator,
+  Alert,
+  Button,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useColorScheme,
+} from 'react-native';
+import { API_URL } from '../config';
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -29,6 +44,8 @@ export default function DeleteAccountScreen() {
   const [confirmUsername, setConfirmUsername] = useState('');
   const [searching, setSearching] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedStudentBadge, setSelectedStudentBadge] = useState<{ badgeType: 'Champion' | 'RisingStar' | 'Student' | 'Teacher' } | null>(null);
+  const [studentBadges, setStudentBadges] = useState<Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'>>({});
   const { t } = useTranslation();
 
   const StudentAvatar = ({ profileImage, avatarUrl }: { profileImage?: string | null; avatarUrl?: string | null }) => {
@@ -54,6 +71,59 @@ export default function DeleteAccountScreen() {
     }
   }, [currentUser, router, t]);
 
+  // Fetch badge when selectedStudent changes
+  useEffect(() => {
+    if (selectedStudent?.id) {
+      const fetchBadge = async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/users/${selectedStudent.id}/badge`);
+          if (res.ok) {
+            const badgeData = await res.json();
+            setSelectedStudentBadge(badgeData);
+          } else {
+            setSelectedStudentBadge(null);
+          }
+        } catch (err) {
+          console.error('Error fetching badge:', err);
+          setSelectedStudentBadge(null);
+        }
+      };
+      fetchBadge();
+    } else {
+      setSelectedStudentBadge(null);
+    }
+  }, [selectedStudent]);
+
+  // Fetch badges for search results
+  useEffect(() => {
+    if (searchResults.length === 0) {
+      setStudentBadges({});
+      return;
+    }
+
+    const fetchBadges = async () => {
+      const badgeMap: Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'> = {};
+      
+      for (const student of searchResults) {
+        if (student.id) {
+          try {
+            const res = await fetch(`${API_URL}/api/users/${student.id}/badge`);
+            if (res.ok) {
+              const badgeData = await res.json();
+              badgeMap[student.id] = badgeData.badgeType;
+            }
+          } catch (err) {
+            console.error('Error fetching badge for student:', err);
+          }
+        }
+      }
+      
+      setStudentBadges(badgeMap);
+    };
+
+    fetchBadges();
+  }, [searchResults]);
+
   // Search students function
   const searchStudents = async (query: string) => {
     setSelectedStudent(null);
@@ -67,12 +137,14 @@ export default function DeleteAccountScreen() {
       const res = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(searchQ)}&role=Student`);
       const data = await res.json();
       if (res.ok && Array.isArray(data)) {
+        // Debug: Log the response to see if className is included
+        console.log('Search results:', JSON.stringify(data, null, 2));
         setSearchResults(data);
       } else {
         setSearchResults([]);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Search error:', err);
       // Only show an alert for actual network/server errors, not for empty results
       Alert.alert(t('delete_student.error_title'), t('delete_student.search_error'));
       setSearchResults([]);
@@ -124,7 +196,7 @@ export default function DeleteAccountScreen() {
             returnKeyType="search"
             onSubmitEditing={() => searchStudents(searchQuery)}
           />
-          <Pressable 
+          <Pressable
             onPress={() => searchStudents(searchQuery)}
             accessibilityLabel={t('delete_student.search_button_accessibility')}
             style={({ pressed }) => [
@@ -132,7 +204,11 @@ export default function DeleteAccountScreen() {
               { opacity: pressed ? 0.7 : 1 }
             ]}
           >
-              <IconSymbol name="magnifyingglass.circle.fill" size={22} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+            <Feather
+              name="search"
+              size={18}
+              color={colorScheme === 'dark' ? '#FFFFFF' : '#0F172A'}
+            />
           </Pressable>
         </View>
       </View>
@@ -142,43 +218,97 @@ export default function DeleteAccountScreen() {
         {searching ? (
           <ActivityIndicator style={styles.loading} />
         ) : selectedStudent ? (
-          <View style={styles.studentCard}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.studentCard,
+              pressed && { opacity: 0.92 },
+            ]}
+            onPress={() => setShowDeleteModal(true)}
+            accessibilityLabel={t('delete_student.select_student')}
+          >
             <View style={styles.studentInfo}>
-              <StudentAvatar profileImage={selectedStudent.profileImage} avatarUrl={selectedStudent.avatarUrl} />
+              <StudentAvatar
+                profileImage={selectedStudent.profileImage}
+                avatarUrl={selectedStudent.avatarUrl}
+              />
               <View style={styles.studentDetails}>
-                <Text style={[styles.studentName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                  {selectedStudent.username}
-                </Text>
-                <Text style={[styles.studentEmail, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                <View style={styles.studentHeader}>
+                  <View style={styles.studentNameRow}>
+                    <Text
+                      style={[
+                        styles.studentName,
+                        { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' },
+                      ]}
+                    >
+                      {selectedStudent.username}
+                    </Text>
+                    {selectedStudentBadge && (
+                      <Badge badgeType={selectedStudentBadge.badgeType} size="small" />
+                    )}
+                  </View>
+                  <Feather name="trash-2" size={18} color="#b00" />
+                </View>
+                <Text
+                  style={[
+                    styles.studentEmail,
+                    { color: colorScheme === 'dark' ? '#999' : '#666' },
+                  ]}
+                >
                   {selectedStudent.email}
                 </Text>
                 {selectedStudent.fullName ? (
-                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>{selectedStudent.fullName}</Text>
+                  <Text
+                    style={[
+                      styles.studentMeta,
+                      { color: colorScheme === 'dark' ? '#999' : '#666' },
+                    ]}
+                  >
+                    {selectedStudent.fullName}
+                  </Text>
                 ) : null}
                 {selectedStudent.role ? (
-                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                  <Text
+                    style={[
+                      styles.studentMeta,
+                      { color: colorScheme === 'dark' ? '#999' : '#666' },
+                    ]}
+                  >
                     {t('delete_student.student_role', { role: selectedStudent.role })}
                   </Text>
                 ) : null}
+                {selectedStudent.role && (
+                  <Text
+                    style={[
+                      styles.studentMeta,
+                      { color: colorScheme === 'dark' ? '#999' : '#666' },
+                    ]}
+                  >
+                    {selectedStudent.role === 'Teacher' 
+                      ? 'Educator'
+                      : selectedStudent.className && typeof selectedStudent.className === 'string' && selectedStudent.className.trim()
+                      ? t('delete_student.student_class', { className: selectedStudent.className.trim() })
+                      : t('delete_student.student_class', { className: 'No class assigned' })}
+                  </Text>
+                )}
                 {selectedStudent.createdAt ? (
-                  <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                  <Text
+                    style={[
+                      styles.studentMeta,
+                      { color: colorScheme === 'dark' ? '#999' : '#666' },
+                    ]}
+                  >
                     {t('delete_student.student_joined', {
-                      date: new Date(selectedStudent.createdAt).toLocaleDateString(),
+                      date: new Date(selectedStudent.createdAt).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      }),
                     })}
                   </Text>
                 ) : null}
               </View>
             </View>
-            <Pressable
-              onPress={() => setShowDeleteModal(true)}
-              style={({ pressed }) => [
-                styles.deleteButton,
-                { opacity: pressed ? 0.8 : 1 }
-              ]}
-            >
-              <IconSymbol name="trash" size={18} color="#fff" />
-            </Pressable>
-          </View>
+          </Pressable>
         ) : searchResults.length > 0 ? (
           // show list fallback if searchResults available
           searchResults.map((student) => (
@@ -186,16 +316,33 @@ export default function DeleteAccountScreen() {
               <View style={styles.studentInfo}>
                 <StudentAvatar profileImage={student.profileImage} avatarUrl={student.avatarUrl} />
                 <View style={styles.studentDetails}>
-                  <Text style={[styles.studentName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                    {student.username}
-                  </Text>
+                  <View style={styles.studentNameRow}>
+                    <Text style={[styles.studentName, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+                      {student.username}
+                    </Text>
+                    {student.id && studentBadges[student.id] && (
+                      <Badge badgeType={studentBadges[student.id]} size="small" />
+                    )}
+                  </View>
                   <Text style={[styles.studentEmail, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
                     {student.email}
                   </Text>
+                  {(student.className && student.className.trim()) || student.role === 'Teacher' ? (
+                    <Text style={[styles.studentMeta, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                      {student.role === 'Teacher' 
+                        ? 'Educator'
+                        : t('delete_student.student_class', { className: student.className })}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
               <Pressable
-                onPress={() => setSelectedStudent(student)}
+                onPress={() => {
+                  console.log('=== Setting Selected Student ===');
+                  console.log('Student object from search results:', JSON.stringify(student, null, 2));
+                  console.log('Student className:', student.className);
+                  setSelectedStudent(student);
+                }}
                 accessibilityLabel={t('delete_student.select_student')}
                 style={({ pressed }) => [
                   styles.selectButton,
@@ -304,6 +451,12 @@ const getStyles = (colorScheme: any) => StyleSheet.create({
   loading: {
     marginVertical: 20,
   },
+  studentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   studentCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -335,6 +488,12 @@ const getStyles = (colorScheme: any) => StyleSheet.create({
   studentDetails: {
     marginLeft: 12,
     flex: 1,
+  },
+  studentNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
   },
   studentName: {
     fontSize: 16,

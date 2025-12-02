@@ -1,15 +1,16 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,12 +18,26 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from './config';
+import { API_URL } from '../config';
+
+const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
+  if (profileImage) {
+    return profileImage.startsWith('data:')
+      ? profileImage
+      : `data:image/jpeg;base64,${profileImage}`;
+  }
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
+    return avatarUrl;
+  }
+  return `${API_URL}${avatarUrl}`;
+};
 
 export default function EditProfileScreen() {
   const { user, setUser } = useAuth();
-  const { i18n, t } = useTranslation();
+  const { t } = useTranslation();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
@@ -32,8 +47,70 @@ export default function EditProfileScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [pickingAvatar, setPickingAvatar] = useState(false);
+  const [avatarChanged, setAvatarChanged] = useState(false);
+  const [avatarDataUri, setAvatarDataUri] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(
+    resolveAvatarUri(user?.profileImage ?? null, user?.avatarUrl ?? null)
+  );
 
   const placeholderColor = colorScheme === 'dark' ? '#94A3B8' : '#64748B';
+
+  useEffect(() => {
+    if (avatarChanged) return;
+    setAvatarPreview(resolveAvatarUri(user?.profileImage ?? null, user?.avatarUrl ?? null));
+  }, [avatarChanged, user?.avatarUrl, user?.profileImage]);
+
+  const handlePickAvatar = useCallback(async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          t('edit_profile.avatar_permission_title'),
+          t('edit_profile.avatar_permission_message')
+        );
+        return;
+      }
+
+      setPickingAvatar(true);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        quality: 0.85,
+        base64: true,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        Alert.alert(t('edit_profile.avatar_error_title'), t('edit_profile.avatar_unreadable'));
+        return;
+      }
+
+      const mime = asset.mimeType ?? 'image/jpeg';
+      const dataUri = `data:${mime};base64,${asset.base64}`;
+      setAvatarDataUri(dataUri);
+      setAvatarPreview(dataUri);
+      setAvatarChanged(true);
+    } catch (err) {
+      console.error('Avatar pick error', err);
+      Alert.alert(
+        t('edit_profile.avatar_error_title'),
+        t('edit_profile.avatar_generic_error')
+      );
+    } finally {
+      setPickingAvatar(false);
+    }
+  }, [t]);
+
+  const handleResetAvatar = useCallback(() => {
+    setAvatarDataUri(null);
+    setAvatarPreview(resolveAvatarUri(user?.profileImage ?? null, user?.avatarUrl ?? null));
+    setAvatarChanged(false);
+  }, [user?.avatarUrl, user?.profileImage]);
 
   const handleSave = useCallback(async () => {
     const trimmedUsername = username.trim();
@@ -77,12 +154,48 @@ export default function EditProfileScreen() {
         return;
       }
 
-      if (user) {
-        setUser({
-          ...user,
-          username: trimmedUsername,
-          email: trimmedEmail,
-        });
+      let authUser = user
+        ? {
+            ...user,
+            username: trimmedUsername,
+            email: trimmedEmail,
+          }
+        : null;
+
+      if (avatarChanged && avatarDataUri) {
+        const avatarResponse = await fetch(
+          `${API_URL}/api/users/${encodeURIComponent(trimmedUsername)}/avatar`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: avatarDataUri }),
+          }
+        );
+
+        const avatarData = await avatarResponse.json();
+        if (!avatarResponse.ok) {
+          Alert.alert(
+            t('edit_profile.title'),
+            avatarData.error || t('edit_profile.avatar_upload_failed')
+          );
+          return;
+        }
+
+        if (authUser) {
+          authUser = {
+            ...authUser,
+            profileImage: avatarData.profileImage ?? null,
+            avatarUrl: avatarData.avatarUrl ?? null,
+          };
+        }
+
+        setAvatarChanged(false);
+        setAvatarDataUri(null);
+        setAvatarPreview(resolveAvatarUri(avatarData.profileImage, avatarData.avatarUrl));
+      }
+
+      if (authUser) {
+        setUser(authUser);
       }
 
       setPassword('');
@@ -97,45 +210,18 @@ export default function EditProfileScreen() {
     } finally {
       setSaving(false);
     }
-  }, [confirmPassword, email, password, router, setUser, t, user, username]);
-
-  const languages = [
-    { code: 'ms', label: t('edit_profile.language_ms') },
-    { code: 'en', label: t('edit_profile.language_en') },
-  ];
-
-  const currentLanguage = (i18n.language || 'ms').split('-')[0];
-
-  const handleLanguageChange = useCallback(
-    async (code: string) => {
-      try {
-        await i18n.changeLanguage(code);
-        await AsyncStorage.setItem('appLanguage', code);
-      } catch (err) {
-        console.warn('Language change failed:', err);
-      }
-    },
-    [i18n]
-  );
-
-  const renderLanguageButton = (code: string, label: string) => {
-    const isActive = currentLanguage === code;
-    return (
-      <Pressable
-        key={code}
-        onPress={() => handleLanguageChange(code)}
-        style={({ pressed }) => [
-          styles.languageButton,
-          isActive && styles.languageButtonActive,
-          pressed && styles.languageButtonPressed,
-        ]}
-      >
-        <Text style={[styles.languageButtonText, isActive && styles.languageButtonTextActive]}>
-          {label}
-        </Text>
-      </Pressable>
-    );
-  };
+  }, [
+    avatarChanged,
+    avatarDataUri,
+    confirmPassword,
+    email,
+    password,
+    router,
+    setUser,
+    t,
+    user,
+    username,
+  ]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -151,10 +237,47 @@ export default function EditProfileScreen() {
           <View style={styles.card}>
             <Text style={styles.title}>{t('edit_profile.title')}</Text>
 
+            <View style={styles.avatarSection}>
+              <Text style={styles.avatarTitle}>{t('edit_profile.avatar_title')}</Text>
+              {avatarPreview ? (
+                <Image source={{ uri: avatarPreview }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatarFallback}>
+                  <IconSymbol name="person.fill" size={36} color="#FFFFFF" />
+                </View>
+              )}
+              <View style={styles.avatarActions}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.avatarButton,
+                    pressed && styles.avatarButtonPressed,
+                  ]}
+                  onPress={handlePickAvatar}
+                  disabled={pickingAvatar}
+                >
+                  {pickingAvatar ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.avatarButtonText}>
+                      {avatarPreview
+                        ? t('edit_profile.avatar_change')
+                        : t('edit_profile.avatar_upload')}
+                    </Text>
+                  )}
+                </Pressable>
+                {avatarChanged ? (
+                  <Pressable style={styles.avatarReset} onPress={handleResetAvatar}>
+                    <Text style={styles.avatarResetText}>{t('common.reset')}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Text style={styles.avatarHelp}>{t('edit_profile.avatar_hint')}</Text>
+            </View>
+
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('edit_profile.username')}</Text>
               <View style={styles.inputWrapper}>
-                <IconSymbol name="person.fill" size={18} color={placeholderColor} />
+                <Feather name="user" size={18} color={placeholderColor} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={username}
@@ -170,7 +293,7 @@ export default function EditProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('edit_profile.email')}</Text>
               <View style={styles.inputWrapper}>
-                <IconSymbol name="envelope.fill" size={18} color={placeholderColor} />
+                <Feather name="mail" size={18} color={placeholderColor} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={email}
@@ -190,7 +313,7 @@ export default function EditProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('edit_profile.new_password')}</Text>
               <View style={styles.inputWrapper}>
-                <IconSymbol name="lock.fill" size={18} color={placeholderColor} />
+                <Feather name="lock" size={18} color={placeholderColor} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={password}
@@ -206,7 +329,7 @@ export default function EditProfileScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('edit_profile.confirm_password')}</Text>
               <View style={styles.inputWrapper}>
-                <IconSymbol name="lock.fill" size={18} color={placeholderColor} />
+                <Feather name="lock" size={18} color={placeholderColor} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={confirmPassword}
@@ -217,13 +340,6 @@ export default function EditProfileScreen() {
                   textContentType="newPassword"
                 />
               </View>
-            </View>
-
-            <View style={styles.divider} />
-            <Text style={styles.sectionLabel}>{t('edit_profile.language')}</Text>
-            <Text style={styles.helpText}>{t('edit_profile.language_hint')}</Text>
-            <View style={styles.languageRow}>
-              {languages.map((lang) => renderLanguageButton(lang.code, lang.label))}
             </View>
 
             <Pressable
@@ -286,6 +402,68 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       color: isDark ? '#E2E8F0' : '#0F172A',
       textAlign: 'center',
     },
+    avatarSection: {
+      alignItems: 'center',
+      gap: 8,
+    },
+    avatarTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: isDark ? '#E2E8F0' : '#0F172A',
+      alignSelf: 'flex-start',
+    },
+    avatarImage: {
+      width: 104,
+      height: 104,
+      borderRadius: 52,
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : '#E2E8F0',
+    },
+    avatarFallback: {
+      width: 104,
+      height: 104,
+      borderRadius: 52,
+      backgroundColor: '#2563EB',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    avatarButton: {
+      backgroundColor: '#2563EB',
+      borderRadius: 18,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      minWidth: 140,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarButtonPressed: {
+      opacity: 0.9,
+    },
+    avatarButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    avatarReset: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 16,
+      backgroundColor: isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+    },
+    avatarResetText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: isDark ? '#E2E8F0' : '#1E293B',
+    },
+    avatarHelp: {
+      fontSize: 12,
+      color: isDark ? '#94A3B8' : '#64748B',
+      textAlign: 'center',
+    },
     fieldGroup: {
       gap: 8,
     },
@@ -304,6 +482,9 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       borderColor: isDark ? 'rgba(148, 163, 184, 0.3)' : '#E2E8F0',
       paddingHorizontal: 14,
     },
+    inputIcon: {
+      marginTop: 1,
+    },
     input: {
       flex: 1,
       fontSize: 15,
@@ -320,38 +501,6 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       fontWeight: '700',
       color: isDark ? '#E2E8F0' : '#0F172A',
       marginTop: 6,
-    },
-    helpText: {
-      fontSize: 13,
-      color: isDark ? '#94A3B8' : '#64748B',
-    },
-    languageRow: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    languageButton: {
-      flex: 1,
-      borderRadius: 16,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(148, 163, 184, 0.35)' : '#CBD5F5',
-      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.5)' : '#F8FAFF',
-    },
-    languageButtonActive: {
-      borderColor: '#2563EB',
-      backgroundColor: 'rgba(37, 99, 235, 0.15)',
-    },
-    languageButtonPressed: {
-      opacity: 0.85,
-    },
-    languageButtonText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: isDark ? '#E2E8F0' : '#1E293B',
-    },
-    languageButtonTextActive: {
-      color: '#2563EB',
     },
     saveButton: {
       marginTop: 8,

@@ -1,11 +1,13 @@
+import { Badge } from '@/components/Badge';
+import { MarkdownView } from '@/components/MarkdownView';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { AIChatbot } from '@/components/ai-chatbot';
 import { useAuth } from '@/contexts/AuthContext';
 import { ForumComment, ForumThread, useForum } from '@/contexts/ForumContext';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -20,7 +22,7 @@ import {
   View,
   useColorScheme
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { API_URL } from '../../config';
 
 export default function ForumThreadScreen() {
   const { id, action } = useLocalSearchParams<{ id?: string; action?: string }>();
@@ -56,6 +58,33 @@ export default function ForumThreadScreen() {
     }
   }, [threadId, thread, fetchThreadById]);
 
+  // Fetch badges for all comment authors
+  useEffect(() => {
+    if (!thread?.comments) return;
+
+    const fetchBadges = async () => {
+      const badgeMap: Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'> = {};
+      
+      for (const comment of thread.comments) {
+        if (comment.authorId && !badgeMap[comment.authorId]) {
+          try {
+            const res = await fetch(`${API_URL}/api/users/${comment.authorId}/badge`);
+            if (res.ok) {
+              const badgeData = await res.json();
+              badgeMap[comment.authorId] = badgeData.badgeType;
+            }
+          } catch (err) {
+            console.error('Error fetching badge for comment author:', err);
+          }
+        }
+      }
+      
+      setCommentBadges(badgeMap);
+    };
+
+    fetchBadges();
+  }, [thread?.comments]);
+
   const [commentDraft, setCommentDraft] = useState('');
   const commentInputRef = useRef<TextInput | null>(null);
 
@@ -68,7 +97,8 @@ export default function ForumThreadScreen() {
   const [threadContent, setThreadContent] = useState(thread?.content ?? '');
   const [threadAttachment, setThreadAttachment] = useState<string | null>(thread?.attachment ?? null);
   const [pickingThreadAttachment, setPickingThreadAttachment] = useState(false);
-const [showChatbot, setShowChatbot] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [commentBadges, setCommentBadges] = useState<Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'>>({});
 
   useEffect(() => {
     setThreadTitle(thread?.title ?? '');
@@ -329,7 +359,7 @@ const [showChatbot, setShowChatbot] = useState(false);
           <Text style={styles.threadMeta}>
             {t('forum_list.started_by', { name: thread.authorName })} · {formatRelativeTime(thread.updatedAt)}
           </Text>
-          <Text style={styles.threadBody}>{thread.content}</Text>
+          <MarkdownView>{thread.content}</MarkdownView>
           {thread.attachment ? (
             <Image
               source={{ uri: thread.attachment }}
@@ -355,19 +385,46 @@ const [showChatbot, setShowChatbot] = useState(false);
           </View>
         ) : (
           thread.comments.map((comment) => {
+            // Check if current user is the comment author
             const isAuthor = canManageComment(comment, user?.id, user?.username, user?.email);
-            const targetRole = comment.authorRole ? comment.authorRole.toLowerCase() : undefined;
-            const canModerate = isTeacher && targetRole === 'student';
+            
+            // Get the comment author's role from the backend data
+            const commentAuthorRole = comment.authorRole;
+            // Check if comment is from a student (case-insensitive check)
+            const isStudentComment = commentAuthorRole && 
+              String(commentAuthorRole).trim() === 'Student';
+            
+            // Teacher can delete if: user is teacher AND comment is from a student
+            const canModerate = isTeacher && isStudentComment;
+            
+            // The final decision: can delete if user is author OR teacher can moderate
             const canDelete = isAuthor || canModerate;
+            
+            // Temporary debug - remove after confirming it works
+            if (isTeacher && !isAuthor) {
+              console.log('Teacher viewing comment:', {
+                commentId: comment.id,
+                authorRole: commentAuthorRole,
+                isStudentComment,
+                canModerate,
+                canDelete,
+                userRole: user?.role,
+              });
+            }
 
             return (
               <View key={comment.id} style={styles.commentCard}>
                 <View style={styles.commentHeader}>
-                  <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                  <View style={styles.commentAuthorRow}>
+                    <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                    {commentBadges[comment.authorId] && (
+                      <Badge badgeType={commentBadges[comment.authorId]} size="small" />
+                    )}
+                  </View>
                   <Text style={styles.commentTimestamp}>{formatRelativeTime(comment.updatedAt)}</Text>
                 </View>
-                <Text style={styles.commentBody}>{comment.content}</Text>
-                {(isAuthor || canDelete) && (
+                <MarkdownView>{comment.content}</MarkdownView>
+                {canDelete && (
                   <View style={styles.commentActions}>
                     {isAuthor && (
                       <Pressable
@@ -380,17 +437,15 @@ const [showChatbot, setShowChatbot] = useState(false);
                         </Text>
                       </Pressable>
                     )}
-                    {canDelete && (
-                      <Pressable
-                        style={styles.commentDeleteAction}
-                        onPress={() => confirmDeleteComment(comment)}
-                      >
-                        <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
-                        <Text style={styles.commentDeleteText}>
-                          {t('forum_thread.action_delete')}
-                        </Text>
-                      </Pressable>
-                    )}
+                    <Pressable
+                      style={styles.commentDeleteAction}
+                      onPress={() => confirmDeleteComment(comment)}
+                    >
+                      <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
+                      <Text style={styles.commentDeleteText}>
+                        {t('forum_thread.action_delete')}
+                      </Text>
+                    </Pressable>
                   </View>
                 )}
               </View>
@@ -400,15 +455,20 @@ const [showChatbot, setShowChatbot] = useState(false);
       </ScrollView>
 
       <View style={styles.composer}>
-        <TextInput
-          ref={commentInputRef}
-          placeholder={t('forum_thread.placeholder_reply')}
-          placeholderTextColor="#94A3B8"
-          style={styles.composerInput}
-          multiline
-          value={commentDraft}
-          onChangeText={setCommentDraft}
-        />
+        <View style={styles.composerInputContainer}>
+          <TextInput
+            ref={commentInputRef}
+            placeholder={t('forum_thread.placeholder_reply')}
+            placeholderTextColor="#94A3B8"
+            style={styles.composerInput}
+            multiline
+            value={commentDraft}
+            onChangeText={setCommentDraft}
+          />
+          <Text style={styles.codeHint}>
+            {t('forum_thread.code_hint', { defaultValue: 'Tip: Use ``` to wrap your code blocks.' })}
+          </Text>
+        </View>
         <Pressable style={styles.composerButton} onPress={handleSubmitComment}>
           <Text style={styles.composerButtonText}>{t('forum_thread.post_button')}</Text>
         </Pressable>
@@ -423,14 +483,19 @@ const [showChatbot, setShowChatbot] = useState(false);
         <Pressable style={styles.modalOverlay} onPress={closeCommentModal}>
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.modalTitle}>{t('forum_thread.modal_edit_title')}</Text>
-            <TextInput
-              style={[styles.modalInput, styles.modalTextarea]}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              value={editingCommentText}
-              onChangeText={setEditingCommentText}
-            />
+            <View>
+              <TextInput
+                style={[styles.modalInput, styles.modalTextarea]}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                value={editingCommentText}
+                onChangeText={setEditingCommentText}
+              />
+              <Text style={styles.codeHint}>
+                {t('forum_thread.code_hint', { defaultValue: 'Tip: Use ``` to wrap your code blocks.' })}
+              </Text>
+            </View>
             <View style={styles.modalActions}>
               <Pressable style={styles.modalSecondary} onPress={closeCommentModal}>
                 <Text style={styles.modalSecondaryText}>{t('common.cancel')}</Text>
@@ -463,16 +528,21 @@ const [showChatbot, setShowChatbot] = useState(false);
               placeholder={t('forum_list.modal_title_placeholder')}
               placeholderTextColor="#94A3B8"
             />
-            <TextInput
-              style={[styles.modalInput, styles.modalTextarea]}
-              value={threadContent}
-              onChangeText={setThreadContent}
-              placeholder={t('forum_list.modal_content_placeholder')}
-              placeholderTextColor="#94A3B8"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
+            <View>
+              <TextInput
+                style={[styles.modalInput, styles.modalTextarea]}
+                value={threadContent}
+                onChangeText={setThreadContent}
+                placeholder={t('forum_list.modal_content_placeholder')}
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+              <Text style={styles.codeHint}>
+                {t('forum_list.code_hint', { defaultValue: 'Tip: Use ``` to wrap your code blocks.' })}
+              </Text>
+            </View>
             <View style={styles.attachmentSection}>
               <Text
                 style={[
@@ -726,6 +796,12 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     marginBottom: 12,
   },
+  commentAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   commentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -785,8 +861,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  composerInput: {
+  composerInputContainer: {
     flex: 1,
+    gap: 4,
+  },
+  composerInput: {
     minHeight: 44,
     maxHeight: 100,
     borderRadius: 14,
@@ -809,6 +888,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 15,
+  },
+  codeHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    paddingHorizontal: 4,
+    marginTop: 4,
   },
   modalOverlay: {
     flex: 1,

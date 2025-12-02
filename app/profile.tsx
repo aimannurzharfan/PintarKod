@@ -1,13 +1,14 @@
+import { Badge } from '@/components/Badge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,8 +16,8 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { API_URL } from './config';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { API_URL } from '../config';
 
 type ProfileUser = {
   id: string;
@@ -26,6 +27,10 @@ type ProfileUser = {
   createdAt: string;
   profileImage?: string | null;
   avatarUrl?: string | null;
+};
+
+type BadgeData = {
+  badgeType: 'Champion' | 'RisingStar' | 'Student' | 'Teacher';
 };
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
@@ -47,6 +52,8 @@ export default function ProfileScreen() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [currentUserBadge, setCurrentUserBadge] = useState<BadgeData | null>(null);
+  const [searchedUserBadge, setSearchedUserBadge] = useState<BadgeData | null>(null);
 
   const { user: authUser, logout } = useAuth();
   const router = useRouter();
@@ -64,7 +71,7 @@ export default function ProfileScreen() {
   const displayEmail = currentUser?.email ?? authUser?.email ?? '';
 
   const loadCurrentUser = useCallback(async () => {
-    if (!authUser?.username) return;
+    if (!authUser?.username || !authUser?.id) return;
     setLoadingProfile(true);
     setError(null);
     try {
@@ -76,13 +83,24 @@ export default function ProfileScreen() {
         return;
       }
       setCurrentUser(data);
+
+      // Fetch badge
+      try {
+        const badgeRes = await fetch(`${API_URL}/api/users/${authUser.id}/badge`);
+        if (badgeRes.ok) {
+          const badgeData: BadgeData = await badgeRes.json();
+          setCurrentUserBadge(badgeData);
+        }
+      } catch (badgeErr) {
+        console.error('Error fetching badge:', badgeErr);
+      }
     } catch (err) {
       console.error(err);
       setError(t('common.network_error'));
     } finally {
       setLoadingProfile(false);
     }
-  }, [authUser?.username, t]);
+  }, [authUser?.username, authUser?.id, t]);
 
   useEffect(() => {
     loadCurrentUser();
@@ -118,9 +136,23 @@ export default function ProfileScreen() {
       if (!res.ok) {
         setSearchError(data.error || t('profile.load_error'));
         setSearchedUser(null);
+        setSearchedUserBadge(null);
         return;
       }
       setSearchedUser(data);
+
+      // Fetch badge for searched user
+      if (data.id) {
+        try {
+          const badgeRes = await fetch(`${API_URL}/api/users/${data.id}/badge`);
+          if (badgeRes.ok) {
+            const badgeData: BadgeData = await badgeRes.json();
+            setSearchedUserBadge(badgeData);
+          }
+        } catch (badgeErr) {
+          console.error('Error fetching badge:', badgeErr);
+        }
+      }
     } catch (err) {
       console.error(err);
       setSearchError(t('common.network_error'));
@@ -150,7 +182,12 @@ export default function ProfileScreen() {
             </View>
           )}
           <View>
-            <Text style={styles.resultUsername}>@{searchedUser.username}</Text>
+            <View style={styles.usernameRow}>
+              <Text style={styles.resultUsername}>{searchedUser.username}</Text>
+              {searchedUserBadge && (
+                <Badge badgeType={searchedUserBadge.badgeType} size="small" />
+              )}
+            </View>
             {searchedUser.email ? (
               <Text style={styles.resultEmail}>{searchedUser.email}</Text>
             ) : null}
@@ -158,6 +195,12 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.infoList}>
           <InfoRow label={t('register.role')} value={searchedUser.role} />
+          {searchedUser.className && (
+            <InfoRow 
+              label={t('profile.class')} 
+              value={searchedUser.role === 'Teacher' ? 'Educator' : searchedUser.className} 
+            />
+          )}
           <InfoRow label={t('profile.joined')} value={formatTimestamp(searchedUser.createdAt)} />
         </View>
       </View>
@@ -167,8 +210,6 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.pageTitle}>{t('profile.title')}</Text>
-
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             {heroAvatarUri ? (
@@ -179,8 +220,12 @@ export default function ProfileScreen() {
               </View>
             )}
             <View style={styles.profileHeaderText}>
-              <Text style={styles.profileTitle}>{t('profile.title')}</Text>
-              <Text style={styles.profileUsername}>@{displayUsername}</Text>
+              <View style={styles.usernameRow}>
+                <Text style={styles.profileUsername}>{displayUsername}</Text>
+                {currentUserBadge && (
+                  <Badge badgeType={currentUserBadge.badgeType} size="small" />
+                )}
+              </View>
               {displayEmail ? <Text style={styles.profileEmail}>{displayEmail}</Text> : null}
             </View>
           </View>
@@ -245,10 +290,10 @@ export default function ProfileScreen() {
 const formatTimestamp = (timestamp: string) => {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleString(undefined, {
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
   });
 };
 
@@ -303,15 +348,16 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     },
     profileHeaderText: {
       flex: 1,
-      gap: 4,
+      gap: 6,
     },
-    profileTitle: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: isDark ? '#CBD5F5' : '#64748B',
+    usernameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flexWrap: 'wrap',
     },
     profileUsername: {
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: '700',
       color: isDark ? '#F8FAFC' : '#0F172A',
     },

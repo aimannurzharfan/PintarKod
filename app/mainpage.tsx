@@ -4,13 +4,43 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForum } from '@/contexts/ForumContext';
+import { AppNotification, useNotifications } from '@/contexts/NotificationContext';
+import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Modal, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
-import { API_URL } from './config';
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native';
+import { API_URL } from '../config';
 
 const CHEVRON_RIGHT = 'chevron.right' as IconSymbolName;
+
+function formatRelativeTime(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+  const diff = Date.now() - date.getTime();
+
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) {
+    const minutes = Math.round(diff / 60_000);
+    return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+  }
+  if (diff < 86_400_000) {
+    const hours = Math.round(diff / 3_600_000);
+    return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  }
+  const days = Math.round(diff / 86_400_000);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
 
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -30,48 +60,118 @@ export default function MainPage() {
   const router = useRouter();
   const navigation = useNavigation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const {
+    notifications,
+    unreadCount,
+    refreshNotifications,
+    markAllAsRead,
+    markNotificationAsRead,
+    removeNotification,
+    clearNotifications,
+    loading: notificationsLoading,
+  } = useNotifications();
   const { t } = useTranslation();
 
-  function openMenu() {
+  const openMenu = useCallback(() => {
     setShowProfileMenu(true);
-  }
+  }, []);
 
-
-
-  function closeMenu() {
+  const closeMenu = useCallback(() => {
     setShowProfileMenu(false);
-  }
+  }, []);
 
-  function handleViewProfile() {
+  const openNotificationsPanel = useCallback(() => {
+    setShowNotifications(true);
+    refreshNotifications()
+      .then(() => markAllAsRead())
+      .catch(() => markAllAsRead());
+  }, [markAllAsRead, refreshNotifications]);
+
+  const closeNotificationsPanel = useCallback(() => {
+    setShowNotifications(false);
+  }, []);
+
+  const handleViewProfile = useCallback(() => {
     closeMenu();
     const username = user?.username;
     if (username) {
       router.push(`/profile?username=${encodeURIComponent(username)}`);
     }
-  }
+  }, [closeMenu, router, user?.username]);
 
-  function handleEditProfile() {
+  const handleEditProfile = useCallback(() => {
     closeMenu();
     const username = user?.username;
     if (username) {
       router.push(`/edit-profile?username=${encodeURIComponent(username)}`);
     }
-  }
+  }, [closeMenu, router, user?.username]);
 
-  function handleDeleteAccount() {
+  const handleDeleteAccount = useCallback(() => {
     closeMenu();
     const username = user?.username;
     if (username) {
       router.push(`/delete-account?username=${encodeURIComponent(username)}`);
     }
-  }
+  }, [closeMenu, router, user?.username]);
 
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     closeMenu();
     logout();
     router.replace('/');
-  }
+  }, [closeMenu, logout, router]);
+
+  const handleClearNotifications = useCallback(() => {
+    clearNotifications();
+  }, [clearNotifications]);
+
+  const handleNotificationPress = useCallback(
+    (notification: AppNotification) => {
+      closeNotificationsPanel();
+      
+      if (!notification.data) {
+        console.warn('Notification has no data to navigate to');
+        return;
+      }
+
+      try {
+        switch (notification.type) {
+          case 'NEW_FORUM_THREAD':
+          case 'FORUM_REPLY': {
+            const threadId = notification.data.threadId;
+            if (threadId) {
+              router.push(`/forum/${threadId}` as any);
+            } else {
+              console.warn('Notification missing threadId');
+            }
+            break;
+          }
+          case 'NEW_LEARNING_MATERIAL': {
+            const materialId = notification.data.materialId;
+            if (materialId) {
+              router.push('/learning-materials' as any);
+              // Note: Learning materials screen doesn't support direct navigation to a specific material yet
+              // This navigates to the list. If you want to navigate to a specific material, 
+              // you'd need to add that functionality to the learning materials screen.
+            } else {
+              console.warn('Notification missing materialId');
+            }
+            break;
+          }
+          default:
+            console.warn('Unknown notification type:', notification.type);
+        }
+
+        // Remove notification from list after navigation
+        removeNotification(notification.id);
+      } catch (err) {
+        console.error('Error handling notification press:', err);
+      }
+    },
+    [router, removeNotification, closeNotificationsPanel]
+  );
 
   const userAvatarUri = useMemo(
     () => resolveAvatarUri(user?.profileImage ?? undefined, user?.avatarUrl ?? undefined),
@@ -82,52 +182,86 @@ export default function MainPage() {
     navigation.setOptions({
       title: t('main.header_title'),
       headerRight: () => (
-        <Pressable
-          onPress={openMenu}
-          hitSlop={12}
-          style={{ paddingHorizontal: 12 }}
-          accessibilityLabel={t('main.menu_view_profile')}
-        >
-          {userAvatarUri ? (
-            <Image
-              source={{ uri: userAvatarUri }}
-              style={{ width: 28, height: 28, borderRadius: 14 }}
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={openNotificationsPanel}
+            hitSlop={12}
+            style={styles.headerIconButton}
+            accessibilityLabel={t('main.notifications_title')}
+          >
+            <Feather
+              name="bell"
+              size={20}
+              color={colorScheme === 'dark' ? '#FACC15' : '#1E293B'}
             />
-          ) : (
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: '#888',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <IconSymbol size={18} name="person.fill" color="#fff" />
-            </View>
-          )}
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </Pressable>
+          <Pressable
+            onPress={openMenu}
+            hitSlop={12}
+            style={styles.headerAvatarButton}
+            accessibilityLabel={t('main.menu_view_profile')}
+          >
+            {userAvatarUri ? (
+              <Image
+                source={{ uri: userAvatarUri }}
+                style={{ width: 28, height: 28, borderRadius: 14 }}
+              />
+            ) : (
+              <View style={styles.headerAvatarFallback}>
+                <Feather name="user" size={18} color="#fff" />
+              </View>
+            )}
+          </Pressable>
+        </View>
       ),
     });
-  }, [navigation, colorScheme, user?.username, userAvatarUri, t]);
+  }, [
+    colorScheme,
+    navigation,
+    openMenu,
+    openNotificationsPanel,
+    t,
+    unreadCount,
+    userAvatarUri,
+  ]);
 
   const discussionCards = useMemo(
-    () => [
-      {
-        key: 'forum-view',
-        title: t('main.discussion_forum_title'),
-        description: t('main.discussion_forum_description'),
-        onPress: () => router.push('/forum' as any),
-      },
-      {
-        key: 'learning-materials',
-        title: t('main.materials_title'),
-        description: t('main.materials_description'),
-        onPress: () => router.push('/learning-materials' as any),
-      },
-    ],
-    [router, t]
+    () => {
+      const cards = [
+        {
+          key: 'forum-view',
+          title: t('main.discussion_forum_title'),
+          description: t('main.discussion_forum_description'),
+          onPress: () => router.push('/forum' as any),
+        },
+        {
+          key: 'learning-materials',
+          title: t('main.materials_title'),
+          description: t('main.materials_description'),
+          onPress: () => router.push('/learning-materials' as any),
+        },
+      ];
+      
+      // Add Teacher Dashboard card if user is a teacher
+      if (user?.role === 'Teacher') {
+        cards.unshift({
+          key: 'teacher-dashboard',
+          title: t('teacher_ui.dashboard'),
+          description: t('teacher_ui.dashboard_desc'),
+          onPress: () => router.push('/teacher-dashboard' as any),
+        });
+      }
+      
+      return cards;
+    },
+    [router, t, user?.role]
   );
 
   type CtaButton = {
@@ -139,24 +273,9 @@ export default function MainPage() {
   };
 
   const CTA_BUTTONS: CtaButton[] = useMemo(() => {
-    if (user?.role !== 'Teacher') return [];
-    return [
-      {
-        key: 'register',
-        label: t('main.cta_register_title'),
-        description: t('main.cta_register_description'),
-        icon: 'person.badge.plus' as IconSymbolName,
-        onPress: () => router.push('/register' as any),
-      },
-      {
-        key: 'delete',
-        label: t('main.cta_remove_title'),
-        description: t('main.cta_remove_description'),
-        icon: 'trash.circle.fill' as IconSymbolName,
-        onPress: handleDeleteAccount,
-      },
-    ];
-  }, [handleDeleteAccount, router, t, user?.role]);
+    // Teacher Dashboard moved to discussionCards for consistent styling
+    return [];
+  }, []);
 
   return (
     <ThemedView style={styles.container}>
@@ -177,6 +296,35 @@ export default function MainPage() {
           <ThemedText type="subtitle">{t('main.welcome_subtitle')}</ThemedText>
         </View>
       </View>
+
+      {/* Start Learning Hero Banner */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.heroBanner,
+          {
+            backgroundColor: colorScheme === 'dark'
+              ? 'rgba(59, 130, 246, 0.15)'
+              : 'rgba(59, 130, 246, 0.08)',
+            borderColor: colorScheme === 'dark'
+              ? 'rgba(59, 130, 246, 0.3)'
+              : 'rgba(59, 130, 246, 0.2)',
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          },
+        ]}
+        onPress={() => router.push('/games' as any)}
+      >
+        <View style={styles.heroContent}>
+          <View style={styles.heroTextWrapper}>
+            <Text style={[styles.heroTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#0F172A' }]}>
+              {t('game_ui.start_learning')}
+            </Text>
+            <Text style={[styles.heroDescription, { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' }]}>
+              {t('game_ui.start_learning_desc')}
+            </Text>
+          </View>
+          <IconSymbol name={CHEVRON_RIGHT} size={24} color={colorScheme === 'dark' ? '#93C5FD' : '#3B82F6'} />
+        </View>
+      </Pressable>
 
       {CTA_BUTTONS.length > 0 && (
         <View style={styles.ctaSection}>
@@ -307,22 +455,29 @@ export default function MainPage() {
               <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
             </Pressable>
 
-            {user?.role === 'Teacher' && (
-              <>
-                <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => { closeMenu(); router.push('/register' as any); }}>
-                  <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
-                    {t('main.menu_register')}
-                  </Text>
-                <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
-                </Pressable>
+            <Pressable
+              style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
+              onPress={() => {
+                closeMenu();
+                router.push('/settings' as any);
+              }}
+            >
+              <Text style={[styles.menuItemText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+                {t('main.menu_settings')}
+              </Text>
+              <IconSymbol name={CHEVRON_RIGHT} size={18} color={colorScheme === 'dark' ? '#999' : '#666'} />
+            </Pressable>
 
-                <Pressable style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleDeleteAccount}>
-                  <Text style={[styles.menuItemText, { color: '#b00' }]}>
-                    {t('main.menu_delete_account')}
-                  </Text>
-                  <IconSymbol name={CHEVRON_RIGHT} size={18} color="#b00" />
-                </Pressable>
-              </>
+            {user?.role === 'Teacher' && (
+              <Pressable
+                style={[styles.menuItem, { borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
+                onPress={handleDeleteAccount}
+              >
+                <Text style={[styles.menuItemText, { color: '#b00' }]}>
+                  {t('main.menu_delete_account')}
+                </Text>
+                <IconSymbol name={CHEVRON_RIGHT} size={18} color="#b00" />
+              </Pressable>
             )}
 
               <Pressable style={styles.menuItem} onPress={handleLogout}>
@@ -338,6 +493,117 @@ export default function MainPage() {
                 {t('main.menu_cancel')}
               </Text>
             </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showNotifications}
+        transparent
+        animationType="fade"
+        onRequestClose={closeNotificationsPanel}
+      >
+        <Pressable style={styles.notificationsOverlay} onPress={closeNotificationsPanel}>
+          <Pressable
+            style={[
+              styles.notificationsCard,
+              { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF' },
+            ]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.notificationsHeader}>
+              <Text
+                style={[
+                  styles.notificationsTitle,
+                  { color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A' },
+                ]}
+              >
+                {t('main.notifications_title')}
+              </Text>
+              {notifications.length ? (
+                <Pressable
+                  style={styles.notificationsClearButton}
+                  onPress={handleClearNotifications}
+                  disabled={notificationsLoading}
+                >
+                  <Text style={styles.notificationsClearText}>
+                    {t('main.notifications_clear')}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {notificationsLoading ? (
+              <View style={styles.notificationsLoading}>
+                <ActivityIndicator size="small" color="#2563EB" />
+              </View>
+            ) : notifications.length ? (
+              <ScrollView
+                style={styles.notificationsList}
+                contentContainerStyle={styles.notificationsListContent}
+              >
+                {notifications.map((notification) => (
+                  <Pressable
+                    key={notification.id}
+                    onPress={() => handleNotificationPress(notification)}
+                    style={({ pressed }) => [
+                      styles.notificationItem,
+                      {
+                        backgroundColor:
+                          colorScheme === 'dark'
+                            ? 'rgba(148, 163, 184, 0.16)'
+                            : 'rgba(148, 163, 184, 0.12)',
+                        opacity: pressed ? 0.7 : 1,
+                      },
+                    ]}
+                  >
+                    <View style={styles.notificationText}>
+                      <Text
+                        style={[
+                          styles.notificationTitle,
+                          { color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A' },
+                        ]}
+                      >
+                        {notification.title}
+                      </Text>
+                      {notification.message ? (
+                        <Text
+                          style={[
+                            styles.notificationMessage,
+                            { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' },
+                          ]}
+                        >
+                          {notification.message}
+                        </Text>
+                      ) : null}
+                      <Text
+                        style={[
+                          styles.notificationTime,
+                          { color: colorScheme === 'dark' ? '#94A3B8' : '#64748B' },
+                        ]}
+                      >
+                        {formatRelativeTime(notification.createdAt)}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.notificationsEmpty}>
+                <IconSymbol
+                  name="bell.slash"
+                  size={28}
+                  color={colorScheme === 'dark' ? '#64748B' : '#94A3B8'}
+                />
+                <Text
+                  style={[
+                    styles.notificationsEmptyText,
+                    { color: colorScheme === 'dark' ? '#94A3B8' : '#64748B' },
+                  ]}
+                >
+                  {t('main.notifications_empty')}
+                </Text>
+              </View>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -360,9 +626,161 @@ export default function MainPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  headerIconButton: {
+    position: 'relative',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    overflow: 'visible',
+  },
+  headerAvatarButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  headerAvatarFallback: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#888',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  notificationsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingTop: 72,
+    paddingHorizontal: 16,
+    alignItems: 'flex-end',
+  },
+  notificationsCard: {
+    width: '92%',
+    maxWidth: 360,
+    alignSelf: 'flex-end',
+    borderRadius: 20,
+    padding: 18,
+    gap: 16,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+    maxHeight: '70%',
+  },
+  notificationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  notificationsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  notificationsClearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+  },
+  notificationsClearText: {
+    color: '#2563EB',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  notificationsLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  notificationsList: {
+    maxHeight: 320,
+  },
+  notificationsListContent: {
+    gap: 12,
+    paddingBottom: 4,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    padding: 12,
+    gap: 12,
+  },
+  notificationText: {
+    flex: 1,
+    gap: 4,
+  },
+  notificationTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  notificationMessage: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  notificationTime: {
+    fontSize: 12,
+  },
+  notificationsEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 28,
+  },
+  notificationsEmptyText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
   headerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 12 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#DDD' },
   avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center' },
+  heroBanner: {
+    marginTop: 24,
+    borderRadius: 20,
+    borderWidth: 2,
+    padding: 24,
+  },
+  heroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  heroTextWrapper: {
+    flex: 1,
+    gap: 6,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  heroDescription: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
   ctaSection: { marginTop: 24, gap: 16 },
   ctaCard: {
     flexDirection: 'row',
@@ -410,6 +828,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
     gap: 16,
+  },
+  discussionIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   discussionRowTitle: {
     fontSize: 16,

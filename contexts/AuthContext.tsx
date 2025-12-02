@@ -7,24 +7,44 @@ type AuthUser = {
   role?: string;
   avatarUrl?: string;
   profileImage?: string | null;
+  notifyNewForumThreads?: boolean;
+  notifyNewLearningMaterials?: boolean;
+  notifyForumReplies?: boolean;
 } | null;
 
 type AuthContextValue = {
   user: AuthUser;
-  setUser: (u: AuthUser) => void;
+  token: string | null;
+  setUser: (u: AuthUser, token?: string) => void;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser>(null);
+  const [user, setUserState] = useState<AuthUser>(null);
+  const [token, setToken] = useState<string | null>(null);
+
+  const setUser = (u: AuthUser, newToken?: string) => {
+    setUserState(u);
+    if (newToken) {
+      setToken(newToken);
+    } else {
+      setToken(null);
+    }
+  };
+
+  const logout = () => {
+    setUserState(null);
+    setToken(null);
+  };
 
   const value = useMemo<AuthContextValue>(() => ({
     user,
+    token,
     setUser,
-    logout: () => setUser(null),
-  }), [user]);
+    logout,
+  }), [user, token]);
 
   return (
     <AuthContext.Provider value={value}>

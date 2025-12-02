@@ -12,7 +12,10 @@
     "username_placeholder": "username",
     "error": "Error",
     "success": "Success",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "reset": "Reset",
+    "back": "Back",
+    "retry": "Retry"
   },
   "login": {
     "title": "Login",
@@ -26,6 +29,21 @@
     "error": "Invalid email or password.",
     "network": "Network error. Please try again.",
     "missing_user": "User data is missing."
+  },
+  "forgot_password": {
+    "title": "Forgot Password",
+    "subtitle": "Enter your registered email address and we'll send you a reset link.",
+    "email": "Email",
+    "email_placeholder": "Enter your registered email",
+    "button": "Send Reset Link",
+    "button_loading": "Sending...",
+    "validation_email": "Please enter your registered email",
+    "error": "Error",
+    "error_message": "Unable to send reset link",
+    "success_title": "Check your email",
+    "success_message": "Reset link sent to console for now.",
+    "network_error": "Unable to process request",
+    "back_to_login": "Back to Login"
   },
   "register": {
     "title": "Register New User",
@@ -63,6 +81,7 @@
     "search_button": "Search",
     "load_error": "Failed to load profile information.",
     "joined": "Joined",
+    "class": "Class",
     "validation_username": "Please enter a username."
   },
   "tabs": {
@@ -121,7 +140,17 @@
     "success_message": "Your profile has been updated.",
     "validation": "Please complete the required fields.",
     "password_mismatch": "Passwords do not match.",
-    "error_generic": "Failed to update profile."
+    "error_generic": "Failed to update profile.",
+    "avatar_title": "Profile photo",
+    "avatar_hint": "Use a square image for the best fit.",
+    "avatar_upload": "Upload photo",
+    "avatar_change": "Change photo",
+    "avatar_permission_title": "Permission needed",
+    "avatar_permission_message": "Please allow photo library access to choose a profile picture.",
+    "avatar_error_title": "Profile photo",
+    "avatar_unreadable": "Unable to read the selected image. Please try another picture.",
+    "avatar_generic_error": "Could not open the photo picker. Please try again.",
+    "avatar_upload_failed": "Could not update your profile photo."
   },
   "main": {
     "header_title": "Main Page",
@@ -132,6 +161,8 @@
     "cta_register_description": "Create new user accounts",
     "cta_remove_title": "Remove Student",
     "cta_remove_description": "Search and delete student accounts",
+    "start_coding_title": "Start Coding",
+    "start_coding_description": "Play coding games and challenges",
     "discussion_forum_title": "Discussion Forum",
     "discussion_forum_description": "See what the community is talking about",
     "materials_title": "Learning Materials",
@@ -142,10 +173,14 @@
     "menu_edit_profile": "Edit Profile",
     "menu_register": "Register New User",
     "menu_delete_account": "Delete Account",
+    "menu_settings": "Settings",
     "menu_logout": "Log Out",
     "menu_cancel": "Cancel",
     "menu_user_fallback": "User",
-    "menu_username_placeholder": "username"
+    "menu_username_placeholder": "username",
+    "notifications_title": "Notifications",
+    "notifications_clear": "Clear",
+    "notifications_empty": "You're all caught up!"
   },
   "forum_list": {
     "title": "Community Forum",
@@ -296,8 +331,76 @@
     "search_button_accessibility": "Search student",
     "select_student": "Select this student",
     "student_role": "Role: {{role}}",
+    "student_class": "Class: {{className}}",
     "student_joined": "Joined: {{date}}",
     "network_error": "Network error."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Personalise how the app looks and feels.",
+    "language_title": "App language",
+    "language_hint": "Switch between available languages instantly.",
+    "language_ms": "Bahasa Melayu",
+    "language_en": "English",
+    "notifications_title": "Notifications",
+    "notifications_hint": "Choose which updates you receive from PintarKod.",
+    "notifications_forum": "New forum discussions",
+    "notifications_forum_hint": "Alert me when someone starts a new forum thread.",
+    "notifications_material": "New learning materials",
+    "notifications_material_hint": "Alert me when teachers upload new resources.",
+    "notifications_reply": "Replies to my discussions",
+    "notifications_reply_hint": "Alert me when someone replies to my forum thread."
+  },
+  "teacher_ui": {
+    "dashboard": "Teacher Dashboard",
+    "dashboard_desc": "Manage student accounts and site settings.",
+    "register_user": "Register User",
+    "remove_student": "Remove Student",
+    "monitor_title": "Monitor Students",
+    "search_placeholder": "Search student name...",
+    "attempts": "Attempts",
+    "best_score": "Best Score",
+    "chat_history": "Chat History",
+    "no_logs_found": "No logs found",
+    "student_prompts": "Student Prompts",
+    "chat_response": "Response"
+  },
+  "game_ui": {
+    "title": "Game Challenges",
+    "start_coding_title": "Start Coding",
+    "start_coding_description": "Play coding games and challenges",
+    "start_learning": "Start Learning",
+    "start_learning_desc": "Interactive challenges to master your skills.",
+    "debugging_title": "Debugging Challenge",
+    "debugging_desc": "Find the bug in the code!",
+    "troubleshooting_title": "Troubleshooting",
+    "troubleshooting_desc": "Find the root cause of the problem (Coming Soon)",
+    "programming_title": "Build-a-Code",
+    "programming_desc": "Arrange code blocks to solve a problem (Coming Soon)",
+    "puzzle_title": "Logic Puzzles",
+    "puzzle_desc": "Predict the output of the algorithm (Coming Soon)",
+    "submit_answer": "Submit Answer",
+    "correct": "Correct!",
+    "incorrect": "Incorrect!",
+    "score": "Score",
+    "time": "Time",
+    "next": "Next",
+    "loading": "Loading challenge...",
+    "error": "Failed to load challenge",
+    "select_line": "Select the buggy line",
+    "no_selection": "Please select a line before submitting",
+    "no_challenges": "No challenges available",
+    "start_game": "Start New Challenge",
+    "next_question": "Next",
+    "question_progress": "Question {{current}} of {{total}}",
+    "review_wrong_answers": "Review Your Wrong Answers",
+    "get_feedback": "Get Feedback",
+    "close_game": "Close Game",
+    "close": "Close",
+    "challenges_title": "Challenges",
+    "rankings_title": "Rankings",
+    "leaderboard_title": "Leaderboard",
+    "leaderboard_desc": "See your rank among other students!"
   }
 }
 

@@ -1,11 +1,12 @@
-import '../i18n';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ForumProvider } from '@/contexts/ForumContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
-import i18n from '../i18n';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import '../i18n';
+import i18n from '../i18n';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -48,8 +49,9 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <ForumProvider>
-        <Stack
+      <NotificationProvider>
+        <ForumProvider>
+          <Stack
       screenOptions={{
         headerStyle: {
           backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7',
@@ -63,6 +65,12 @@ export default function RootLayout() {
         options={{ headerShown: false }} 
       />
       
+      {/* Forgot password page - no header like login */}
+      <Stack.Screen
+        name="forgot-password"
+        options={{ headerShown: false }}
+      />
+      
       {/* This is the main app (tabs). It will also hide its header. */}
       <Stack.Screen 
         name="(tabs)" 
@@ -74,12 +82,19 @@ export default function RootLayout() {
       <Stack.Screen name="forum/index" options={{ title: 'Forum' }} />
       <Stack.Screen name="forum/[id]" options={{ title: 'Thread' }} />
       <Stack.Screen name="learning-materials/index" options={{ title: 'Learning Materials' }} />
+      <Stack.Screen name="games/index" options={{ title: 'Games' }} />
+      <Stack.Screen name="games/debugging/play" options={{ title: 'Debugging Challenge' }} />
+      <Stack.Screen name="leaderboard/index" options={{ title: 'Leaderboard' }} />
       <Stack.Screen name="register" options={{ title: 'Register' }} />
+      <Stack.Screen name="teacher-dashboard/index" options={{ title: 'Teacher Dashboard' }} />
+      <Stack.Screen name="teacher/monitor/index" options={{ title: 'Student Monitor' }} />
       <Stack.Screen name="profile" options={{ title: 'Profile' }} />
       <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />
-        </Stack>
-      </ForumProvider>
+      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+          </Stack>
+        </ForumProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

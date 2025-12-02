@@ -1,11 +1,14 @@
+import { Badge } from '@/components/Badge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { AIChatbot } from '@/components/ai-chatbot';
 import { useAuth } from '@/contexts/AuthContext';
 import { ForumThread, useForum } from '@/contexts/ForumContext';
+import { MaterialIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   FlatList,
@@ -20,7 +23,7 @@ import {
   View,
   useColorScheme
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { API_URL } from '../../config';
 
 type FilterMode = 'all' | 'mine';
 
@@ -51,7 +54,23 @@ export default function ForumScreen() {
   const [formContent, setFormContent] = useState('');
   const [formAttachment, setFormAttachment] = useState<string | null>(null);
   const [pickingAttachment, setPickingAttachment] = useState(false);
-  const [showChatbot, setShowChatbot] = useState(false);
+  const [threadBadges, setThreadBadges] = useState<Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'>>({});
+  
+  // Advanced search state
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [advancedSearchResults, setAdvancedSearchResults] = useState<ForumThread[]>([]);
+  const [isAdvancedSearch, setIsAdvancedSearch] = useState(false);
+  const [searchFilters, setSearchFilters] = useState({
+    keyword: '',
+    author: '',
+    sortBy: 'latest' as 'latest' | 'oldest',
+    startDate: '',
+    endDate: '',
+  });
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [startDateValue, setStartDateValue] = useState<Date | null>(null);
+  const [endDateValue, setEndDateValue] = useState<Date | null>(null);
 
   const sortedThreads = useMemo(
     () =>
@@ -77,6 +96,36 @@ export default function ForumScreen() {
         thread.comments.some((comment) => comment.content.toLowerCase().includes(query))
     );
   }, [sortedThreads, filter, searchQuery, user?.id, user?.username, user?.email]);
+
+  // Fetch badges for all thread authors
+  useEffect(() => {
+    if (threads.length === 0) {
+      setThreadBadges({});
+      return;
+    }
+
+    const fetchBadges = async () => {
+      const badgeMap: Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'> = {};
+      
+      for (const thread of threads) {
+        if (thread.authorId && !badgeMap[thread.authorId]) {
+          try {
+            const res = await fetch(`${API_URL}/api/users/${thread.authorId}/badge`);
+            if (res.ok) {
+              const badgeData = await res.json();
+              badgeMap[thread.authorId] = badgeData.badgeType;
+            }
+          } catch (err) {
+            console.error('Error fetching badge for thread author:', err);
+          }
+        }
+      }
+      
+      setThreadBadges(badgeMap);
+    };
+
+    fetchBadges();
+  }, [threads]);
 
   const openThreadComposer = useCallback((thread?: ForumThread) => {
     if (thread && !canManageThread(thread, user?.id, user?.username, user?.email)) {
@@ -199,6 +248,111 @@ export default function ForumScreen() {
     }
   }
 
+  // Advanced search function
+  const performAdvancedSearch = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (searchFilters.keyword) params.append('keyword', searchFilters.keyword);
+      if (searchFilters.author) params.append('author', searchFilters.author);
+      if (searchFilters.sortBy) params.append('sortBy', searchFilters.sortBy);
+      if (searchFilters.startDate) params.append('startDate', searchFilters.startDate);
+      if (searchFilters.endDate) params.append('endDate', searchFilters.endDate);
+
+      const response = await fetch(`${API_URL}/api/forum/search?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Advanced search failed');
+      }
+      const data = await response.json();
+      
+      // Normalize the threads
+      const normalizedThreads = data.map((thread: any) => ({
+        id: String(thread.id),
+        title: thread.title,
+        content: thread.content,
+        attachment: thread.attachment ?? null,
+        authorId: String(thread.authorId),
+        authorName: thread.author?.username || thread.author?.email || 'Unknown user',
+        authorRole: thread.author?.role ?? null,
+        createdAt: thread.createdAt,
+        updatedAt: thread.updatedAt,
+        comments: (thread.comments || []).map((comment: any) => ({
+          id: String(comment.id),
+          threadId: String(comment.threadId),
+          content: comment.content,
+          authorId: comment.authorId != null ? String(comment.authorId) : '',
+          authorName: comment.author?.username || comment.author?.email || 'Unknown user',
+          authorRole: comment.author?.role ?? null,
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt,
+        })),
+      }));
+
+      setAdvancedSearchResults(normalizedThreads);
+      setIsAdvancedSearch(true);
+      setShowFilterModal(false);
+    } catch (err) {
+      console.error('Advanced search error:', err);
+      Alert.alert('Error', 'Failed to perform advanced search');
+    }
+  }, [searchFilters]);
+
+  const resetFilters = useCallback(() => {
+    setSearchFilters({
+      keyword: '',
+      author: '',
+      sortBy: 'latest',
+      startDate: '',
+      endDate: '',
+    });
+    setStartDateValue(null);
+    setEndDateValue(null);
+    setIsAdvancedSearch(false);
+    setAdvancedSearchResults([]);
+  }, []);
+
+  const formatDateForDisplay = (date: Date | null): string => {
+    if (!date) return '';
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const formatDateForAPI = (date: Date | null): string => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowStartDatePicker(false);
+    }
+    if (selectedDate) {
+      setStartDateValue(selectedDate);
+      setSearchFilters(prev => ({ ...prev, startDate: formatDateForAPI(selectedDate) }));
+    }
+    if (Platform.OS === 'android' && event.type === 'dismissed') {
+      setShowStartDatePicker(false);
+    }
+  };
+
+  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowEndDatePicker(false);
+    }
+    if (selectedDate) {
+      setEndDateValue(selectedDate);
+      setSearchFilters(prev => ({ ...prev, endDate: formatDateForAPI(selectedDate) }));
+    }
+    if (Platform.OS === 'android' && event.type === 'dismissed') {
+      setShowEndDatePicker(false);
+    }
+  };
+
   function confirmDeleteThread(thread: ForumThread) {
     if (user?.id == null) {
       Alert.alert(t('forum_list.alert_signin_title'), t('forum_list.alert_signin_body'));
@@ -244,14 +398,38 @@ export default function ForumScreen() {
             placeholder={t('forum_list.search_placeholder')}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              // Reset to basic search when typing in main search
+              if (isAdvancedSearch) {
+                setIsAdvancedSearch(false);
+                setAdvancedSearchResults([]);
+              }
+            }}
             style={styles.searchInput}
             returnKeyType="search"
           />
         </View>
-        <Pressable style={styles.createButton} onPress={() => openThreadComposer()}>
-          <IconSymbol name="square.and.pencil" size={18} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>{t('forum_list.new_thread')}</Text>
+        <Pressable 
+          style={[
+            styles.filterButton, 
+            isAdvancedSearch && styles.filterButtonActive,
+            { 
+              backgroundColor: isAdvancedSearch 
+                ? '#2563EB' 
+                : (colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC'),
+              borderColor: isAdvancedSearch 
+                ? '#2563EB' 
+                : (colorScheme === 'dark' ? 'rgba(255,255,255,0.2)' : '#E2E8F0'),
+            }
+          ]}
+          onPress={() => setShowFilterModal(true)}
+        >
+          <MaterialIcons 
+            name="tune" 
+            size={20} 
+            color={isAdvancedSearch ? '#FFFFFF' : (colorScheme === 'dark' ? '#F8FAFC' : '#1E293B')} 
+          />
         </Pressable>
       </View>
 
@@ -306,38 +484,43 @@ export default function ForumScreen() {
                 >
                   {item.title}
                 </Text>
-                {canManageThread(item, user?.id, user?.username, user?.email) && (
+                {(canManageThread(item, user?.id, user?.username, user?.email) ||
+                  canDeleteThread(item, user?.id, user?.username, user?.email, user?.role)) && (
                   <View style={styles.threadActions}>
-                    <Pressable
-                      style={[
-                        styles.editPill,
-                        colorScheme === 'dark' && styles.editPillDark,
-                      ]}
-                      onPress={(event) => {
-                        event.stopPropagation();
-                        openThreadComposer(item);
-                      }}
-                    >
-                      <IconSymbol name="pencil" size={14} color={colorScheme === 'dark' ? '#BFDBFE' : '#2563EB'} />
-                      <Text
+                    {canManageThread(item, user?.id, user?.username, user?.email) && (
+                      <Pressable
                         style={[
-                          styles.editPillText,
-                          colorScheme === 'dark' && styles.editPillTextDark,
+                          styles.editPill,
+                          colorScheme === 'dark' && styles.editPillDark,
                         ]}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          openThreadComposer(item);
+                        }}
                       >
-                        {t('forum_list.action_edit')}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.deletePill}
-                      onPress={(event) => {
-                        event.stopPropagation();
-                        confirmDeleteThread(item);
-                      }}
-                    >
-                      <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
-                      <Text style={styles.deletePillText}>{t('forum_list.action_delete')}</Text>
-                    </Pressable>
+                        <IconSymbol name="pencil" size={14} color={colorScheme === 'dark' ? '#BFDBFE' : '#2563EB'} />
+                        <Text
+                          style={[
+                            styles.editPillText,
+                            colorScheme === 'dark' && styles.editPillTextDark,
+                          ]}
+                        >
+                          {t('forum_list.action_edit')}
+                        </Text>
+                      </Pressable>
+                    )}
+                    {canDeleteThread(item, user?.id, user?.username, user?.email, user?.role) && (
+                      <Pressable
+                        style={styles.deletePill}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          confirmDeleteThread(item);
+                        }}
+                      >
+                        <IconSymbol name="trash.circle.fill" size={14} color="#DC2626" />
+                        <Text style={styles.deletePillText}>{t('forum_list.action_delete')}</Text>
+                      </Pressable>
+                    )}
                   </View>
                 )}
               </View>
@@ -352,14 +535,19 @@ export default function ForumScreen() {
 
               <View style={styles.threadInfoRow}>
                 <IconSymbol name="person.fill" size={18} color="#60A5FA" />
-                <Text
-                  style={[
-                    styles.threadInfoText,
-                    colorScheme === 'dark' && styles.threadInfoTextDark,
-                  ]}
-                >
-                  {t('forum_list.started_by', { name: item.authorName })}
-                </Text>
+                <View style={styles.threadAuthorRow}>
+                  <Text
+                    style={[
+                      styles.threadInfoText,
+                      colorScheme === 'dark' && styles.threadInfoTextDark,
+                    ]}
+                  >
+                    {t('forum_list.started_by', { name: item.authorName })}
+                  </Text>
+                  {item.authorId && threadBadges[item.authorId] && (
+                    <Badge badgeType={threadBadges[item.authorId]} size="small" />
+                  )}
+                </View>
               </View>
 
               <View style={styles.threadInfoRow}>
@@ -423,16 +611,21 @@ export default function ForumScreen() {
               onChangeText={setFormTitle}
               style={styles.modalInput}
             />
-            <TextInput
-              placeholder={t('forum_list.modal_content_placeholder')}
-              placeholderTextColor="#94A3B8"
-              value={formContent}
-              onChangeText={setFormContent}
-              style={[styles.modalInput, styles.modalTextarea]}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
+            <View style={styles.textareaContainer}>
+              <TextInput
+                placeholder={t('forum_list.modal_content_placeholder')}
+                placeholderTextColor="#94A3B8"
+                value={formContent}
+                onChangeText={setFormContent}
+                style={[styles.modalInput, styles.modalTextarea]}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+              <Text style={styles.codeHint}>
+                {t('forum_list.code_hint', { defaultValue: 'Tip: Use ``` to wrap your code blocks.' })}
+              </Text>
+            </View>
             <View style={styles.attachmentSection}>
               <Text
                 style={[
@@ -509,15 +702,371 @@ export default function ForumScreen() {
         </Pressable>
       </Modal>
 
+      {/* Floating Action Button for New Thread */}
       <Pressable
-        style={styles.floatingChatButton}
-        onPress={() => setShowChatbot(true)}
-        accessibilityLabel={t('main.chat_accessibility')}
+        style={styles.fabButton}
+        onPress={() => openThreadComposer()}
+        accessibilityLabel={t('forum_list.new_thread')}
       >
-        <IconSymbol name="message.fill" size={28} color="#FFFFFF" />
+        <MaterialIcons name="add" size={32} color="#FFFFFF" />
       </Pressable>
 
-      <AIChatbot visible={showChatbot} onClose={() => setShowChatbot(false)} />
+      {/* Advanced Search Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowFilterModal(false)}>
+          <Pressable 
+            style={[
+              styles.filterModalCard,
+              { backgroundColor: colorScheme === 'dark' ? '#1E293B' : '#FFFFFF' }
+            ]} 
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={[
+              styles.filterModalTitle,
+              { color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A' }
+            ]}>
+              Advanced Search
+            </Text>
+            
+            {/* Keyword Search */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
+                Keyword
+              </Text>
+              <TextInput
+                style={[styles.filterInput, { 
+                  backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC',
+                  color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A',
+                }]}
+                placeholder="Search in title or content"
+                placeholderTextColor="#94A3B8"
+                value={searchFilters.keyword}
+                onChangeText={(text) => setSearchFilters(prev => ({ ...prev, keyword: text }))}
+              />
+            </View>
+
+            {/* Author Search */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
+                Author
+              </Text>
+              <TextInput
+                style={[styles.filterInput, { 
+                  backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC',
+                  color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A',
+                }]}
+                placeholder="Search by author username"
+                placeholderTextColor="#94A3B8"
+                value={searchFilters.author}
+                onChangeText={(text) => setSearchFilters(prev => ({ ...prev, author: text }))}
+              />
+            </View>
+
+            {/* Sort Order */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
+                Sort Order
+              </Text>
+              <View style={styles.sortOptions}>
+                <Pressable
+                  style={[
+                    styles.sortOption,
+                    searchFilters.sortBy === 'latest' && styles.sortOptionActive,
+                    { 
+                      backgroundColor: searchFilters.sortBy === 'latest' 
+                        ? '#2563EB' 
+                        : (colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC'),
+                    }
+                  ]}
+                  onPress={() => setSearchFilters(prev => ({ ...prev, sortBy: 'latest' }))}
+                >
+                  <Text style={[
+                    styles.sortOptionText,
+                    { color: searchFilters.sortBy === 'latest' ? '#FFFFFF' : (colorScheme === 'dark' ? '#F8FAFC' : '#0F172A') }
+                  ]}>
+                    Newest First
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.sortOption,
+                    searchFilters.sortBy === 'oldest' && styles.sortOptionActive,
+                    { 
+                      backgroundColor: searchFilters.sortBy === 'oldest' 
+                        ? '#2563EB' 
+                        : (colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC'),
+                    }
+                  ]}
+                  onPress={() => setSearchFilters(prev => ({ ...prev, sortBy: 'oldest' }))}
+                >
+                  <Text style={[
+                    styles.sortOptionText,
+                    { color: searchFilters.sortBy === 'oldest' ? '#FFFFFF' : (colorScheme === 'dark' ? '#F8FAFC' : '#0F172A') }
+                  ]}>
+                    Oldest First
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Date Range */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
+                Date Range
+              </Text>
+              <Pressable
+                onPress={() => setShowStartDatePicker(true)}
+                style={[styles.datePickerButton, { 
+                  backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC',
+                  marginBottom: 8,
+                }]}
+              >
+                <MaterialIcons 
+                  name="calendar-today" 
+                  size={18} 
+                  color={colorScheme === 'dark' ? '#93C5FD' : '#2563EB'} 
+                />
+                <Text style={[styles.datePickerButtonText, { 
+                  color: startDateValue 
+                    ? (colorScheme === 'dark' ? '#F8FAFC' : '#0F172A')
+                    : '#94A3B8'
+                }]}>
+                  {startDateValue ? formatDateForDisplay(startDateValue) : 'Start Date'}
+                </Text>
+                {startDateValue && (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setStartDateValue(null);
+                      setSearchFilters(prev => ({ ...prev, startDate: '' }));
+                    }}
+                    style={styles.clearDateButton}
+                  >
+                    <MaterialIcons
+                      name="close"
+                      size={16}
+                      color={colorScheme === 'dark' ? '#94A3B8' : '#64748B'}
+                    />
+                  </Pressable>
+                )}
+              </Pressable>
+              
+              {/* Start Date Picker - iOS */}
+              {showStartDatePicker && Platform.OS === 'ios' && (
+                <Modal
+                  visible={showStartDatePicker}
+                  transparent={true}
+                  animationType="slide"
+                  onRequestClose={() => setShowStartDatePicker(false)}
+                >
+                  <Pressable
+                    style={styles.calendarModalOverlay}
+                    onPress={() => setShowStartDatePicker(false)}
+                  >
+                    <Pressable
+                      style={[styles.calendarModalContent, {
+                        backgroundColor: colorScheme === 'dark' ? '#1E293B' : '#FFFFFF'
+                      }]}
+                      onPress={(e) => e.stopPropagation()}
+                    >
+                      <View style={styles.calendarModalHeader}>
+                        <Text style={[styles.calendarModalTitle, {
+                          color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A'
+                        }]}>
+                          Select Start Date
+                        </Text>
+                        <Pressable
+                          onPress={() => setShowStartDatePicker(false)}
+                          style={styles.calendarModalCloseButton}
+                        >
+                          <MaterialIcons
+                            name="close"
+                            size={24}
+                            color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'}
+                          />
+                        </Pressable>
+                      </View>
+                      <View style={styles.calendarPickerContainer}>
+                        <DateTimePicker
+                          value={startDateValue || new Date()}
+                          mode="date"
+                          display="calendar"
+                          onChange={handleStartDateChange}
+                          maximumDate={endDateValue || new Date()}
+                          themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
+                        />
+                      </View>
+                      <View style={styles.calendarModalActions}>
+                        <Pressable
+                          onPress={() => setShowStartDatePicker(false)}
+                          style={styles.calendarActionButton}
+                        >
+                          <Text style={styles.calendarActionButtonText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setShowStartDatePicker(false)}
+                          style={[styles.calendarActionButton, styles.calendarActionButtonPrimary]}
+                        >
+                          <Text style={[styles.calendarActionButtonText, styles.calendarActionButtonTextPrimary]}>
+                            Done
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </Pressable>
+                  </Pressable>
+                </Modal>
+              )}
+              
+              {/* Start Date Picker - Android */}
+              {showStartDatePicker && Platform.OS === 'android' && (
+                <DateTimePicker
+                  value={startDateValue || new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={handleStartDateChange}
+                  maximumDate={endDateValue || new Date()}
+                />
+              )}
+
+              <Pressable
+                onPress={() => setShowEndDatePicker(true)}
+                style={[styles.datePickerButton, { 
+                  backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC',
+                }]}
+              >
+                <MaterialIcons 
+                  name="calendar-today" 
+                  size={18} 
+                  color={colorScheme === 'dark' ? '#93C5FD' : '#2563EB'} 
+                />
+                <Text style={[styles.datePickerButtonText, { 
+                  color: endDateValue 
+                    ? (colorScheme === 'dark' ? '#F8FAFC' : '#0F172A')
+                    : '#94A3B8'
+                }]}>
+                  {endDateValue ? formatDateForDisplay(endDateValue) : 'End Date'}
+                </Text>
+                {endDateValue && (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setEndDateValue(null);
+                      setSearchFilters(prev => ({ ...prev, endDate: '' }));
+                    }}
+                    style={styles.clearDateButton}
+                  >
+                    <MaterialIcons
+                      name="close"
+                      size={16}
+                      color={colorScheme === 'dark' ? '#94A3B8' : '#64748B'}
+                    />
+                  </Pressable>
+                )}
+              </Pressable>
+              
+              {/* End Date Picker - iOS */}
+              {showEndDatePicker && Platform.OS === 'ios' && (
+                <Modal
+                  visible={showEndDatePicker}
+                  transparent={true}
+                  animationType="slide"
+                  onRequestClose={() => setShowEndDatePicker(false)}
+                >
+                  <Pressable
+                    style={styles.calendarModalOverlay}
+                    onPress={() => setShowEndDatePicker(false)}
+                  >
+                    <Pressable
+                      style={[styles.calendarModalContent, {
+                        backgroundColor: colorScheme === 'dark' ? '#1E293B' : '#FFFFFF'
+                      }]}
+                      onPress={(e) => e.stopPropagation()}
+                    >
+                      <View style={styles.calendarModalHeader}>
+                        <Text style={[styles.calendarModalTitle, {
+                          color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A'
+                        }]}>
+                          Select End Date
+                        </Text>
+                        <Pressable
+                          onPress={() => setShowEndDatePicker(false)}
+                          style={styles.calendarModalCloseButton}
+                        >
+                          <MaterialIcons
+                            name="close"
+                            size={24}
+                            color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'}
+                          />
+                        </Pressable>
+                      </View>
+                      <View style={styles.calendarPickerContainer}>
+                        <DateTimePicker
+                          value={endDateValue || new Date()}
+                          mode="date"
+                          display="calendar"
+                          onChange={handleEndDateChange}
+                          minimumDate={startDateValue || undefined}
+                          maximumDate={new Date()}
+                          themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
+                        />
+                      </View>
+                      <View style={styles.calendarModalActions}>
+                        <Pressable
+                          onPress={() => setShowEndDatePicker(false)}
+                          style={styles.calendarActionButton}
+                        >
+                          <Text style={styles.calendarActionButtonText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setShowEndDatePicker(false)}
+                          style={[styles.calendarActionButton, styles.calendarActionButtonPrimary]}
+                        >
+                          <Text style={[styles.calendarActionButtonText, styles.calendarActionButtonTextPrimary]}>
+                            Done
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </Pressable>
+                  </Pressable>
+                </Modal>
+              )}
+              
+              {/* End Date Picker - Android */}
+              {showEndDatePicker && Platform.OS === 'android' && (
+                <DateTimePicker
+                  value={endDateValue || new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={handleEndDateChange}
+                  minimumDate={startDateValue || undefined}
+                  maximumDate={new Date()}
+                />
+              )}
+            </View>
+
+            {/* Actions */}
+            <View style={styles.filterActions}>
+              <Pressable
+                style={[styles.filterButtonReset]}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={styles.filterButtonResetText}>Close</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.filterButtonApply]}
+                onPress={performAdvancedSearch}
+              >
+                <Text style={styles.filterButtonApplyText}>Apply</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -551,14 +1100,32 @@ function canManageThread(
   return thread.authorName === identifier || thread.authorName.startsWith(identifier);
 }
 
+function canDeleteThread(
+  thread: ForumThread,
+  userId?: string | number | null,
+  username?: string | null,
+  email?: string,
+  userRole?: string | null
+) {
+  // Check if user is the owner
+  const isOwner = canManageThread(thread, userId, username, email);
+  if (isOwner) return true;
+  
+  // Allow teachers to delete threads posted by students
+  const actorIsTeacher = userRole === 'Teacher';
+  const targetIsStudent = thread.authorRole === 'Student';
+  
+  return actorIsTeacher && targetIsStudent;
+}
+
 function formatFullDate(timestamp: string, translate: (key: string, options?: any) => string) {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return translate('forum_list.format_unknown');
-  return `${date.toLocaleDateString(undefined, {
+  return `${date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })} ${date.toLocaleTimeString(undefined, {
+  })} ${date.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
   })}`;
@@ -569,6 +1136,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
     padding: 20,
+    position: 'relative',
   },
   header: {
     marginBottom: 12,
@@ -588,6 +1156,23 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'center',
     marginBottom: 16,
+  },
+  fabButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+    zIndex: 10,
   },
   searchInputWrapper: {
     flex: 1,
@@ -648,7 +1233,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   listContent: {
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   threadCard: {
     padding: 20,
@@ -736,6 +1321,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  threadAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   threadAttachment: {
     width: '100%',
     height: 140,
@@ -798,33 +1389,21 @@ const styles = StyleSheet.create({
     color: '#60A5FA',
     fontWeight: '600',
   },
-  floatingChatButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.35)',
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    padding: 22,
-    gap: 16,
+    padding: 28,
+    gap: 20,
+    width: '95%',
+    maxWidth: 700,
+    maxHeight: '90%',
   },
   modalTitle: {
     fontSize: 20,
@@ -841,8 +1420,18 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     backgroundColor: '#F8FAFC',
   },
+  textareaContainer: {
+    gap: 8,
+  },
   modalTextarea: {
-    height: 140,
+    height: 160,
+  },
+  codeHint: {
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
+    marginTop: 8,
+    paddingLeft: 4,
   },
   attachmentSection: {
     gap: 10,
@@ -912,6 +1501,175 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 15,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterButtonActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  filterModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '80%',
+    gap: 20,
+    alignSelf: 'center',
+  },
+  filterModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  filterSection: {
+    gap: 8,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterInput: {
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sortOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sortOption: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sortOptionActive: {
+    borderColor: '#2563EB',
+  },
+  sortOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  filterButtonReset: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  filterButtonResetText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  filterButtonApply: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+  },
+  filterButtonApplyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  datePickerButtonText: {
+    flex: 1,
+    fontSize: 15,
+  },
+  clearDateButton: {
+    padding: 4,
+  },
+  calendarModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  calendarModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+  calendarModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  calendarModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  calendarModalCloseButton: {
+    padding: 4,
+  },
+  calendarPickerContainer: {
+    paddingVertical: 20,
+  },
+  calendarModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  calendarActionButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+  },
+  calendarActionButtonPrimary: {
+    backgroundColor: '#2563EB',
+  },
+  calendarActionButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  calendarActionButtonTextPrimary: {
+    color: '#FFFFFF',
   },
 });
 

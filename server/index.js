@@ -5,6 +5,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { generateRandomDebugChallenge } = require('./gameGenerator');
 
 const app = express();
 app.use(cors());
@@ -106,6 +108,161 @@ function saveBase64File(fileData) {
 
 const prisma = new PrismaClient();
 
+// Helper function to calculate and assign badges based on game score rankings
+async function updateAllBadges() {
+  try {
+    // Get all students with their best game scores
+    const students = await prisma.user.findMany({
+      where: {
+        role: 'Student',
+      },
+      include: {
+        gameScores: {
+          select: {
+            score: true,
+          },
+        },
+      },
+    });
+
+    // Calculate best score for each student
+    const studentScores = students.map((student) => {
+      const bestScore = student.gameScores.length > 0
+        ? Math.max(...student.gameScores.map((s) => s.score))
+        : 0;
+      return {
+        id: student.id,
+        bestScore: bestScore,
+      };
+    });
+
+    // Sort by best score (descending), then by id for consistency
+    studentScores.sort((a, b) => {
+      if (b.bestScore !== a.bestScore) {
+        return b.bestScore - a.bestScore;
+      }
+      return a.id - b.id;
+    });
+
+    // Assign badges based on ranking
+    for (let i = 0; i < studentScores.length; i++) {
+      const student = studentScores[i];
+      let badgeType;
+      
+      if (student.bestScore === 0) {
+        // No scores yet - Student badge
+        badgeType = 'Student';
+      } else if (i < 3) {
+        // Top 3 - Champion
+        badgeType = 'Champion';
+      } else if (i < 10) {
+        // Top 4-10 - Rising Star
+        badgeType = 'RisingStar';
+      } else {
+        // Others - Student
+        badgeType = 'Student';
+      }
+
+      // Upsert badge (create or update)
+      await prisma.badge.upsert({
+        where: { userId: student.id },
+        update: {
+          badgeType: badgeType,
+          score: student.bestScore,
+        },
+        create: {
+          userId: student.id,
+          badgeType: badgeType,
+          score: student.bestScore,
+        },
+      });
+    }
+
+    // Assign Teacher badges to all teachers
+    const teachers = await prisma.user.findMany({
+      where: {
+        role: 'Teacher',
+      },
+    });
+
+    for (const teacher of teachers) {
+      await prisma.badge.upsert({
+        where: { userId: teacher.id },
+        update: {
+          badgeType: 'Teacher',
+          score: null,
+        },
+        create: {
+          userId: teacher.id,
+          badgeType: 'Teacher',
+          score: null,
+        },
+      });
+    }
+
+    console.log(`Updated badges for ${studentScores.length} students and ${teachers.length} teachers`);
+  } catch (err) {
+    console.error('Error updating badges:', err);
+  }
+}
+
+// JWT Secret (in production, use environment variable)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// JWT Authentication middleware
+const authMiddleware = async (req, res, next) => {
+  try {
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized - No token provided' });
+    }
+    
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    try {
+      // Verify JWT token
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      // Get user from database
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+      
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized - User not found' });
+      }
+      
+      // Attach user to request object
+      req.user = user;
+      next();
+    } catch (jwtError) {
+      console.error('JWT verification error:', jwtError);
+      return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+    }
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(500).json({ error: 'Authentication error', details: err.message });
+  }
+};
+
+async function createNotificationsForUsers(userIds, payload) {
+  if (!Array.isArray(userIds) || !userIds.length) return;
+  try {
+    await prisma.notification.createMany({
+      data: userIds.map((userId) => ({
+        userId,
+        type: payload.type,
+        title: payload.title,
+        message: payload.message ?? null,
+        data: payload.data ?? null,
+      })),
+      skipDuplicates: false,
+    });
+  } catch (err) {
+    console.error('Notification create error', err);
+  }
+}
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -200,10 +357,87 @@ app.post('/api/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: 'Invalid email or password' });
 
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' } // Token expires in 7 days
+    );
+
     const { password: _pw, ...userSafe } = user;
-    res.status(200).json({ user: userSafe });
+    res.status(200).json({ user: userSafe, token });
   } catch (err) {
     console.error('Login error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.trim() } });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Email does not exist' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 3600000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetToken: token,
+        resetTokenExpiry: expiry,
+      },
+    });
+
+    const resetLink = `http://localhost:8081/reset-password?token=${token}`;
+    console.log('Password reset link:', resetLink);
+
+    res.json({ success: true, message: 'Reset link sent to console' });
+  } catch (err) {
+    console.error('Forgot password error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+    if (!token || typeof token !== 'string' || !newPassword || typeof newPassword !== 'string') {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashed,
+        resetToken: null,
+        resetTokenExpiry: null,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reset password error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -236,11 +470,24 @@ app.get('/api/users/search', async (req, res) => {
         username: true,
         email: true,
         role: true,
+        className: true,
         avatarUrl: true,
         profileImage: true,
         createdAt: true,
       },
     });
+
+    // Debug: Log to verify className is being returned
+    console.log('Search users - Found', users.length, 'users');
+    if (users.length > 0) {
+      console.log('First user sample:', JSON.stringify(users[0], null, 2));
+      // Check for Aiman specifically
+      const aimanUser = users.find(u => u.username?.toLowerCase().includes('aiman'));
+      if (aimanUser) {
+        console.log('Found Aiman user:', JSON.stringify(aimanUser, null, 2));
+        console.log('Aiman className:', aimanUser.className);
+      }
+    }
 
     res.json(users);
   } catch (err) {
@@ -440,6 +687,71 @@ app.get('/api/forum/threads', async (req, res) => {
   }
 });
 
+// Advanced search endpoint
+app.get('/api/forum/search', async (req, res) => {
+  try {
+    const { 
+      keyword = '', 
+      author = '', 
+      sortBy = 'latest',
+      startDate = '',
+      endDate = ''
+    } = req.query;
+
+    const searchKeyword = (keyword || '').toString().trim();
+    const searchAuthor = (author || '').toString().trim();
+    const sortOrder = sortBy === 'oldest' ? 'asc' : 'desc';
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    // Build dynamic where clause
+    const whereConditions = [];
+
+    // Keyword search (title OR content)
+    if (searchKeyword) {
+      whereConditions.push({
+        OR: [
+          { title: { contains: searchKeyword } },
+          { content: { contains: searchKeyword } }
+        ]
+      });
+    }
+
+    // Author search
+    if (searchAuthor) {
+      whereConditions.push({
+        author: {
+          username: { contains: searchAuthor }
+        }
+      });
+    }
+
+    // Date range filter
+    if (start) {
+      whereConditions.push({
+        createdAt: { gte: start }
+      });
+    }
+    if (end) {
+      whereConditions.push({
+        createdAt: { lte: end }
+      });
+    }
+
+    const whereClause = whereConditions.length > 0 ? { AND: whereConditions } : undefined;
+
+    const threads = await prisma.forumThread.findMany({
+      where: whereClause,
+      include: forumThreadInclude,
+      orderBy: { updatedAt: sortOrder }
+    });
+    res.json(threads);
+  } catch (err) {
+    console.error('Advanced search error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/api/forum/threads/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -480,6 +792,28 @@ app.post('/api/forum/threads', async (req, res) => {
       },
       include: forumThreadInclude
     });
+    try {
+      const recipients = await prisma.user.findMany({
+        where: {
+          id: { not: authorIdNum },
+          notifyNewForumThreads: true,
+        },
+        select: { id: true, username: true, email: true },
+      });
+      if (recipients.length) {
+        await createNotificationsForUsers(
+          recipients.map((recipient) => recipient.id),
+          {
+            type: 'NEW_FORUM_THREAD',
+            title: 'New forum discussion',
+            message: `${thread.author?.username || thread.author?.email || 'Someone'} started "${thread.title}"`,
+            data: { threadId: thread.id },
+          }
+        );
+      }
+    } catch (notifyErr) {
+      console.error('Thread notification dispatch error', notifyErr);
+    }
     res.status(201).json(thread);
   } catch (err) {
     console.error('Create thread error', err);
@@ -555,7 +889,7 @@ app.post('/api/forum/threads/:id/comments', async (req, res) => {
         authorId: authorIdNum
       },
       include: {
-        author: { select: { id: true, username: true, email: true } },
+        author: { select: { id: true, username: true, email: true, role: true } },
         thread: false
       }
     });
@@ -563,6 +897,30 @@ app.post('/api/forum/threads/:id/comments', async (req, res) => {
       where: { id: threadId },
       data: { updatedAt: new Date() }
     });
+    try {
+      if (thread.authorId !== authorIdNum) {
+        const threadAuthor = await prisma.user.findUnique({
+          where: { id: thread.authorId },
+          select: {
+            id: true,
+            notifyForumReplies: true,
+          },
+        });
+        if (threadAuthor?.notifyForumReplies) {
+          await createNotificationsForUsers([threadAuthor.id], {
+            type: 'FORUM_REPLY',
+            title: 'New reply in your discussion',
+            message: `${comment.author?.username || comment.author?.email || 'Someone'} replied to "${thread.title}"`,
+            data: {
+              threadId,
+              commentId: comment.id,
+            },
+          });
+        }
+      }
+    } catch (notifyErr) {
+      console.error('Forum reply notification error', notifyErr);
+    }
     res.status(201).json(comment);
   } catch (err) {
     console.error('Create comment error', err);
@@ -587,7 +945,7 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
     const existing = await prisma.forumComment.findUnique({
       where: { id: commentId },
       include: {
-        author: { select: { id: true, username: true, email: true } }
+        author: { select: { id: true, username: true, email: true, role: true } }
       }
     });
     if (!existing) return res.status(404).json({ error: 'Comment not found' });
@@ -599,7 +957,7 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
       where: { id: commentId },
       data: { content },
       include: {
-        author: { select: { id: true, username: true, email: true } }
+        author: { select: { id: true, username: true, email: true, role: true } }
       }
     });
     await prisma.forumThread.update({
@@ -619,19 +977,54 @@ app.delete('/api/forum/threads/:id', async (req, res) => {
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'Invalid thread id' });
     }
-    const authorIdNum = Number(req.query.authorId ?? req.body?.authorId);
-    if (!Number.isInteger(authorIdNum)) {
+    const actorId = Number(req.query.authorId ?? req.body?.authorId);
+    if (!Number.isInteger(actorId)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
     }
-    const thread = await prisma.forumThread.findUnique({ where: { id } });
+    
+    const thread = await prisma.forumThread.findUnique({ 
+      where: { id },
+      include: {
+        author: { select: { id: true, role: true } },
+      },
+    });
     if (!thread) return res.status(404).json({ error: 'Thread not found' });
-    if (Number(thread.authorId) !== Number(authorIdNum)) {
-      return res.status(403).json({ error: 'You can only delete threads you created' });
+
+    const isOwner = Number(thread.authorId) === Number(actorId);
+    
+    // Check if actor is a teacher trying to delete a student's thread
+    let hasPermission = isOwner;
+    if (!isOwner) {
+      const actor = await prisma.user.findUnique({
+        where: { id: actorId },
+        select: { id: true, role: true },
+      });
+      if (!actor) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const actorIsTeacher = actor.role === 'Teacher';
+      const targetIsStudent = thread.author && thread.author.role === 'Student';
+      hasPermission = actorIsTeacher && targetIsStudent;
     }
+
+    if (!hasPermission) {
+      return res.status(403).json({ error: 'You do not have permission to delete this thread' });
+    }
+
+    // Delete all comments first (to handle foreign key constraints)
+    await prisma.forumComment.deleteMany({ where: { threadId: id } });
+    
+    // Then delete the thread
     await prisma.forumThread.delete({ where: { id } });
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     console.error('Delete thread error', err);
+    console.error('Error details:', {
+      message: err?.message,
+      stack: err?.stack,
+      code: err?.code,
+    });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -666,7 +1059,7 @@ app.delete('/api/forum/comments/:commentId', async (req, res) => {
 
     const isOwner = existing.authorId === actorId;
     const actorIsTeacher = actor.role === 'Teacher';
-    const targetIsStudent = existing.author?.role === 'Student';
+    const targetIsStudent = existing.author && existing.author.role === 'Student';
 
     if (!isOwner && !(actorIsTeacher && targetIsStudent)) {
       return res.status(403).json({ error: 'You do not have permission to delete this comment' });
@@ -703,40 +1096,51 @@ function normalizeLearningMaterial(material) {
 app.get('/api/learning-materials', async (req, res) => {
   try {
     const { q = '', topic = '', type = '' } = req.query;
-    const filters = {};
     const searchTerm = typeof q === 'string' ? q.trim() : '';
-    const topicFilter = typeof topic === 'string' ? topic.trim().toUpperCase() : '';
-    const typeFilter = typeof type === 'string' ? type.trim().toUpperCase() : '';
+    const topicFilterRaw = typeof topic === 'string' ? topic.trim() : '';
+    const typeFilterRaw = typeof type === 'string' ? type.trim() : '';
 
-    if (topicFilter) {
-      if (!LEARNING_MATERIAL_TOPICS.has(topicFilter)) {
-        return res.status(400).json({ error: 'Invalid topic filter' });
+    const andFilters = [];
+
+    if (topicFilterRaw) {
+      const topicFilter = topicFilterRaw.toUpperCase();
+      if (topicFilter !== 'ALL') {
+        if (!LEARNING_MATERIAL_TOPICS.has(topicFilter)) {
+          return res.status(400).json({ error: 'Invalid topic filter' });
+        }
+        andFilters.push({ topic: topicFilter });
       }
-      filters.topic = topicFilter;
-    }
-    if (typeFilter) {
-      if (!LEARNING_MATERIAL_TYPES.has(typeFilter)) {
-        return res.status(400).json({ error: 'Invalid type filter' });
-      }
-      filters.materialType = typeFilter;
     }
 
-    const whereClause = Object.keys(filters).length ? { ...filters } : undefined;
-    if (searchTerm) {
-      Object.assign(whereClause || filters, {
-        OR: [
-          { title: { contains: searchTerm } },
-          { description: { contains: searchTerm } },
-        ],
-      });
+    if (typeFilterRaw) {
+      const typeFilter = typeFilterRaw.toUpperCase();
+      if (typeFilter !== 'ALL') {
+        if (!LEARNING_MATERIAL_TYPES.has(typeFilter)) {
+          return res.status(400).json({ error: 'Invalid type filter' });
+        }
+        andFilters.push({ materialType: typeFilter });
+      }
     }
+
+    const whereClause = andFilters.length ? { AND: andFilters } : undefined;
 
     const materials = await prisma.learningMaterial.findMany({
       where: whereClause,
       include: learningMaterialInclude,
       orderBy: { updatedAt: 'desc' },
     });
-    res.json(materials.map(normalizeLearningMaterial));
+    const normalized = materials.map(normalizeLearningMaterial);
+
+    const filtered = searchTerm
+      ? normalized.filter((material) => {
+          const query = searchTerm.toLowerCase();
+          const title = material.title?.toLowerCase() ?? '';
+          const description = material.description?.toLowerCase() ?? '';
+          return title.includes(query) || description.includes(query);
+        })
+      : normalized;
+
+    res.json(filtered);
   } catch (err) {
     console.error('List learning materials error', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -815,6 +1219,28 @@ app.post('/api/learning-materials', async (req, res) => {
       },
       include: learningMaterialInclude,
     });
+    try {
+      const recipients = await prisma.user.findMany({
+        where: {
+          id: { not: authorIdNum },
+          notifyNewLearningMaterials: true,
+        },
+        select: { id: true },
+      });
+      if (recipients.length) {
+        await createNotificationsForUsers(
+          recipients.map((recipient) => recipient.id),
+          {
+            type: 'NEW_LEARNING_MATERIAL',
+            title: 'New learning material',
+            message: `${author.username || author.email || 'A teacher'} shared "${material.title}"`,
+            data: { materialId: material.id },
+          }
+        );
+      }
+    } catch (notifyErr) {
+      console.error('Learning material notification error', notifyErr);
+    }
     res.status(201).json(normalizeLearningMaterial(material));
   } catch (err) {
     console.error('Create learning material error', err);
@@ -941,7 +1367,981 @@ app.delete('/api/learning-materials/:id', async (req, res) => {
   }
 });
 
+// Download endpoint for learning materials
+app.get('/api/learning-materials/download/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid material id' });
+    }
+
+    const material = await prisma.learningMaterial.findUnique({
+      where: { id },
+    });
+
+    if (!material || !material.fileUrl) {
+      return res.status(404).send('File not found');
+    }
+
+    // Resolve the file path
+    const relativePath = material.fileUrl.replace('/uploads/', '');
+    const fullPath = path.join(uploadsDir, relativePath);
+
+    // Security check: ensure the path is within uploads directory
+    if (!fullPath.startsWith(uploadsDir)) {
+      return res.status(403).json({ error: 'Invalid file path' });
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).send('File not found on server');
+    }
+
+    // Extract filename from fileUrl for Content-Disposition header
+    const filename = path.basename(material.fileUrl) || `material_${id}.pdf`;
+
+    // Set headers to force download
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+
+    // Stream the file
+    const fileStream = fs.createReadStream(fullPath);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (err) => {
+      console.error('File stream error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error reading file' });
+      }
+    });
+  } catch (err) {
+    console.error('Download learning material error', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId);
+    if (!Number.isInteger(userId)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    res.json(notifications);
+  } catch (err) {
+    console.error('List notifications error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/notifications/mark-read', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    await prisma.notification.updateMany({
+      where: { userId: id, isRead: false },
+      data: { isRead: true },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark notifications read error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/notifications/:id/mark-read', async (req, res) => {
+  try {
+    const notificationId = Number(req.params.id);
+    const { userId } = req.body || {};
+    const userIdNum = Number(userId);
+    
+    if (!Number.isInteger(notificationId)) {
+      return res.status(400).json({ error: 'Invalid notification id' });
+    }
+    if (!Number.isInteger(userIdNum)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    if (notification.userId !== userIdNum) {
+      return res.status(403).json({ error: 'Not authorized to mark this notification' });
+    }
+
+    await prisma.notification.update({
+      where: { id: notificationId },
+      data: { isRead: true },
+    });
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark notification read error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/notifications/:id', async (req, res) => {
+  try {
+    const notificationId = Number(req.params.id);
+    const { userId } = req.body || {};
+    const userIdNum = Number(userId);
+    
+    if (!Number.isInteger(notificationId)) {
+      return res.status(400).json({ error: 'Invalid notification id' });
+    }
+    if (!Number.isInteger(userIdNum)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    if (notification.userId !== userIdNum) {
+      return res.status(403).json({ error: 'Not authorized to delete this notification' });
+    }
+
+    await prisma.notification.delete({
+      where: { id: notificationId },
+    });
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete notification error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/notifications/clear', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    await prisma.notification.deleteMany({
+      where: { userId: id },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Clear notifications error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/notifications/preferences', async (req, res) => {
+  try {
+    const { userId, notifyNewForumThreads, notifyNewLearningMaterials, notifyForumReplies } =
+      req.body || {};
+    const id = Number(userId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+    const data = {};
+    if (typeof notifyNewForumThreads === 'boolean') {
+      data.notifyNewForumThreads = notifyNewForumThreads;
+    }
+    if (typeof notifyNewLearningMaterials === 'boolean') {
+      data.notifyNewLearningMaterials = notifyNewLearningMaterials;
+    }
+    if (typeof notifyForumReplies === 'boolean') {
+      data.notifyForumReplies = notifyForumReplies;
+    }
+    if (!Object.keys(data).length) {
+      return res.status(400).json({ error: 'No valid preference flags provided' });
+    }
+    const updated = await prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        notifyNewForumThreads: true,
+        notifyNewLearningMaterials: true,
+        notifyForumReplies: true,
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Update notification preferences error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Game API Routes
+
+// GET A 10-QUESTION QUIZ
+app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
+  try {
+    // Get the user ID from the middleware
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    console.log('Generating quiz for user:', userId);
+
+    // Generate a pool of challenges (more than needed to ensure variety)
+    const challengePool = [];
+    const poolSize = 30; // Generate 30 challenges to ensure variety
+    
+    for (let i = 0; i < poolSize; i++) {
+      challengePool.push(generateRandomDebugChallenge());
+    }
+
+    // Fisher-Yates shuffle algorithm
+    for (let i = challengePool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [challengePool[i], challengePool[j]] = [challengePool[j], challengePool[i]];
+    }
+
+    // Take the first 10 unique challenges
+    const challenges = challengePool.slice(0, 10);
+    
+    console.log('Generated', challenges.length, 'challenges');
+    res.json(challenges); // Returns an array of 10 challenges
+  } catch (err) {
+    console.error('Error generating quiz:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
+  }
+});
+
+// POST /api/games/submit-quiz - Submits a full 10-question quiz
+app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
+  try {
+    // Get the user ID from the middleware
+    const userId = req.user.id;
+    const { answers, totalTimeMs } = req.body || {};
+    
+    // Read lang from query string (default to 'en')
+    const lang = req.query.lang || 'en';
+
+    // 'answers' is an array: [{ challenge, selectedLine }, ...]
+    if (!Array.isArray(answers) || !totalTimeMs) {
+      return res.status(400).json({ error: 'Invalid quiz submission' });
+    }
+
+    let totalScore = 0;
+    let correctCount = 0;
+    const timePerQuestion = totalTimeMs / answers.length;
+    const feedback = []; // Array to store wrong answers
+
+    for (const answer of answers) {
+      const { challenge, selectedLine } = answer;
+      const isCorrect = (challenge.buggyLineIndex === selectedLine);
+
+      if (isCorrect) {
+        correctCount++;
+        // Calculate score for this *one* question
+        const score = Math.max(100, challenge.basePoints - Math.floor(timePerQuestion / 100));
+        totalScore += score;
+      } else {
+        // Add wrong answer to feedback array
+        feedback.push({
+          title: challenge.title[lang] || challenge.title.en || 'Challenge',
+          explanation: challenge.explanation[lang] || challenge.explanation.en || 'No explanation available',
+        });
+      }
+    }
+
+    // Save ONE record for the entire quiz
+    await prisma.gameScore.create({
+      data: {
+        userId: userId,
+        score: totalScore,
+        gameType: 'DEBUGGING_QUIZ'
+      },
+    });
+
+    // Update all badges after new score is submitted
+    await updateAllBadges();
+
+    res.json({
+      isComplete: true,
+      totalScore: totalScore,
+      correctCount: correctCount,
+      totalQuestions: answers.length,
+      feedback: feedback, // Include feedback array in response
+    });
+  } catch (err) {
+    console.error('Error submitting quiz:', err);
+    res.status(500).json({ error: 'Failed to submit quiz' });
+  }
+});
+
+// GET /api/leaderboard - Get top 50 users and current user's rank
+app.get('/api/leaderboard', authMiddleware, async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+
+    // Get all scores grouped by userId with user information
+    const scoresByUser = await prisma.gameScore.groupBy({
+      by: ['userId'],
+      _max: {
+        score: true,
+      },
+    });
+
+    // Sort by high score descending
+    scoresByUser.sort((a, b) => (b._max.score || 0) - (a._max.score || 0));
+
+    // Get user details for all users with scores
+    const userIds = scoresByUser.map((item) => item.userId);
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+      },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,     // Explicitly select avatarUrl
+        profileImage: true,  // Explicitly select profileImage
+        role: true,
+        badge: {
+          select: {
+            badgeType: true,
+          },
+        },
+      },
+    });
+
+    // Debug: Log to verify image data is being fetched
+    console.log('Leaderboard - Fetched users:', users.length);
+    if (users.length > 0) {
+      const sampleUser = users[0];
+      console.log('Sample user data:', {
+        username: sampleUser.username,
+        hasAvatarUrl: !!sampleUser.avatarUrl,
+        hasProfileImage: !!sampleUser.profileImage,
+        avatarUrlLength: sampleUser.avatarUrl?.length || 0,
+        profileImageLength: sampleUser.profileImage?.length || 0,
+      });
+    }
+
+    // Create a map for quick user lookup
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    // Build leaderboard array with top 50
+    const leaderboard = scoresByUser.slice(0, 50).map((item, index) => {
+      const user = userMap.get(item.userId);
+      const entry = {
+        rank: index + 1,
+        userId: item.userId,
+        username: user?.username || 'Unknown',
+        avatarUrl: user?.avatarUrl || null,      // Explicitly include avatarUrl
+        profileImage: user?.profileImage || null, // Explicitly include profileImage
+        role: user?.role || 'Student',
+        totalScore: item._max.score || 0,
+        badgeType: user?.badge?.badgeType || 'Student',
+      };
+      
+      // Debug: Log first entry to verify data
+      if (index === 0) {
+        console.log('First leaderboard entry:', {
+          username: entry.username,
+          hasAvatarUrl: !!entry.avatarUrl,
+          hasProfileImage: !!entry.profileImage,
+        });
+      }
+      
+      return entry;
+    });
+
+    // Find current user's rank and score
+    const currentUserIndex = scoresByUser.findIndex((item) => item.userId === currentUserId);
+    let userRank = null;
+
+    if (currentUserIndex !== -1) {
+      const currentUserItem = scoresByUser[currentUserIndex];
+      const currentUser = userMap.get(currentUserId);
+      userRank = {
+        rank: currentUserIndex + 1,
+        userId: currentUserId,
+        username: currentUser?.username || 'Unknown',
+        avatarUrl: currentUser?.avatarUrl || null,
+        profileImage: currentUser?.profileImage || null,
+        role: currentUser?.role || 'Student',
+        totalScore: currentUserItem._max.score || 0,
+        badgeType: currentUser?.badge?.badgeType || 'Student',
+      };
+    } else {
+      // User has no scores yet
+      const currentUser = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: {
+          id: true,
+          username: true,
+          avatarUrl: true,
+          profileImage: true,
+          role: true,
+          badge: {
+            select: {
+              badgeType: true,
+            },
+          },
+        },
+      });
+
+      if (currentUser) {
+        userRank = {
+          rank: null,
+          userId: currentUserId,
+          username: currentUser.username,
+          avatarUrl: currentUser.avatarUrl,
+          profileImage: currentUser.profileImage,
+          role: currentUser.role,
+          totalScore: 0,
+          badgeType: currentUser.badge?.badgeType || 'Student',
+        };
+      }
+    }
+
+    // Debug: Log final response structure
+    console.log('Leaderboard response - entries:', leaderboard.length);
+    if (leaderboard.length > 0) {
+      console.log('First entry in response:', {
+        username: leaderboard[0].username,
+        hasAvatarUrl: !!leaderboard[0].avatarUrl,
+        hasProfileImage: !!leaderboard[0].profileImage,
+      });
+    }
+    if (userRank) {
+      console.log('User rank in response:', {
+        username: userRank.username,
+        hasAvatarUrl: !!userRank.avatarUrl,
+        hasProfileImage: !!userRank.profileImage,
+      });
+    }
+
+    res.json({
+      leaderboard,
+      userRank,
+    });
+  } catch (err) {
+    console.error('Error fetching leaderboard:', err);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// GET /api/teacher/students - Get all students with their progress stats
+app.get('/api/teacher/students', authMiddleware, async (req, res) => {
+  try {
+    // Check if user is a teacher
+    if (req.user.role !== 'Teacher') {
+      return res.status(403).json({ error: 'Forbidden - Only teachers can access this endpoint' });
+    }
+
+    // Fetch all students with their statistics
+    const students = await prisma.user.findMany({
+      where: {
+        role: 'Student',
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        className: true,
+        avatarUrl: true,
+        profileImage: true,
+        gameScores: {
+          select: {
+            score: true,
+            gameType: true,
+          },
+        },
+        _count: {
+          select: {
+            chatLogs: true,
+            forumThreads: true,
+            forumComments: true,
+          },
+        },
+      },
+      orderBy: {
+        username: 'asc',
+      },
+    });
+
+    // Process students to include stats
+    const studentsWithStats = students.map((student) => {
+      const attempts = student.gameScores ? student.gameScores.length : 0;
+      const bestScore = student.gameScores && student.gameScores.length > 0
+        ? Math.max(...student.gameScores.map((s) => s.score))
+        : 0;
+
+      // Group game scores by gameType
+      const gameStats = {};
+      if (student.gameScores && student.gameScores.length > 0) {
+        student.gameScores.forEach((score) => {
+          const gameType = score.gameType || 'UNKNOWN';
+          if (!gameStats[gameType]) {
+            gameStats[gameType] = { attempts: 0, bestScore: 0 };
+          }
+          gameStats[gameType].attempts += 1;
+          gameStats[gameType].bestScore = Math.max(gameStats[gameType].bestScore, score.score);
+        });
+      }
+
+      return {
+        id: student.id,
+        username: student.username,
+        email: student.email,
+        className: student.className,
+        avatarUrl: student.avatarUrl,
+        profileImage: student.profileImage,
+        attempts: attempts,
+        bestScore: bestScore,
+        chatLogsCount: student._count.chatLogs,
+        forumThreadsCount: student._count.forumThreads,
+        forumCommentsCount: student._count.forumComments,
+        gameStats: gameStats,
+      };
+    });
+
+    res.json(studentsWithStats);
+  } catch (err) {
+    console.error('Error fetching students:', err);
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
+// GET /api/teacher/students/:id/details - Get detailed stats for a specific student
+app.get('/api/teacher/students/:id/details', authMiddleware, async (req, res) => {
+  try {
+    console.log('GET /api/teacher/students/:id/details - Request received', {
+      studentId: req.params.id,
+      userId: req.user?.id,
+      role: req.user?.role
+    });
+
+    // Check if user is a teacher
+    if (req.user.role !== 'Teacher') {
+      return res.status(403).json({ error: 'Forbidden - Only teachers can access this endpoint' });
+    }
+
+    const studentId = parseInt(req.params.id, 10);
+    if (isNaN(studentId)) {
+      return res.status(400).json({ error: 'Invalid student ID' });
+    }
+
+    // Verify the student exists and is actually a student
+    const student = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: { id: true, role: true },
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (student.role !== 'Student') {
+      return res.status(400).json({ error: 'User is not a student' });
+    }
+
+    // Fetch full profile info
+    console.log('Fetching profile for student:', studentId);
+    const profile = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        className: true,
+        avatarUrl: true,
+        profileImage: true,
+      },
+    });
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Student profile not found' });
+    }
+
+    // Fetch game stats grouped by gameType
+    console.log('Fetching game scores for student:', studentId);
+    const gameScores = await prisma.gameScore.findMany({
+      where: { userId: studentId },
+      select: {
+        score: true,
+        gameType: true,
+      },
+    });
+
+    const gameStats = {};
+    gameScores.forEach((score) => {
+      const gameType = score.gameType || 'UNKNOWN';
+      if (!gameStats[gameType]) {
+        gameStats[gameType] = { attempts: 0, bestScore: 0 };
+      }
+      gameStats[gameType].attempts += 1;
+      gameStats[gameType].bestScore = Math.max(gameStats[gameType].bestScore, score.score);
+    });
+
+    // Fetch material progress
+    console.log('Fetching material progress for student:', studentId);
+    const materialProgress = await prisma.studentMaterialProgress.findMany({
+      where: {
+        studentId: studentId,
+        isCompleted: true,
+      },
+      select: {
+        materialId: true,
+      },
+    });
+
+    // Get total materials count
+    const totalMaterials = await prisma.learningMaterial.count();
+    const completedCount = materialProgress.length;
+    const progressPercentage = totalMaterials > 0 
+      ? Math.round((completedCount / totalMaterials) * 100) 
+      : 0;
+
+    // Fetch chat logs (last 50)
+    console.log('Fetching chat logs for student:', studentId);
+    const chatLogs = await prisma.chatLog.findMany({
+      where: {
+        userId: studentId,
+      },
+      select: {
+        id: true,
+        message: true,
+        response: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 50,
+    });
+
+    // Fetch forum stats
+    console.log('Fetching forum stats for student:', studentId);
+    const forumStats = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: {
+        _count: {
+          select: {
+            forumThreads: true,
+            forumComments: true,
+          },
+        },
+      },
+    });
+
+    const responseData = {
+      profile,
+      gameStats,
+      materialProgress: {
+        completed: completedCount,
+        total: totalMaterials,
+        percentage: progressPercentage,
+      },
+      chatLogs,
+      forumStats: {
+        threads: forumStats?._count.forumThreads || 0,
+        comments: forumStats?._count.forumComments || 0,
+      },
+    };
+
+    console.log('Successfully fetched student details for:', studentId);
+    res.json(responseData);
+  } catch (err) {
+    console.error('Error fetching student details:', err);
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ 
+      error: 'Failed to fetch student details',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
+// GET /api/teacher/students/:id/logs - Get chat logs for a specific student (kept for backward compatibility)
+app.get('/api/teacher/students/:id/logs', authMiddleware, async (req, res) => {
+  try {
+    // Check if user is a teacher
+    if (req.user.role !== 'Teacher') {
+      return res.status(403).json({ error: 'Forbidden - Only teachers can access this endpoint' });
+    }
+
+    const studentId = parseInt(req.params.id, 10);
+    if (isNaN(studentId)) {
+      return res.status(400).json({ error: 'Invalid student ID' });
+    }
+
+    // Verify the student exists and is actually a student
+    const student = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: { id: true, role: true },
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (student.role !== 'Student') {
+      return res.status(400).json({ error: 'User is not a student' });
+    }
+
+    // Fetch all chat logs for this student
+    const logs = await prisma.chatLog.findMany({
+      where: {
+        userId: studentId,
+      },
+      select: {
+        id: true,
+        message: true,
+        response: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc', // Newest first
+      },
+    });
+
+    res.json(logs);
+  } catch (err) {
+    console.error('Error fetching student logs:', err);
+    res.status(500).json({ error: 'Failed to fetch student logs' });
+  }
+});
+
+// AI Chatbot Proxy Endpoint
+app.post('/api/chat', authMiddleware, async (req, res) => {
+  try {
+    const { message } = req.body;
+    const API_KEY = process.env.AI_CHATBOT_API_KEY;
+
+    if (!API_KEY) {
+      return res.status(500).json({ error: 'AI Chatbot API key not configured' });
+    }
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Call Google Gemini API
+    // The model name from the frontend is 'gemini-2.5-flash'
+    const model = 'gemini-2.5-flash';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: message
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error:', response.status, errorText);
+      return res.status(response.status).json({ 
+        error: 'Failed to get response from AI',
+        details: errorText 
+      });
+    }
+
+    const data = await response.json();
+    
+    // Extract the text from Gemini's response format
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+    
+    // Save the chat log to database
+    try {
+      await prisma.chatLog.create({
+        data: {
+          userId: req.user.id,
+          message: message,
+          response: text,
+        },
+      });
+    } catch (logError) {
+      // Log error but don't fail the request
+      console.error('Error saving chat log:', logError);
+    }
+    
+    res.json({ text });
+  } catch (err) {
+    console.error('Chat API error:', err);
+    res.status(500).json({ error: 'Failed to get response from AI' });
+  }
+});
+
+// Student Material Progress API Routes
+
+// GET /api/progress - Get all completed material IDs for the current user
+app.get('/api/progress', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const progressRecords = await prisma.studentMaterialProgress.findMany({
+      where: {
+        studentId: userId,
+        isCompleted: true,
+      },
+      select: {
+        materialId: true,
+      },
+    });
+
+    const completedMaterialIds = progressRecords.map((record) => String(record.materialId));
+    res.json(completedMaterialIds);
+  } catch (err) {
+    console.error('Get progress error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/progress/toggle - Toggle completion status for a material
+app.post('/api/progress/toggle', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { materialId } = req.body;
+
+    if (!materialId) {
+      return res.status(400).json({ error: 'materialId is required' });
+    }
+
+    const materialIdNum = Number(materialId);
+    if (!Number.isInteger(materialIdNum)) {
+      return res.status(400).json({ error: 'Invalid materialId' });
+    }
+
+    // Check if material exists
+    const material = await prisma.learningMaterial.findUnique({
+      where: { id: materialIdNum },
+    });
+
+    if (!material) {
+      return res.status(404).json({ error: 'Learning material not found' });
+    }
+
+    // Check if progress record exists
+    const existingProgress = await prisma.studentMaterialProgress.findUnique({
+      where: {
+        studentId_materialId: {
+          studentId: userId,
+          materialId: materialIdNum,
+        },
+      },
+    });
+
+    let result;
+    if (existingProgress) {
+      // Toggle the completion status
+      result = await prisma.studentMaterialProgress.update({
+        where: {
+          id: existingProgress.id,
+        },
+        data: {
+          isCompleted: !existingProgress.isCompleted,
+        },
+      });
+    } else {
+      // Create new record with isCompleted = true
+      result = await prisma.studentMaterialProgress.create({
+        data: {
+          studentId: userId,
+          materialId: materialIdNum,
+          isCompleted: true,
+        },
+      });
+    }
+
+    res.json({ materialId: String(result.materialId), isCompleted: result.isCompleted });
+  } catch (err) {
+    console.error('Toggle progress error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/:id/badge - Get badge info for a user
+app.get('/api/users/:id/badge', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    const badge = await prisma.badge.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!badge) {
+      // If no badge exists, check if user is a teacher and assign Teacher badge
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (user && user.role === 'Teacher') {
+        // Create Teacher badge
+        const newBadge = await prisma.badge.create({
+          data: {
+            userId: userId,
+            badgeType: 'Teacher',
+            score: null,
+          },
+        });
+        return res.json(newBadge);
+      }
+
+      return res.status(404).json({ error: 'Badge not found' });
+    }
+
+    res.json(badge);
+  } catch (err) {
+    console.error('Error fetching badge:', err);
+    res.status(500).json({ error: 'Failed to fetch badge' });
+  }
+});
+
+// Initialize badges for all existing users on server start
+async function initializeBadges() {
+  try {
+    console.log('Initializing badges for all users...');
+    await updateAllBadges();
+    console.log('Badge initialization complete');
+  } catch (err) {
+    console.error('Error initializing badges:', err);
+  }
+}
+
 const port = process.env.PORT || 4000;
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server listening on http://localhost:${port}`);
+  // Initialize badges on server start
+  await initializeBadges();
 });

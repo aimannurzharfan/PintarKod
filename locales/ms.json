@@ -12,7 +12,10 @@
     "username_placeholder": "nama pengguna",
     "error": "Ralat",
     "success": "Berjaya",
-    "confirm": "Sahkan"
+    "confirm": "Sahkan",
+    "reset": "Tetapkan semula",
+    "back": "Kembali",
+    "retry": "Cuba lagi"
   },
   "login": {
     "title": "Log Masuk",
@@ -26,6 +29,21 @@
     "error": "E-mel atau kata laluan tidak sah.",
     "network": "Ralat rangkaian. Sila cuba lagi.",
     "missing_user": "Data pengguna tidak ditemui."
+  },
+  "forgot_password": {
+    "title": "Lupa Kata Laluan",
+    "subtitle": "Masukkan alamat e-mel yang didaftarkan dan kami akan menghantar pautan tetapan semula.",
+    "email": "E-mel",
+    "email_placeholder": "Masukkan e-mel yang didaftarkan",
+    "button": "Hantar Pautan Tetapan Semula",
+    "button_loading": "Menghantar...",
+    "validation_email": "Sila masukkan e-mel yang didaftarkan",
+    "error": "Ralat",
+    "error_message": "Tidak dapat menghantar pautan tetapan semula",
+    "success_title": "Semak e-mel anda",
+    "success_message": "Pautan tetapan semula telah dihantar ke konsol buat masa ini.",
+    "network_error": "Tidak dapat memproses permintaan",
+    "back_to_login": "Kembali ke Log Masuk"
   },
   "register": {
     "title": "Daftar Pengguna Baru",
@@ -63,6 +81,7 @@
     "search_button": "Cari",
     "load_error": "Gagal memuatkan maklumat profil.",
     "joined": "Tarikh Daftar",
+    "class": "Kelas",
     "validation_username": "Sila masukkan nama pengguna."
   },
   "tabs": {
@@ -121,7 +140,17 @@
     "success_message": "Profil anda telah dikemaskini.",
     "validation": "Sila lengkapkan ruangan yang diperlukan.",
     "password_mismatch": "Kata laluan tidak sepadan.",
-    "error_generic": "Gagal mengemaskini profil."
+    "error_generic": "Gagal mengemaskini profil.",
+    "avatar_title": "Gambar profil",
+    "avatar_hint": "Gunakan gambar berbentuk segi empat untuk paparan terbaik.",
+    "avatar_upload": "Muat naik gambar",
+    "avatar_change": "Tukar gambar",
+    "avatar_permission_title": "Kebenaran diperlukan",
+    "avatar_permission_message": "Sila benarkan akses pustaka foto untuk memilih gambar profil.",
+    "avatar_error_title": "Gambar profil",
+    "avatar_unreadable": "Gambar yang dipilih tidak dapat dibaca. Sila cuba gambar lain.",
+    "avatar_generic_error": "Tidak dapat membuka pemilih gambar. Sila cuba lagi.",
+    "avatar_upload_failed": "Tidak dapat mengemas kini gambar profil anda."
   },
   "main": {
     "header_title": "Laman Utama",
@@ -132,6 +161,8 @@
     "cta_register_description": "Cipta akaun pengguna baharu",
     "cta_remove_title": "Padam Pelajar",
     "cta_remove_description": "Cari dan padam akaun pelajar",
+    "start_coding_title": "Mula Mengatur Cara",
+    "start_coding_description": "Main permainan dan cabaran pengaturcaraan",
     "discussion_forum_title": "Forum Perbincangan",
     "discussion_forum_description": "Lihat perbincangan komuniti semasa",
     "materials_title": "Bahan Pembelajaran",
@@ -142,10 +173,14 @@
     "menu_edit_profile": "Kemaskini Profil",
     "menu_register": "Daftar Pengguna Baharu",
     "menu_delete_account": "Padam Akaun",
+    "menu_settings": "Tetapan",
     "menu_logout": "Log Keluar",
     "menu_cancel": "Batal",
     "menu_user_fallback": "Pengguna",
-    "menu_username_placeholder": "nama pengguna"
+    "menu_username_placeholder": "nama pengguna",
+    "notifications_title": "Notifikasi",
+    "notifications_clear": "Kosongkan",
+    "notifications_empty": "Tiada makluman buat masa ini."
   },
   "forum_list": {
     "title": "Forum Komuniti",
@@ -296,8 +331,76 @@
     "search_button_accessibility": "Cari pelajar",
     "select_student": "Pilih pelajar ini",
     "student_role": "Peranan: {{role}}",
+    "student_class": "Kelas: {{className}}",
     "student_joined": "Tarikh daftar: {{date}}",
     "network_error": "Ralat rangkaian."
+  },
+  "settings": {
+    "title": "Tetapan",
+    "description": "Sesuaikan cara aplikasi ini kelihatan dan berfungsi.",
+    "language_title": "Bahasa aplikasi",
+    "language_hint": "Tukar bahasa yang tersedia serta-merta.",
+    "language_ms": "Bahasa Melayu",
+    "language_en": "English",
+    "notifications_title": "Notifikasi",
+    "notifications_hint": "Pilih kemas kini yang anda ingin terima daripada PintarKod.",
+    "notifications_forum": "Perbincangan forum baharu",
+    "notifications_forum_hint": "Maklumkan saya apabila perbincangan baharu dimulakan.",
+    "notifications_material": "Bahan pembelajaran baharu",
+    "notifications_material_hint": "Maklumkan saya apabila guru memuat naik bahan baharu.",
+    "notifications_reply": "Balasan pada perbincangan saya",
+    "notifications_reply_hint": "Maklumkan saya apabila seseorang membalas thread forum saya."
+  },
+  "teacher_ui": {
+    "dashboard": "Papan Pemuka Guru",
+    "dashboard_desc": "Urus akaun pelajar dan tetapan.",
+    "register_user": "Daftar Pengguna",
+    "remove_student": "Padam Pelajar",
+    "monitor_title": "Pantau Pelajar",
+    "search_placeholder": "Cari nama pelajar...",
+    "attempts": "Percubaan",
+    "best_score": "Markah Tertinggi",
+    "chat_history": "Sejarah Sembang",
+    "no_logs_found": "Tiada log ditemui",
+    "student_prompts": "Soalan Pelajar",
+    "chat_response": "Jawapan"
+  },
+  "game_ui": {
+    "title": "Cabaran Permainan",
+    "start_coding_title": "Mula Mengatur Cara",
+    "start_coding_description": "Main permainan dan cabaran pengaturcaraan",
+    "start_learning": "Mula Belajar",
+    "start_learning_desc": "Cabaran interaktif untuk menguasai kemahiran anda.",
+    "debugging_title": "Cabaran Pembetul Pepijat",
+    "debugging_desc": "Cari pepijat di dalam kod!",
+    "troubleshooting_title": "Mencari Punca Masalah",
+    "troubleshooting_desc": "Cari punca masalah (Akan Datang)",
+    "programming_title": "Membina Atur Cara",
+    "programming_desc": "Susun blok kod untuk selesaikan masalah (Akan Datang)",
+    "puzzle_title": "Teka Logik",
+    "puzzle_desc": "Ramal output algoritma (Akan Datang)",
+    "submit_answer": "Hantar Jawapan",
+    "correct": "Betul!",
+    "incorrect": "Salah!",
+    "score": "Skor",
+    "time": "Masa",
+    "next": "Seterusnya",
+    "loading": "Memuatkan cabaran...",
+    "error": "Gagal memuatkan cabaran",
+    "select_line": "Pilih baris kod yang mempunyai pepijat",
+    "no_selection": "Sila pilih baris sebelum menghantar",
+    "no_challenges": "Tiada cabaran tersedia",
+    "start_game": "Mula Cabaran Baru",
+    "next_question": "Seterusnya",
+    "question_progress": "Soalan {{current}} daripada {{total}}",
+    "review_wrong_answers": "Semak Jawapan Salah",
+    "get_feedback": "Dapatkan Maklum Balas",
+    "close_game": "Tutup Permainan",
+    "close": "Tutup",
+    "challenges_title": "Cabaran",
+    "rankings_title": "Kedudukan",
+    "leaderboard_title": "Papan Pendahulu",
+    "leaderboard_desc": "Lihat kedudukan anda antara pelajar lain!"
   }
 }
 

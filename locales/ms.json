@@ -30,6 +30,21 @@
     "network": "Ralat rangkaian. Sila cuba lagi.",
     "missing_user": "Data pengguna tidak ditemui."
   },
+  "forgot_password": {
+    "title": "Lupa Kata Laluan",
+    "subtitle": "Masukkan alamat e-mel yang didaftarkan dan kami akan menghantar pautan tetapan semula.",
+    "email": "E-mel",
+    "email_placeholder": "Masukkan e-mel yang didaftarkan",
+    "button": "Hantar Pautan Tetapan Semula",
+    "button_loading": "Menghantar...",
+    "validation_email": "Sila masukkan e-mel yang didaftarkan",
+    "error": "Ralat",
+    "error_message": "Tidak dapat menghantar pautan tetapan semula",
+    "success_title": "Semak e-mel anda",
+    "success_message": "Pautan tetapan semula telah dihantar ke konsol buat masa ini.",
+    "network_error": "Tidak dapat memproses permintaan",
+    "back_to_login": "Kembali ke Log Masuk"
+  },
   "register": {
     "title": "Daftar Pengguna Baru",
     "username": "Nama Pengguna",

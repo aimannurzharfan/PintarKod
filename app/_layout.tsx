@@ -65,6 +65,12 @@ export default function RootLayout() {
         options={{ headerShown: false }} 
       />
       
+      {/* Forgot password page - no header like login */}
+      <Stack.Screen
+        name="forgot-password"
+        options={{ headerShown: false }}
+      />
+      
       {/* This is the main app (tabs). It will also hide its header. */}
       <Stack.Screen 
         name="(tabs)" 

@@ -30,6 +30,21 @@
     "network": "Network error. Please try again.",
     "missing_user": "User data is missing."
   },
+  "forgot_password": {
+    "title": "Forgot Password",
+    "subtitle": "Enter your registered email address and we'll send you a reset link.",
+    "email": "Email",
+    "email_placeholder": "Enter your registered email",
+    "button": "Send Reset Link",
+    "button_loading": "Sending...",
+    "validation_email": "Please enter your registered email",
+    "error": "Error",
+    "error_message": "Unable to send reset link",
+    "success_title": "Check your email",
+    "success_message": "Reset link sent to console for now.",
+    "network_error": "Unable to process request",
+    "back_to_login": "Back to Login"
+  },
   "register": {
     "title": "Register New User",
     "username": "Username",

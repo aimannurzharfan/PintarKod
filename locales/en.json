@@ -401,6 +401,22 @@
     "rankings_title": "Rankings",
     "leaderboard_title": "Leaderboard",
     "leaderboard_desc": "See your rank among other students!"
+  },
+  "headers": {
+    "mainpage": "Main Page",
+    "forum": "Forum",
+    "thread": "Thread",
+    "learning_materials": "Learning Materials",
+    "games": "Games",
+    "debugging_challenge": "Debugging Challenge",
+    "leaderboard": "Leaderboard",
+    "register": "Register",
+    "teacher_dashboard": "Teacher Dashboard",
+    "student_monitor": "Student Monitor",
+    "profile": "Profile",
+    "edit_profile": "Edit Profile",
+    "delete_account": "Delete Account",
+    "settings": "Settings"
   }
 }
 

@@ -401,6 +401,22 @@
     "rankings_title": "Kedudukan",
     "leaderboard_title": "Papan Pendahulu",
     "leaderboard_desc": "Lihat kedudukan anda antara pelajar lain!"
+  },
+  "headers": {
+    "mainpage": "Laman Utama",
+    "forum": "Forum",
+    "thread": "Thread",
+    "learning_materials": "Bahan Pembelajaran",
+    "games": "Permainan",
+    "debugging_challenge": "Cabaran Pembetul Pepijat",
+    "leaderboard": "Papan Pendahulu",
+    "register": "Daftar",
+    "teacher_dashboard": "Papan Pemuka Guru",
+    "student_monitor": "Pantau Pelajar",
+    "profile": "Profil",
+    "edit_profile": "Kemaskini Profil",
+    "delete_account": "Padam Akaun",
+    "settings": "Tetapan"
   }
 }
 

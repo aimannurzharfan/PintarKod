@@ -5,12 +5,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import '../i18n';
 import i18n from '../i18n';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [languageReady, setLanguageReady] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
+  const { t } = useTranslation();
 
   useEffect(() => {
     let isMounted = true;
@@ -29,6 +32,18 @@ export default function RootLayout() {
       });
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  // Listen to language changes to update headers
+  useEffect(() => {
+    const handleLanguageChange = (lng: string) => {
+      setCurrentLanguage(lng);
+    };
+
+    i18n.on('languageChanged', handleLanguageChange);
+    return () => {
+      i18n.off('languageChanged', handleLanguageChange);
     };
   }, []);
 
@@ -78,20 +93,62 @@ export default function RootLayout() {
       />
 
       {/* These are other pages that can be opened from anywhere */}
-      <Stack.Screen name="mainpage" options={{ title: 'Main Page' }} />
-      <Stack.Screen name="forum/index" options={{ title: 'Forum' }} />
-      <Stack.Screen name="forum/[id]" options={{ title: 'Thread' }} />
-      <Stack.Screen name="learning-materials/index" options={{ title: 'Learning Materials' }} />
-      <Stack.Screen name="games/index" options={{ title: 'Games' }} />
-      <Stack.Screen name="games/debugging/play" options={{ title: 'Debugging Challenge' }} />
-      <Stack.Screen name="leaderboard/index" options={{ title: 'Leaderboard' }} />
-      <Stack.Screen name="register" options={{ title: 'Register' }} />
-      <Stack.Screen name="teacher-dashboard/index" options={{ title: 'Teacher Dashboard' }} />
-      <Stack.Screen name="teacher/monitor/index" options={{ title: 'Student Monitor' }} />
-      <Stack.Screen name="profile" options={{ title: 'Profile' }} />
-      <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
-      <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />
-      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen 
+        name="mainpage" 
+        options={() => ({ title: t('headers.mainpage') })} 
+      />
+      <Stack.Screen 
+        name="forum/index" 
+        options={() => ({ title: t('headers.forum') })} 
+      />
+      <Stack.Screen 
+        name="forum/[id]" 
+        options={() => ({ title: t('headers.thread') })} 
+      />
+      <Stack.Screen 
+        name="learning-materials/index" 
+        options={() => ({ title: t('headers.learning_materials') })} 
+      />
+      <Stack.Screen 
+        name="games/index" 
+        options={() => ({ title: t('headers.games') })} 
+      />
+      <Stack.Screen 
+        name="games/debugging/play" 
+        options={() => ({ title: t('headers.debugging_challenge') })} 
+      />
+      <Stack.Screen 
+        name="leaderboard/index" 
+        options={() => ({ title: t('headers.leaderboard') })} 
+      />
+      <Stack.Screen 
+        name="register" 
+        options={() => ({ title: t('headers.register') })} 
+      />
+      <Stack.Screen 
+        name="teacher-dashboard/index" 
+        options={() => ({ title: t('headers.teacher_dashboard') })} 
+      />
+      <Stack.Screen 
+        name="teacher/monitor/index" 
+        options={() => ({ title: t('headers.student_monitor') })} 
+      />
+      <Stack.Screen 
+        name="profile" 
+        options={() => ({ title: t('headers.profile') })} 
+      />
+      <Stack.Screen 
+        name="edit-profile" 
+        options={() => ({ title: t('headers.edit_profile') })} 
+      />
+      <Stack.Screen 
+        name="delete-account" 
+        options={() => ({ title: t('headers.delete_account') })} 
+      />
+      <Stack.Screen 
+        name="settings" 
+        options={() => ({ title: t('headers.settings') })} 
+      />
           </Stack>
         </ForumProvider>
       </NotificationProvider>

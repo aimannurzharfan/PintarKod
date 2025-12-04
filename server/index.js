@@ -1664,12 +1664,15 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
       }
     }
 
+    // Determine game type (allow client to specify, fallback to debugging)
+    const gameType = (req.body && typeof req.body.gameType === 'string') ? req.body.gameType : 'DEBUGGING_QUIZ';
+
     // Save ONE record for the entire quiz
     await prisma.gameScore.create({
       data: {
         userId: userId,
         score: totalScore,
-        gameType: 'DEBUGGING_QUIZ'
+        gameType: gameType,
       },
     });
 

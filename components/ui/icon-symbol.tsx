@@ -29,7 +29,7 @@ const MAPPING = {
   'xmark.circle.fill': 'cancel',
   'person.badge.plus': 'person-add',
   'trash.circle.fill': 'delete',
-  // removed mapping for 'line.horizontal.3' (sidebar menu) since sidebar was removed
+  'line.3.horizontal': 'menu',
 } as IconMapping;
 
 /**

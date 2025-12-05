@@ -2195,6 +2195,90 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
   }
 });
 
+// Chat History API Routes
+
+// GET /api/chat/history - Get user's chat history (individual entries, not grouped)
+app.get('/api/chat/history', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get all chat logs for the user, ordered by date (newest first)
+    // Return individual entries, not grouped
+    const chatLogs = await prisma.chatLog.findMany({
+      where: {
+        userId: userId,
+      },
+      select: {
+        id: true,
+        message: true,
+        response: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc', // Newest first
+      },
+    });
+
+    // Return individual chat log entries with their original createdAt dates
+    res.json(chatLogs);
+  } catch (err) {
+    console.error('Error fetching chat history:', err);
+    res.status(500).json({ error: 'Failed to fetch chat history' });
+  }
+});
+
+// GET /api/chat/conversation/:id - Get a specific chat log entry
+app.get('/api/chat/conversation/:id', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chatId = parseInt(req.params.id, 10);
+
+    if (isNaN(chatId)) {
+      return res.status(400).json({ error: 'Invalid chat ID' });
+    }
+
+    // Get the specific chat log entry
+    const chatLog = await prisma.chatLog.findFirst({
+      where: {
+        id: chatId,
+        userId: userId, // Ensure user owns this chat
+      },
+      select: {
+        id: true,
+        message: true,
+        response: true,
+        createdAt: true,
+      },
+    });
+
+    if (!chatLog) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    // Format as conversation messages (single Q&A pair)
+    const messages = [
+      {
+        role: 'user',
+        text: chatLog.message,
+        timestamp: chatLog.createdAt,
+      },
+    ];
+
+    if (chatLog.response) {
+      messages.push({
+        role: 'gemini',
+        text: chatLog.response,
+        timestamp: chatLog.createdAt,
+      });
+    }
+
+    res.json({ messages });
+  } catch (err) {
+    console.error('Error fetching conversation:', err);
+    res.status(500).json({ error: 'Failed to fetch conversation' });
+  }
+});
+
 // Student Material Progress API Routes
 
 // GET /api/progress - Get all completed material IDs for the current user

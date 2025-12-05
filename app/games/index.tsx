@@ -29,7 +29,7 @@ export default function GamesIndexScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
+  const styles = useMemo(() => createStyles(colorScheme ?? null), [colorScheme]);
 
   const currentLang = i18n.language?.split('-')[0] || 'en';
 
@@ -50,7 +50,7 @@ export default function GamesIndexScreen() {
     }
 
     // Navigate to the troubleshooting game we added
-    router.push('/games/troubleshooting/play');
+    router.push('/games/troubleshooting/play' as any);
   }, [user, router]);
 
   const gameCards: GameCard[] = useMemo(

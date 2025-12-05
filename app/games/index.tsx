@@ -1,8 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -43,6 +43,16 @@ export default function GamesIndexScreen() {
     router.push('/games/debugging/play');
   }, [user, router]);
 
+  const onPlayTroubleshooting = useCallback(() => {
+    if (!user?.id) {
+      router.replace('/');
+      return;
+    }
+
+    // Navigate to the troubleshooting game we added
+    router.push('/games/troubleshooting/play');
+  }, [user, router]);
+
   const gameCards: GameCard[] = useMemo(
     () => [
       {
@@ -58,7 +68,8 @@ export default function GamesIndexScreen() {
         title: t('game_ui.troubleshooting_title'),
         description: t('game_ui.troubleshooting_desc'),
         icon: 'settings',
-        enabled: false,
+        enabled: true,
+        onPress: onPlayTroubleshooting,
       },
       {
         id: 'programming',

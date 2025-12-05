@@ -58,6 +58,21 @@ export default function ForumThreadScreen() {
     }
   }, [threadId, thread, fetchThreadById]);
 
+  const [commentDraft, setCommentDraft] = useState('');
+  const commentInputRef = useRef<TextInput | null>(null);
+
+  const [editingComment, setEditingComment] = useState<ForumComment | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+
+  const [threadEditorVisible, setThreadEditorVisible] = useState(false);
+  const [threadTitle, setThreadTitle] = useState(thread?.title ?? '');
+  const [threadContent, setThreadContent] = useState(thread?.content ?? '');
+  const [threadAttachment, setThreadAttachment] = useState<string | null>(thread?.attachment ?? null);
+  const [pickingThreadAttachment, setPickingThreadAttachment] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [commentBadges, setCommentBadges] = useState<Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'>>({});
+
   // Fetch badges for all comment authors
   useEffect(() => {
     if (!thread?.comments) return;
@@ -84,21 +99,6 @@ export default function ForumThreadScreen() {
 
     fetchBadges();
   }, [thread?.comments]);
-
-  const [commentDraft, setCommentDraft] = useState('');
-  const commentInputRef = useRef<TextInput | null>(null);
-
-  const [editingComment, setEditingComment] = useState<ForumComment | null>(null);
-  const [editingCommentText, setEditingCommentText] = useState('');
-  const [commentModalVisible, setCommentModalVisible] = useState(false);
-
-  const [threadEditorVisible, setThreadEditorVisible] = useState(false);
-  const [threadTitle, setThreadTitle] = useState(thread?.title ?? '');
-  const [threadContent, setThreadContent] = useState(thread?.content ?? '');
-  const [threadAttachment, setThreadAttachment] = useState<string | null>(thread?.attachment ?? null);
-  const [pickingThreadAttachment, setPickingThreadAttachment] = useState(false);
-  const [showChatbot, setShowChatbot] = useState(false);
-  const [commentBadges, setCommentBadges] = useState<Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'>>({});
 
   useEffect(() => {
     setThreadTitle(thread?.title ?? '');
@@ -139,6 +139,7 @@ export default function ForumThreadScreen() {
   }
 
   function handleSubmitComment() {
+    if (!thread) return;
     const body = commentDraft.trim();
     if (!body) {
       Alert.alert(t('forum_thread.alert_reply_title'), t('forum_thread.alert_reply_body'));
@@ -177,6 +178,7 @@ export default function ForumThreadScreen() {
   }
 
   function submitCommentEdit() {
+    if (!thread) return;
     const body = editingCommentText.trim();
     if (!editingComment || !body) {
       Alert.alert(t('forum_thread.alert_edit_empty_title'), t('forum_thread.alert_edit_empty_body'));
@@ -199,6 +201,7 @@ export default function ForumThreadScreen() {
   }
 
   function openThreadEditor() {
+    if (!thread) return;
     if (!canManage(thread, user?.id, user?.username, user?.email)) {
       Alert.alert(t('forum_list.alert_permission_title'), t('forum_list.alert_permission_body'));
       return;
@@ -211,6 +214,7 @@ export default function ForumThreadScreen() {
   }
 
   function submitThreadEdit() {
+    if (!thread) return;
     const title = threadTitle.trim();
     const content = threadContent.trim();
     if (!title || !content) {
@@ -273,6 +277,7 @@ export default function ForumThreadScreen() {
   }
 
   function confirmDeleteThread() {
+    if (!thread) return;
     if (user?.id == null) {
       Alert.alert(
         t('forum_list.alert_signin_title'),
@@ -305,6 +310,7 @@ export default function ForumThreadScreen() {
   }
 
   function confirmDeleteComment(comment: ForumComment) {
+    if (!thread) return;
     if (user?.id == null) {
       Alert.alert(
         t('forum_list.alert_signin_title'),

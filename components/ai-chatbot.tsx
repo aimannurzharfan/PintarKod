@@ -317,7 +317,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
           {showHistory && (
             <View style={[styles.historySidebar, { width: historyWidth, backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#FFFFFF', borderRightColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
               <View style={[styles.historyHeader, { borderBottomColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
-                <Text style={[styles.historyTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Sejarah Perbualan</Text>
+                <Text style={[styles.historyTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Chat History</Text>
               </View>
               <ScrollView style={styles.historyList}>
                 {loadingHistory ? (

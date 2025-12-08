@@ -10,30 +10,30 @@ const typoTemplates = [
     template: (v_correct, v_buggy) => ({
       title: { en: 'Variable Typo', ms: 'Kesilapan Ejaan Pemboleh Ubah' },
       description: { 
-        en: 'Find the typo in the variable name.', 
-        ms: 'Cari kesilapan ejaan dalam nama pemboleh ubah.' 
+        en: `The variable is declared as "${v_correct}" but used incorrectly as "${v_buggy}" in the code. Click the line where the variable name is spelled wrong, then choose the fix that uses the correct spelling "${v_correct}".`, 
+        ms: `Pemboleh ubah diisytiharkan sebagai "${v_correct}" tetapi digunakan secara salah sebagai "${v_buggy}" dalam kod. Klik baris di mana nama pemboleh ubah salah eja, kemudian pilih pembetulan yang menggunakan ejaan betul "${v_correct}".` 
       },
       codeBlock: `let ${v_correct} = "Pelajar";\n\nfor (let i = 0; i < 5; i++) {\n  console.log(${v_buggy});\n}`,
       buggyLineIndex: 3, // Line 3: console.log(${v_buggy})
       explanation: { 
-        en: `The variable was spelled "${v_buggy}" instead of "${v_correct}".`,
-        ms: `Pemboleh ubah dieja "${v_buggy}" dan bukannya "${v_correct}".` 
+        en: `The variable was declared as "${v_correct}" on line 1, but incorrectly used as "${v_buggy}" on line 4. Variable names must match exactly.`,
+        ms: `Pemboleh ubah diisytiharkan sebagai "${v_correct}" pada baris 1, tetapi digunakan secara salah sebagai "${v_buggy}" pada baris 4. Nama pemboleh ubah mesti sama persis.` 
       },
     }),
   },
   {
     vars: ['nilai', 'jumlah', 'hasil'],
     template: (v_correct, v_buggy) => ({
-      title: { en: 'Variable Typo in Calculation', ms: 'Kesilapan Ejaan dalam Pengiraan' },
+      title: { en: 'Variable Typo in Calculation', ms:'Kesilapan Ejaan dalam Pengiraan' },
       description: { 
-        en: 'Find the typo that breaks the calculation.', 
-        ms: 'Cari kesilapan ejaan yang merosakkan pengiraan.' 
+        en: `The variable "${v_correct}" is correctly used in the loop, but on the last line it's misspelled as "${v_buggy}". Find the line with the spelling mistake and fix it.`, 
+        ms: `Pemboleh ubah "${v_correct}" digunakan dengan betul dalam gelung, tetapi pada baris terakhir ia tersilap eja sebagai "${v_buggy}". Cari baris dengan kesilapan ejaan dan betulkannya.` 
       },
       codeBlock: `let ${v_correct} = 0;\nfor (let i = 1; i <= 10; i++) {\n  ${v_correct} += i;\n}\nconsole.log("Hasil:", ${v_buggy});`,
       buggyLineIndex: 4,
       explanation: { 
-        en: `The variable "${v_buggy}" on line 4 should be "${v_correct}".`,
-        ms: `Pemboleh ubah "${v_buggy}" pada baris 4 sepatutnya "${v_correct}".` 
+        en: `The variable "${v_buggy}" on line 5 should be spelled "${v_correct}" to match the declaration.`,
+        ms: `Pemboleh ubah "${v_buggy}" pada baris 5 sepatutnya dieja "${v_correct}" untuk sepadan dengan pengisytiharan.` 
       },
     }),
   },
@@ -222,6 +222,25 @@ const variableScopeTemplates = [
 ];
 
 // --- Helper Functions ---
+
+/**
+ * Generate fix options with 1 correct answer and 2 distractors
+ * Returns object with correctFix and fixOptions array
+ */
+function generateFixOptions(correctFix, distractors) {
+  // Shuffle the options so correct answer isn't always in the same position
+  const allOptions = [correctFix, ...distractors];
+  for (let i = allOptions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allOptions[i], allOptions[j]] = [allOptions[j], allOptions[i]];
+  }
+  
+  return {
+    correctFix: correctFix,
+    fixOptions: allOptions
+  };
+}
+
 function generateTypoChallenge() {
   const t = typoTemplates[Math.floor(Math.random() * typoTemplates.length)];
   const v_correct = t.vars[Math.floor(Math.random() * t.vars.length)];
@@ -248,16 +267,60 @@ function generateTypoChallenge() {
   }
   
   const challenge = t.template(v_correct, v_buggy);
-  return { ...challenge, basePoints: 1000 };
+  const codeLines = challenge.codeBlock.split('\n');
+  const buggyLine = codeLines[challenge.buggyLineIndex];
+  
+  // Generate fix options for the typo
+  const correctFix = buggyLine.replace(v_buggy, v_correct);
+  const distractors = [
+    buggyLine, // Keep the buggy version as distractor
+    buggyLine.replace(v_buggy, v_buggy + 's') // Add 's' to make another wrong version
+  ];
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
+  return { 
+    ...challenge, 
+    ...fixData,
+    basePoints: 1000 
+  };
 }
+
 
 function generateLoopChallenge() {
   const t = loopTemplates[Math.floor(Math.random() * loopTemplates.length)];
+  const codeLines = t.code.split('\n');
+  const buggyLine = codeLines[t.buggyLine];
+  
+  // Generate fix options based on the loop type
+  let correctFix, distractors;
+  if (buggyLine.includes('i--') && buggyLine.includes('< 5')) {
+    correctFix = buggyLine.replace('i--', 'i++');
+    distractors = [
+      buggyLine.replace('< 5', '<= 5'),
+      buggyLine.replace('i--', 'i = i + 1')
+    ];
+  } else if (buggyLine.includes('i > 0') && buggyLine.includes('i++')) {
+    correctFix = buggyLine.replace('i++', 'i--');
+    distractors = [
+      buggyLine.replace('i > 0', 'i >= 0'),
+      buggyLine
+    ];
+  } else {
+    correctFix = buggyLine + '  i++;';
+    distractors = [
+      buggyLine + '  i--;',
+      buggyLine
+    ];
+  }
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
   return {
     title: { en: "Infinite Loop", ms: "Gelung Tidak Berpenghujung" },
     description: { 
-      en: "Find the bug that causes this loop to run forever.", 
-      ms: "Cari baris kod yang menyebabkan gelung ini berjalan selama-lamanya." 
+      en: "This loop will run forever! The loop condition or increment is wrong. Find the line that causes the infinite loop and choose the fix that makes it stop correctly.", 
+      ms: "Gelung ini akan berjalan selama-lamanya! Syarat atau pertambahan gelung adalah salah. Cari baris yang menyebabkan gelung tidak berpenghujung dan pilih pembetulan yang membuatnya berhenti dengan betul." 
     },
     codeBlock: t.code,
     buggyLineIndex: t.buggyLine,
@@ -268,36 +331,75 @@ function generateLoopChallenge() {
 
 function generateReturnChallenge() {
   const t = returnTemplates[Math.floor(Math.random() * returnTemplates.length)];
+  const codeLines = t.code.split('\n');
+  const buggyLine = codeLines[t.buggyLine];
+  
+  // Generate fix for missing return
+  const varName = buggyLine.match(/const (\w+) =/)?.[1] || 'result';
+  const correctFix = buggyLine + '\n  return ' + varName + ';';
+  const distractors = [
+    buggyLine + '\n  console.log(' + varName + ');',
+    buggyLine
+  ];
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
   return {
     title: { en: "Missing Return Statement", ms: "Pernyataan Pulangan Yang Hilang" },
     description: { 
-      en: "Find the function that is missing a return statement.", 
-      ms: "Cari fungsi yang hilang pernyataan pulangan." 
+      en: "This function calculates a value but doesn't return it, so it returns 'undefined'. Find where the return statement is missing and add it to return the calculated value.", 
+      ms: "Fungsi ini mengira nilai tetapi tidak memulangkannya, jadi ia memulangkan 'undefined'. Cari di mana pernyataan pulangan hilang dan tambahnya untuk memulangkan nilai yang dikira." 
     },
     codeBlock: t.code,
     buggyLineIndex: t.buggyLine,
     explanation: t.explanation,
+    ...fixData,
     basePoints: 1100
   };
 }
 
 function generateComparisonChallenge() {
   const t = comparisonTemplates[Math.floor(Math.random() * comparisonTemplates.length)];
+  const codeLines = t.code.split('\n');
+  const buggyLine = codeLines[t.buggyLine];
+  
+  // Fix the assignment operator to comparison
+  const correctFix = buggyLine.replace(' = ', ' === ');
+  const distractors = [
+    buggyLine.replace(' = ', ' == '),
+    buggyLine
+  ];
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
   return {
     title: { en: "Wrong Comparison Operator", ms: "Operator Perbandingan Yang Salah" },
     description: { 
-      en: "Find the line with the wrong comparison operator.", 
-      ms: "Cari baris dengan operator perbandingan yang salah." 
+      en: "The 'if' statement uses '=' (assignment) instead of '===' (comparison). This changes the variable instead of checking it. Find the line with the wrong operator and fix it.", 
+      ms: "Pernyataan 'if' menggunakan '=' (penetapan) dan bukannya '===' (perbandingan). Ini mengubah pemboleh ubah dan bukannya memeriksanya. Cari baris dengan operator yang salah dan betulkannya." 
     },
     codeBlock: t.code,
     buggyLineIndex: t.buggyLine,
     explanation: t.explanation,
+    ...fixData,
     basePoints: 1000
   };
 }
 
 function generateWrongComparisonChallenge() {
   const t = wrongComparisonTemplates[Math.floor(Math.random() * wrongComparisonTemplates.length)];
+  const codeLines = t.code.split('\n');
+  const buggyLine = codeLines[t.buggyLine];
+  
+  // Fix assignment to comparison
+  const correctFix = buggyLine.replace(' = ', ' === ');
+  const distractors = [
+    buggyLine.replace(' = ', ' == '),
+    buggyLine.replace(' = ', ' != ')
+  ];
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
   return {
     title: { en: "Wrong Comparison", ms: "Perbandingan Yang Salah" },
     description: { 
@@ -307,42 +409,90 @@ function generateWrongComparisonChallenge() {
     codeBlock: t.code,
     buggyLineIndex: t.buggyLine,
     explanation: t.explanation,
+    ...fixData,
     basePoints: 1000
   };
 }
 
 function generateStringMathChallenge() {
   const t = stringMathTemplates[Math.floor(Math.random() * stringMathTemplates.length)];
+  const codeLines = t.code.split('\n');
+  const buggyLine = codeLines[t.buggyLine];
+  
+  // Fix string concatenation issue by parsing to int
+  const correctFix = buggyLine.replace('"10"', 'parseInt("10")').replace('"5"', 'parseInt("5")');
+  const distractors = [
+    buggyLine.replace('"10"', '10').replace('"5"', '5'),
+    buggyLine
+  ];
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
   return {
     title: { en: "String Math", ms: "Matematik Rentetan" },
     description: { 
-      en: "Find the bug in the calculation.", 
-      ms: "Cari pepijat dalam pengiraan." 
+      en: "Numbers in quotes are treated as text (strings), not numbers. When you add strings, they join together instead of calculating. Find the line doing math with strings and convert them to numbers.", 
+      ms: "Nombor dalam petikan dianggap sebagai teks (rentetan), bukan nombor. Apabila anda tambah rentetan, ia bergabung dan bukannya mengira. Cari baris yang membuat matematik dengan rentetan dan tukarkannya kepada nombor." 
     },
     codeBlock: t.code,
     buggyLineIndex: t.buggyLine,
     explanation: t.explanation,
+    ...fixData,
     basePoints: 1100
   };
 }
 
 function generateOffByOneChallenge() {
   const t = offByOneTemplates[Math.floor(Math.random() * offByOneTemplates.length)];
+  const codeLines = t.code.split('\n');
+  const buggyLine = codeLines[t.buggyLine];
+  
+  // Fix off-by-one error
+  let correctFix, distractors;
+  if (buggyLine.includes('[3]')) {
+    correctFix = buggyLine.replace('[3]', '[2]');
+    distractors = [
+      buggyLine.replace('[3]', '[0]'),
+      buggyLine
+    ];
+  } else if (buggyLine.includes('<= numbers.length')) {
+    correctFix = buggyLine.replace('<= numbers.length', '< numbers.length');
+    distractors = [
+      buggyLine.replace('<= numbers.length', '<= numbers.length - 1'),
+      buggyLine
+    ];
+  }
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
   return {
     title: { en: "Off By One Error", ms: "Ralat Satu Indeks" },
     description: { 
-      en: "Find the array access error.", 
-      ms: "Cari ralat akses tatasusunan." 
+      en: "Arrays start at index 0, not 1. Accessing an index that doesn't exist causes an error. Find the line trying to access an invalid array index and fix it.", 
+      ms: "Tatasusunan bermula pada indeks 0, bukan 1. Mengakses indeks yang tidak wujud menyebabkan ralat. Cari baris yang cuba mengakses indeks tatasusunan yang tidak sah dan betulkannya." 
     },
     codeBlock: t.code,
     buggyLineIndex: t.buggyLine,
     explanation: t.explanation,
+    ...fixData,
     basePoints: 1200
   };
 }
 
 function generateUnreachableCodeChallenge() {
   const t = unreachableCodeTemplates[Math.floor(Math.random() * unreachableCodeTemplates.length)];
+  const codeLines = t.code.split('\n');
+  const buggyLine = codeLines[t.buggyLine];
+  
+  // Move return after other statements
+  const correctFix = buggyLine.replace('return', '// return moved to end');
+  const distractors = [
+    buggyLine.replace('return', 'console.log("returning:"); return'),
+    buggyLine
+  ];
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
   return {
     title: { en: "Unreachable Code", ms: "Kod Tidak Dapat Dicapai" },
     description: { 
@@ -352,12 +502,28 @@ function generateUnreachableCodeChallenge() {
     codeBlock: t.code,
     buggyLineIndex: t.buggyLine,
     explanation: t.explanation,
+    ...fixData,
     basePoints: 1100
   };
 }
 
 function generateVariableScopeChallenge() {
   const t = variableScopeTemplates[Math.floor(Math.random() * variableScopeTemplates.length)];
+  const codeLines = t.code.split('\n');
+  const buggyLine = codeLines[t.buggyLine];
+  
+  // Fix scope by declaring outside or using var
+  const varMatch = buggyLine.match(/console\.log\((\w+)\)/);
+  const varName = varMatch ? varMatch[1] : 'message';
+  
+  const correctFix = 'let ' + varName + ';  // Declare outside block';
+  const distractors = [
+    buggyLine.replace('console.log', 'var ' + varName + ' = ""; console.log'),
+    buggyLine
+  ];
+  
+  const fixData = generateFixOptions(correctFix, distractors);
+  
   return {
     title: { en: "Variable Scope", ms: "Skop Pemboleh Ubah" },
     description: { 
@@ -367,6 +533,7 @@ function generateVariableScopeChallenge() {
     codeBlock: t.code,
     buggyLineIndex: t.buggyLine,
     explanation: t.explanation,
+    ...fixData,
     basePoints: 1200
   };
 }
@@ -389,9 +556,217 @@ function generateRandomDebugChallenge() {
   return randomGenerator();
 }
 
+// ============================================
+// TROUBLESHOOTING CHALLENGE GENERATORS
+// ============================================
+
+function generateOffByOneTroubleshooting() {
+  const varNames = ['count', 'index', 'limit', 'sum', 'total'];
+  const randomVar = varNames[Math.floor(Math.random() * varNames.length)];
+  
+  const scenarios = [
+    {
+      title: { en: 'Off-by-One Loop Error', ms: 'Ralat Gelung Off-by-One' },
+      description: {
+        en: 'A loop iterates one too many or one too few times',
+        ms: 'Gelung mengulangi satu kali terlalu banyak atau terlalu sedikit'
+      },
+      codeBlock: `int ${randomVar} = 0;
+for (int i = 0; i <= 10; i++) {
+  ${randomVar}++;
+}
+System.out.println(${randomVar});`,
+      buggyLineIndex: 1,
+      explanation: {
+        en: 'The condition "i <= 10" iterates 11 times (0 to 10 inclusive). Should be "i < 10" to iterate 10 times.',
+        ms: 'Keadaan "i <= 10" mengulangi 11 kali (0 hingga 10 termasuk). Sepatutnya "i < 10" untuk mengulangi 10 kali.'
+      },
+      basePoints: 100
+    }
+  ];
+  return scenarios[0];
+}
+
+function generateMissingSemicolonTroubleshooting() {
+  const statements = [
+    'int x = 5',
+    'String name = "John"',
+    'double price = 99.99',
+    'boolean isValid = true'
+  ];
+  const randomStmt = statements[Math.floor(Math.random() * statements.length)];
+  
+  return {
+    title: { en: 'Missing Semicolon', ms: 'Titik Koma Hilang' },
+    description: {
+      en: 'A statement is missing a semicolon at the end',
+      ms: 'Pernyataan kehilangan titik koma di akhir'
+    },
+    codeBlock: `public void init() {
+  ${randomStmt}
+  System.out.println("Initialized");
+}`,
+    buggyLineIndex: 1,
+    explanation: {
+      en: `Each statement must end with a semicolon (;). The line "${randomStmt}" is missing one.`,
+      ms: `Setiap pernyataan mesti diakhiri dengan titik koma (;). Baris "${randomStmt}" tidak mempunyai satu.`
+    },
+    basePoints: 100
+  };
+}
+
+function generateTypeMismatchTroubleshooting() {
+  const scenarios = [
+    {
+      code: `int value = "123";`,
+      type: 'String'
+    },
+    {
+      code: `double price = true;`,
+      type: 'boolean'
+    },
+    {
+      code: `String count = 42;`,
+      type: 'int'
+    }
+  ];
+  const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+  
+  return {
+    title: { en: 'Type Mismatch Error', ms: 'Ralat Ketidakpadanan Jenis' },
+    description: {
+      en: 'A value is being assigned to a variable of incompatible type',
+      ms: 'Nilai diberikan kepada pembolehubah jenis yang tidak serasi'
+    },
+    codeBlock: `public void process() {
+  ${scenario.code}
+  System.out.println(value);
+}`,
+    buggyLineIndex: 1,
+    explanation: {
+      en: `Cannot assign ${scenario.type} to the declared variable type. Types must match or be compatible.`,
+      ms: `Tidak boleh menetapkan ${scenario.type} kepada jenis pembolehubah yang diisytiharkan. Jenis mesti sepadan.`
+    },
+    basePoints: 100
+  };
+}
+
+function generateMissingBreakTroubleshooting() {
+  const varNames = ['result', 'value', 'output'];
+  const randomVar = varNames[Math.floor(Math.random() * varNames.length)];
+  
+  return {
+    title: { en: 'Missing Break in Switch', ms: 'Pecahan Hilang dalam Suis' },
+    description: {
+      en: 'A switch case is missing a break statement, causing fall-through',
+      ms: 'Kes suis kehilangan pernyataan pecah, menyebabkan jatuh melalui'
+    },
+    codeBlock: `int day = 3;
+String ${randomVar} = "";
+switch(day) {
+  case 1: ${randomVar} = "Monday"; break;
+  case 2: ${randomVar} = "Tuesday"; break;
+  case 3: ${randomVar} = "Wednesday"
+  case 4: ${randomVar} = "Thursday"; break;
+}`,
+    buggyLineIndex: 6,
+    explanation: {
+      en: 'Line 6 (Wednesday case) is missing "break;". Without it, execution continues to the next case (fall-through).',
+      ms: 'Baris 6 (kes Rabu) kehilangan "break;". Tanpanya, pelaksanaan terus ke kes seterusnya.'
+    },
+    basePoints: 100
+  };
+}
+
+function generateDivisionByZeroTroubleshooting() {
+  const numerators = [100, 50, 200, 999];
+  const randomNum = numerators[Math.floor(Math.random() * numerators.length)];
+  
+  return {
+    title: { en: 'Division by Zero', ms: 'Pembahagian dengan Sifar' },
+    description: {
+      en: 'An arithmetic operation divides by zero, causing a runtime error',
+      ms: 'Operasi aritmetik membahagi dengan sifar, menyebabkan ralat masa proses'
+    },
+    codeBlock: `int dividend = ${randomNum};
+int divisor = 0;
+int result = dividend / divisor;
+System.out.println(result);`,
+    buggyLineIndex: 1,
+    explanation: {
+      en: 'The divisor is set to 0. Division by zero is mathematically undefined and will throw an ArithmeticException.',
+      ms: 'Pembahagi ditetapkan kepada 0. Pembahagian dengan sifar tidak ditakrifkan secara matematik dan akan melempar ArithmeticException.'
+    },
+    basePoints: 100
+  };
+}
+
+function generateUninitializedVariableTroubleshooting() {
+  const varNames = ['count', 'total', 'sum', 'value'];
+  const randomVar = varNames[Math.floor(Math.random() * varNames.length)];
+  
+  return {
+    title: { en: 'Uninitialized Variable', ms: 'Pembolehubah Tidak Dimulakan' },
+    description: {
+      en: 'A variable is used without being initialized first',
+      ms: 'Pembolehubah digunakan tanpa dimulakan terlebih dahulu'
+    },
+    codeBlock: `public void calculate() {
+  int ${randomVar};
+  ${randomVar} += 10;
+  System.out.println(${randomVar});
+}`,
+    buggyLineIndex: 1,
+    explanation: {
+      en: `Variable "${randomVar}" is declared but not initialized. You must assign a value before using it (e.g., int ${randomVar} = 0;).`,
+      ms: `Pembolehubah "${randomVar}" diisytiharkan tetapi tidak dimulakan. Anda mesti memberikan nilai sebelum menggunakannya.`
+    },
+    basePoints: 100
+  };
+}
+
+function generateArrayIndexOutOfBoundsTroubleshooting() {
+  const arraySize = Math.floor(Math.random() * 5) + 5;
+  const wrongIndex = arraySize + 1;
+  
+  return {
+    title: { en: 'Array Index Out of Bounds', ms: 'Indeks Tatasusunan Keluar dari Sempadan' },
+    description: {
+      en: 'An array index exceeds the valid range, causing runtime error',
+      ms: 'Indeks tatasusunan melebihi julat yang sah, menyebabkan ralat masa proses'
+    },
+    codeBlock: `int[] numbers = new int[${arraySize}];
+for (int i = 0; i <= ${wrongIndex}; i++) {
+  numbers[i] = i * 2;
+}`,
+    buggyLineIndex: 1,
+    explanation: {
+      en: `Array has indices 0 to ${arraySize - 1} (size ${arraySize}). Loop condition "i <= ${wrongIndex}" tries to access index ${wrongIndex}, which is out of bounds.`,
+      ms: `Tatasusunan mempunyai indeks 0 hingga ${arraySize - 1}. Keadaan gelung "i <= ${wrongIndex}" cuba mengakses indeks ${wrongIndex}, yang keluar dari sempadan.`
+    },
+    basePoints: 100
+  };
+}
+
+function generateRandomTroubleshootingChallenge() {
+  const allGenerators = [
+    generateOffByOneTroubleshooting,
+    generateMissingSemicolonTroubleshooting,
+    generateTypeMismatchTroubleshooting,
+    generateMissingBreakTroubleshooting,
+    generateDivisionByZeroTroubleshooting,
+    generateUninitializedVariableTroubleshooting,
+    generateArrayIndexOutOfBoundsTroubleshooting,
+  ];
+  
+  const randomGenerator = allGenerators[Math.floor(Math.random() * allGenerators.length)];
+  return randomGenerator();
+}
+
 // Export for use in server/index.js
 module.exports = {
   generateRandomDebugChallenge,
+  generateRandomTroubleshootingChallenge,
 };
 
 

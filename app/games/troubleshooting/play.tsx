@@ -1,411 +1,640 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
-import { API_URL } from '../../../config';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View
+} from 'react-native';
+import * as Animatable from 'react-native-animatable';
 
-type LocalizedText = { en: string; ms: string };
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
-type TroubleshootingChallenge = {
-  id: string;
-  title: LocalizedText;
-  description: LocalizedText;
-  codeBlock: string; // multiline Java code
-  buggyLineIndex: number; // 0-based
-  explanation: LocalizedText;
+interface Challenge {
+  title: { en: string; ms: string };
+  description: { en: string; ms: string };
+  codeBlock: string;
+  buggyLineIndex: number;
+  explanation: { en: string; ms: string };
   basePoints: number;
-};
-
-const variableNames = ['harga', 'jumlah', 'murid', 'umur', 'gaji', 'bil', 'markah', 'kadar'];
-const scenarios = [
-  'mengira jumlah harga kuih untuk jualan sekolah',
-  'mengira purata markah murid',
-  'memeriksa had laju dari input pengguna',
-  'mengira bilangan barang yang dibeli',
-  'mengira gaji bulanan selepas potongan',
-];
-
-function rand<T>(arr: T[]) {
-  return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 9);
+interface QuizResultData {
+  isComplete: boolean;
+  totalScore: number;
+  correctCount: number;
+  totalQuestions: number;
+  feedback: Array<{
+    title: string;
+    explanation: string;
+  }>;
 }
 
-function generateChallenge(index: number): TroubleshootingChallenge {
-  // Choose a random type of bug from allowed Chapter 1 topics
-  const bugTypes = ['off-by-one', 'missing-semicolon', 'type-mismatch', 'missing-break', 'division-by-zero', 'uninitialized', 'index-out-of-bounds'];
-  const bug = rand(bugTypes);
-  const varName = rand(variableNames);
-  const scenario = rand(scenarios);
-  const difficulty = Math.random() < 0.5 ? 'Easy' : 'Medium';
-  const basePoints = difficulty === 'Easy' ? 10 : 20;
-
-  // Build different code templates (simple Java) with 1 bug each
-  if (bug === 'off-by-one') {
-    // for loop off-by-one causing index out of bounds or missed item
-    const arrName = varName + 'List';
-    const values = [2, 5, 3, 4].map(String).join(', ');
-    const code = `public class Main {
-    public static void main(String[] args) {
-        int[] ${arrName} = {${values}};
-        int total = 0;
-        for (int i = 0; i <= ${arrName}.length; i++) {
-            total += ${arrName}[i];
-        }
-        System.out.println("Jumlah: " + total);
-    }
-}`;
-    return {
-      id: `ch-${uid()}`,
-      title: { en: `Loop - ${scenario}`, ms: `Kawalan Ulangan - ${scenario}` },
-      description: { en: `Should sum values in ${arrName}, but off-by-one/index error.`, ms: `Program sepatutnya mengira jumlah nilai dalam array ${arrName}, tetapi terdapat ralat off-by-one atau indeks luar had.` },
-      codeBlock: code,
-      buggyLineIndex: 4, // zero-based (for loop line)
-      explanation: { en: 'Loop uses `i <= array.length` causing out-of-bounds access. Use `i < array.length`.', ms: 'Gelung menggunakan `i <= array.length` menyebabkan cuba akses indeks yang tidak wujud. Tukar kepada `i < array.length` untuk mengelakkan ArrayIndexOutOfBoundsException.' },
-      basePoints,
-    };
-  }
-
-  if (bug === 'missing-semicolon') {
-    const code = `public class Main {
-    public static void main(String[] args) {
-        int ${varName} = 10
-        System.out.println("Nilai: " + ${varName});
-    }
-}`;
-    return {
-      id: `ch-${uid()}`,
-      title: { en: `Syntax - ${scenario}`, ms: `Ralat Sintaks - ${scenario}` },
-      description: { en: `Should print variable ${varName} but missing semicolon causes syntax error.`, ms: `Program sepatutnya memaparkan nilai pembolehubah ${varName}, tetapi terdapat ralat sintaks.` },
-      codeBlock: code,
-      buggyLineIndex: 2, // missing semicolon line
-      explanation: { en: `Missing semicolon at end of statement. Add ";" to fix.`, ms: `Titik koma hilang pada akhir pernyataan \`int ${varName} = 10;\`. Tambah ";" untuk membetulkan ralat sintaks.` },
-      basePoints,
-    };
-  }
-
-  if (bug === 'type-mismatch') {
-    const code = `public class Main {
-    public static void main(String[] args) {
-        int ${varName} = "5";
-        System.out.println(${varName} + 2);
-    }
-}`;
-    return {
-      id: `ch-${uid()}`,
-      title: { en: `Data Type - ${scenario}`, ms: `Jenis Data - ${scenario}` },
-      description: { en: `Should add numbers but wrong data type used.`, ms: `Program sepatutnya menambah nombor tetapi menggunakan jenis data yang salah.` },
-      codeBlock: code,
-      buggyLineIndex: 2,
-      explanation: { en: 'Variable declared as int but assigned a string "5". Use `int var = 5;` or change type to String.', ms: 'Pembolehubah dideklarasikan sebagai `int` tetapi nilai diberikan sebagai string `"5"`. Gunakan `int ${varName} = 5;` atau tukar jenis kepada `String` jika mahu teks.' },
-      basePoints,
-    };
-  }
-
-  if (bug === 'missing-break') {
-    const code = `public class Main {
-    public static void main(String[] args) {
-        int pilihan = 2;
-        switch (pilihan) {
-            case 1:
-                System.out.println("Pilihan 1");
-            case 2:
-                System.out.println("Pilihan 2");
-            default:
-                System.out.println("Default");
-        }
-    }
-}`;
-    return {
-      id: `ch-${uid()}`,
-      title: { en: `Selection - ${scenario}`, ms: `Kawalan Pilihan - ${scenario}` },
-      description: { en: 'Switch-case falls through due to missing break statements.', ms: `Program menggunakan switch tetapi kekal melompat ke kes lain kerana break hilang. Betulkan untuk mengelakkan output berlebihan.` },
-      codeBlock: code,
-      buggyLineIndex: 5,
-      explanation: { en: 'Missing `break;` after case 1 causes fall-through. Add `break;` to stop execution from continuing to other cases.', ms: 'Ketiadaan `break;` dalam `case 1` menyebabkan eksekusi jatuh ke `case 2`. Tambah `break;` selepas `System.out.println("Pilihan 1");` untuk menghentikan jatuhan kes.' },
-      basePoints,
-    };
-  }
-
-  if (bug === 'division-by-zero') {
-    const code = `public class Main {
-    public static void main(String[] args) {
-        int pembahagi = 0;
-        int hasil = 10 / pembahagi;
-        System.out.println("Hasil: " + hasil);
-    }
-}`;
-    return {
-      id: `ch-${uid()}`,
-      title: { en: `Runtime Error - ${scenario}`, ms: `Ralat Masa Jalan - ${scenario}` },
-      description: { en: 'Division by zero will cause runtime error.', ms: `Program membahagi dengan pembahagi yang bernilai 0, yang menyebabkan runtime error.` },
-      codeBlock: code,
-      buggyLineIndex: 3,
-      explanation: { en: 'Divider is 0 causing ArithmeticException. Check divider before dividing.', ms: 'Pembahagi bernilai 0 menyebabkan `ArithmeticException` (division by zero). Periksa pembahagi sebelum operasi pembahagian atau pastikan ia bukan 0.' },
-      basePoints,
-    };
-  }
-
-  if (bug === 'uninitialized') {
-    const code = `public class Main {
-    public static void main(String[] args) {
-        int ${varName};
-        System.out.println(${varName});
-    }
-}`;
-    return {
-      id: `ch-${uid()}`,
-      title: { en: `Uninitialized Variable - ${scenario}`, ms: `Pembolehubah Tidak Diisytiharkan Nilai - ${scenario}` },
-      description: { en: 'Variable used before initialization.', ms: `Program cuba menggunakan pembolehubah yang belum diinisialisasi.` },
-      codeBlock: code,
-      buggyLineIndex: 3,
-      explanation: { en: 'Variable must be initialized before use, e.g. `int var = 0;`.', ms: 'Pembolehubah perlu diinisialisasi sebelum digunakan, contohnya `int ${varName} = 0;`.' },
-      basePoints,
-    };
-  }
-
-  // index-out-of-bounds
-  const arrName = varName + 'Arr';
-  const code = `public class Main {
-    public static void main(String[] args) {
-        int[] ${arrName} = {1, 2, 3};
-        System.out.println(${arrName}[3]);
-    }
-}`;
-  return {
-    id: `ch-${uid()}`,
-    title: { en: `Array & Index - ${scenario}`, ms: `Array & Indeks - ${scenario}` },
-    description: { en: 'Accessing an index outside array bounds.', ms: `Program cuba akses indeks yang tiada dalam array, menyebabkan ArrayIndexOutOfBoundsException.` },
-    codeBlock: code,
-    buggyLineIndex: 3,
-    explanation: { en: 'Max index is 2 for array {1,2,3}. Use index 2 or check length before access.', ms: 'Indeks maksimum untuk array {1,2,3} ialah 2. Akses `${arrName}[2]` atau semak panjang array sebelum mengakses.' },
-    basePoints,
-  };
-}
-
-export default function TroubleshootingScreen() {
+export default function TroubleshootingPlayScreen() {
   const { t, i18n } = useTranslation();
-  const { user, token } = useAuth();
   const router = useRouter();
+  const { token } = useAuth();
   const colorScheme = useColorScheme();
-  const [challenges, setChallenges] = useState<TroubleshootingChallenge[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedLine, setSelectedLine] = useState<number | null>(null);
-  const [answers, setAnswers] = useState<Array<{ id: string; challenge: TroubleshootingChallenge; selectedLine: number; correct: boolean; points: number }>>([]);
-  const [showResult, setShowResult] = useState(false);
-  const [startTime, setStartTime] = useState<number>(Date.now());
-  const [serverResult, setServerResult] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [correctSound, setCorrectSound] = useState<any | null>(null);
-  const [wrongSound, setWrongSound] = useState<any | null>(null);
+  const iconColor = useThemeColor({}, 'icon');
+  const textColor = useThemeColor({}, 'text');
+  const backgroundColor = colorScheme === 'dark' ? '#1a1a1a' : '#f5f5f5';
+  const cardBackgroundColor = colorScheme === 'dark' ? '#2a2a2a' : '#ffffff';
+  const cardBorderColor = colorScheme === 'dark' ? '#404040' : '#e0e0e0';
 
+  // State management
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [answers, setAnswers] = useState<Array<{ challenge: Challenge; selectedLine: number }>>([]);
+  const [startTime] = useState(Date.now());
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [resultVisible, setResultVisible] = useState(false);
+  const [quizResult, setQuizResult] = useState<QuizResultData | null>(null);
+  const [soundFX] = useState<{ correct?: Audio.Sound; wrong?: Audio.Sound }>({});
+
+  // Load sounds
   useEffect(() => {
-    // generate 10 random challenges
-    const generated: TroubleshootingChallenge[] = [];
-    for (let i = 0; i < 10; i++) {
-      generated.push(generateChallenge(i));
-    }
-    setChallenges(generated);
-    setStartTime(Date.now());
-    setIsLoading(false);
+    const loadSounds = async () => {
+      try {
+        const { sound: correctSound } = await Audio.Sound.createAsync(
+          require('@/assets/sounds/correct.mp3')
+        );
+        const { sound: wrongSound } = await Audio.Sound.createAsync(
+          require('@/assets/sounds/wrong.mp3')
+        );
+        soundFX.correct = correctSound;
+        soundFX.wrong = wrongSound;
+      } catch (error) {
+        console.log('Sound loading error (non-critical):', error);
+      }
+    };
+
+    loadSounds();
+
+    return () => {
+      soundFX.correct?.unloadAsync().catch(() => {});
+      soundFX.wrong?.unloadAsync().catch(() => {});
+    };
   }, []);
 
-  // Timer effect - update every 100ms
+  // Fetch quiz from server
   useEffect(() => {
-    if (showResult || isLoading) return;
+    const fetchQuiz = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `${API_URL}/api/games/troubleshooting/quiz`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
 
-    const interval = setInterval(() => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch quiz: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Received quiz:', data.length, 'challenges');
+        setChallenges(data);
+      } catch (error) {
+        console.error('Error fetching quiz:', error);
+        Alert.alert(t('Error'), t('Failed to load troubleshooting quiz'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchQuiz();
+    }
+  }, [token, t]);
+
+  // Timer effect
+  useEffect(() => {
+    if (loading || resultVisible) return;
+
+    const timer = setInterval(() => {
       setElapsedTime(Date.now() - startTime);
     }, 100);
 
-    return () => clearInterval(interval);
-  }, [startTime, showResult, isLoading]);
+    return () => clearInterval(timer);
+  }, [loading, resultVisible, startTime]);
 
+  // Format time display
   const formatTime = useCallback((ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    if (minutes > 0) return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    return `${totalSeconds}s`;
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const displaySeconds = seconds % 60;
+    return `${minutes}:${displaySeconds.toString().padStart(2, '0')}`;
   }, []);
 
-  const current = challenges[currentIndex];
-  const codeLines = useMemo(() => current?.codeBlock.split('\n') || [], [current]);
+  // Get current challenge
+  const currentChallenge = useMemo(() => {
+    return challenges[currentQuestionIndex] || null;
+  }, [challenges, currentQuestionIndex]);
 
-  if (isLoading || !current) {
+  // Code lines for display
+  const codeLines = useMemo(() => {
+    if (!currentChallenge) return [];
+    return currentChallenge.codeBlock.split('\n');
+  }, [currentChallenge]);
+
+  // Play sound effect
+  const playSound = useCallback(async (type: 'correct' | 'wrong') => {
+    try {
+      const sound = soundFX[type];
+      if (sound) {
+        await sound.replayAsync();
+      }
+    } catch (error) {
+      console.log('Sound playback error:', error);
+    }
+  }, [soundFX]);
+
+  // Handle answer submission
+  const handleAnswer = useCallback(async () => {
+    if (selectedLine === null || !currentChallenge) {
+      Alert.alert(t('Select an answer'), t('Please select a line'));
+      return;
+    }
+
+    const isCorrect = selectedLine === currentChallenge.buggyLineIndex;
+
+    if (isCorrect) {
+      await playSound('correct');
+    } else {
+      await playSound('wrong');
+    }
+
+    const newAnswers = [...answers, { challenge: currentChallenge, selectedLine }];
+    setAnswers(newAnswers);
+
+    if (currentQuestionIndex < challenges.length - 1) {
+      // Move to next question
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setSelectedLine(null);
+    } else {
+      // Submit quiz
+      await submitQuiz(newAnswers);
+    }
+  }, [selectedLine, currentChallenge, answers, currentQuestionIndex, challenges.length, playSound, t]);
+
+  // Submit quiz to server
+  const submitQuiz = useCallback(
+    async (finalAnswers: Array<{ challenge: Challenge; selectedLine: number }>) => {
+      try {
+        setSubmitting(true);
+        const totalTimeMs = Date.now() - startTime;
+
+        const response = await fetch(
+          `${API_URL}/api/games/submit-quiz?lang=${i18n.language}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              answers: finalAnswers,
+              totalTimeMs,
+              gameType: 'TROUBLESHOOTING_QUIZ',
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to submit quiz: ${response.status}`);
+        }
+
+        const result = await response.json();
+        setQuizResult(result);
+        setResultVisible(true);
+      } catch (error) {
+        console.error('Error submitting quiz:', error);
+        Alert.alert(t('Error'), t('Failed to submit quiz'));
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [token, startTime, i18n.language, t]
+  );
+
+  // Handle result modal close
+  const handleResultModalClose = useCallback(() => {
+    setResultVisible(false);
+    router.back();
+  }, [router]);
+
+  if (loading) {
     return (
-      <ThemedView style={styles.container}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Memuatkan...</Text>
-        </View>
-      </ThemedView>
+      <View style={[styles.container, { backgroundColor }]}>
+        <ActivityIndicator size="large" color={iconColor} />
+        <Text style={[styles.loadingText, { color: textColor }]}>
+          {t('Loading troubleshooting quiz')}...
+        </Text>
+      </View>
     );
   }
 
-  const handleSelectLine = (index: number) => {
-    setSelectedLine(index);
-  };
+  if (!currentChallenge) {
+    return (
+      <View style={[styles.container, { backgroundColor }]}>
+        <Text style={[styles.errorText, { color: textColor }]}>
+          {t('No quiz available')}
+        </Text>
+      </View>
+    );
+  }
 
-  const handleNext = async () => {
-    if (selectedLine === null) {
-      Alert.alert('Pilih satu baris', 'Sila pilih baris kod yang anda fikir mengandungi ralat.');
-      return;
-    }
-    const isCorrect = selectedLine === current.buggyLineIndex;
-    const points = isCorrect ? current.basePoints : 0;
-
-    const newAnswer = { id: current.id, challenge: current, selectedLine: selectedLine!, correct: isCorrect, points };
-    const newAnswers = [...answers, newAnswer];
-    setAnswers(newAnswers);
-
-    // Reset selection and move on
-    setSelectedLine(null);
-
-    const isLast = currentIndex + 1 >= challenges.length;
-    if (!isLast) {
-      setCurrentIndex(currentIndex + 1);
-      return;
-    }
-
-    // Submit to server
-    try {
-      const totalTimeMs = Date.now() - startTime;
-      const lang = i18n.language?.split('-')[0] || 'en';
-
-      const payloadAnswers = newAnswers.map((a) => ({ challenge: a.challenge, selectedLine: a.selectedLine }));
-
-      if (!token) {
-        // If no token, just show local result
-        setShowResult(true);
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/api/games/submit-quiz?lang=${lang}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ answers: payloadAnswers, totalTimeMs, gameType: 'TROUBLESHOOTING_QUIZ' }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.error('Submit error', data);
-        Alert.alert('Ralat', 'Gagal menghantar skor ke pelayan. Menunjukkan keputusan secara tempatan.');
-        setShowResult(true);
-        return;
-      }
-
-      setServerResult(data);
-      setShowResult(true);
-    } catch (err) {
-      console.error('Submission failed', err);
-      Alert.alert('Ralat', 'Ralat rangkaian semasa menghantar keputusan. Menunjukkan keputusan secara tempatan.');
-      setShowResult(true);
-    }
-  };
-
-  const totalPoints = answers.reduce((s, a) => s + a.points, 0);
-  const correctCount = answers.filter((a) => a.correct).length;
-  const currentLang: 'en' | 'ms' = (i18n.language?.split('-')[0] === 'ms' ? 'ms' : 'en');
+  const currentLanguage = i18n.language;
+  const langKey = (currentLanguage === 'ms' ? 'ms' : 'en') as 'en' | 'ms';
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={[styles.progressContainer, { backgroundColor: 'rgba(59, 130, 246, 0.05)' }]}>
-          <Text style={styles.progressText}>{`Soalan ${currentIndex + 1} / ${challenges.length}`}</Text>
-          <Text style={styles.progressText}>{formatTime(elapsedTime)}</Text>
-        </View>
-
-        <View style={styles.header}>
-          <ThemedText type="title">{t('game_ui.troubleshooting_title')}</ThemedText>
-          <Text style={styles.subtitle}>{current.title[currentLang]}</Text>
-          <Text style={styles.description}>{current.description[currentLang]}</Text>
-        </View>
-
-        <View style={styles.codeContainer}>
-          {codeLines.map((line, i) => {
-            const isSelected = selectedLine === i;
-            return (
-              <Pressable key={i} onPress={() => handleSelectLine(i)} style={[styles.codeLine, isSelected ? styles.selectedLine : null]}>
-                <Text style={styles.lineNumber}>{i + 1}</Text>
-                <Text style={styles.codeText}>{line.replace(/\t/g, '    ')}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.actions}>
-          <Pressable onPress={handleNext} style={styles.nextButton}>
-            <Text style={styles.nextButtonText}>{currentIndex + 1 === challenges.length ? 'Selesai' : 'Seterusnya'}</Text>
-          </Pressable>
-        </View>
-
-        {showResult && (
-          <View style={styles.resultBox}>
-            <Text style={styles.resultTitle}>Keputusan</Text>
-            <Text style={styles.resultText}>Betul: {correctCount} / {challenges.length}</Text>
-            <Text style={styles.resultText}>Mata: {totalPoints}</Text>
-
-            <View style={styles.feedbackList}>
-              {challenges.map((c, idx) => {
-                const ans = answers[idx];
-                const wasCorrect = ans?.correct;
-                return (
-                  <View key={c.id} style={styles.feedbackItem}>
-                    <Text style={styles.feedbackQ}>{idx + 1}. {c.title[currentLang]}</Text>
-                    <Text style={styles.feedbackA}>Jawapan anda: Baris { (answers[idx]?.selectedLine ?? -1) + 1 }</Text>
-                    <Text style={styles.feedbackA}>{wasCorrect ? 'Betul' : 'Salah'}</Text>
-                    <Text style={styles.feedbackExplain}>{c.explanation[currentLang]}</Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            <Pressable onPress={() => router.back()} style={styles.doneButton}>
-              <Text style={styles.doneText}>Kembali</Text>
-            </Pressable>
+    <View style={[styles.container, { backgroundColor }]}>
+      {/* Header with progress and timer */}
+      <View style={[styles.header, { borderBottomColor: cardBorderColor }]}>
+        <View style={styles.progressContainer}>
+          <Text style={[styles.progressText, { color: textColor }]}>
+            {t('Question')} {currentQuestionIndex + 1} / {challenges.length}
+          </Text>
+          <View style={[styles.progressBar, { backgroundColor: cardBorderColor }]}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${((currentQuestionIndex + 1) / challenges.length) * 100}%`,
+                  backgroundColor: '#4CAF50',
+                },
+              ]}
+            />
           </View>
-        )}
+        </View>
+        <View style={styles.timerContainer}>
+          <Text style={[styles.timerText, { color: '#FF9800' }]}>
+            {formatTime(elapsedTime)}
+          </Text>
+        </View>
+      </View>
 
+      <ScrollView
+        style={styles.contentContainer}
+        contentContainerStyle={styles.contentPadding}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Challenge Title and Description */}
+        <View style={[styles.challengeCard, { backgroundColor: cardBackgroundColor, borderColor: cardBorderColor }]}>
+          <Text style={[styles.challengeTitle, { color: textColor }]}>
+            {currentChallenge.title[langKey]}
+          </Text>
+          <Text style={[styles.challengeDescription, { color: textColor }]}>
+            {currentChallenge.description[langKey]}
+          </Text>
+        </View>
+
+        {/* Code Block */}
+        <View
+          style={[
+            styles.codeBlockContainer,
+            { backgroundColor: colorScheme === 'dark' ? '#0d0d0d' : '#f9f9f9', borderColor: cardBorderColor },
+          ]}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.codeScroll}
+          >
+            <View>
+              {codeLines.map((line, index) => (
+                <Pressable
+                  key={index}
+                  style={[
+                    styles.codeLine,
+                    selectedLine === index && styles.selectedCodeLine,
+                    {
+                      backgroundColor:
+                        selectedLine === index
+                          ? 'rgba(255, 193, 7, 0.3)'
+                          : 'transparent',
+                    },
+                  ]}
+                  onPress={() => setSelectedLine(index)}
+                >
+                  <Text style={[styles.lineNumber, { color: '#888' }]}>
+                    {index + 1}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.codeText,
+                      { color: selectedLine === index ? '#FFC107' : '#00BCD4' },
+                    ]}
+                  >
+                    {line}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Instruction text */}
+        <Text style={[styles.instructionText, { color: textColor }]}>
+          {t('Tap the line with the error')}
+        </Text>
+
+        {/* Submit/Next Button */}
+        <Pressable
+          style={[
+            styles.submitButton,
+            { backgroundColor: selectedLine !== null ? '#4CAF50' : '#CCCCCC' },
+          ]}
+          onPress={handleAnswer}
+          disabled={selectedLine === null || submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitButtonText}>
+              {currentQuestionIndex === challenges.length - 1
+                ? t('Finish')
+                : t('Next')}
+            </Text>
+          )}
+        </Pressable>
       </ScrollView>
-    </ThemedView>
+
+      {/* Result Modal */}
+      <Modal
+        visible={resultVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleResultModalClose}
+      >
+        <View style={styles.modalOverlay}>
+          <Animatable.View
+            animation="bounceIn"
+            duration={600}
+            style={[styles.modalContent, { backgroundColor: cardBackgroundColor }]}
+          >
+            {quizResult && (
+              <>
+                {/* Score Display */}
+                <View style={styles.scoreContainer}>
+                  <Text style={[styles.scoreLabel, { color: textColor }]}>
+                    {t('Total Score')}
+                  </Text>
+                  <Text style={styles.scoreValue}>{quizResult.totalScore}</Text>
+                  <Text style={[styles.correctText, { color: '#4CAF50' }]}>
+                    {t('Correct')}: {quizResult.correctCount} / {quizResult.totalQuestions}
+                  </Text>
+                </View>
+
+                {/* Feedback for wrong answers */}
+                {quizResult.feedback.length > 0 && (
+                  <View style={styles.feedbackContainer}>
+                    <Text style={[styles.feedbackTitle, { color: textColor }]}>
+                      {t('Areas to improve')}:
+                    </Text>
+                    <ScrollView style={styles.feedbackScroll}>
+                      {quizResult.feedback.map((item, index) => (
+                        <View
+                          key={index}
+                          style={[
+                            styles.feedbackItem,
+                            { backgroundColor: colorScheme === 'dark' ? '#3a3a3a' : '#f0f0f0' },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.feedbackItemTitle,
+                              { color: textColor },
+                            ]}
+                          >
+                            {item.title}
+                          </Text>
+                          <Text style={[styles.feedbackItemText, { color: textColor }]}>
+                            {item.explanation}
+                          </Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Close Button */}
+                <Pressable
+                  style={styles.closeButton}
+                  onPress={handleResultModalClose}
+                >
+                  <Text style={styles.closeButtonText}>{t('Close')}</Text>
+                </Pressable>
+              </>
+            )}
+          </Animatable.View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12 },
-  content: { paddingBottom: 40 },
-  header: { marginBottom: 12 },
-  progressContainer: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, borderRadius: 8, marginBottom: 8 },
-  progressText: { color: '#0F172A', fontWeight: '600' },
-  subtitle: { fontSize: 16, color: '#374151', marginTop: 4 },
-  description: { color: '#6B7280', marginTop: 6 },
-  progress: { marginTop: 6, color: '#4B5563' },
-  codeContainer: { backgroundColor: '#0F172A10', borderRadius: 8, padding: 8, marginTop: 12 },
-  codeLine: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 8, alignItems: 'center' },
-  selectedLine: { backgroundColor: '#60A5FA22' },
-  lineNumber: { width: 28, color: '#6B7280' },
-  codeText: { fontFamily: 'monospace', color: '#0F172A' },
-  actions: { marginTop: 16, alignItems: 'center' },
-  nextButton: { backgroundColor: '#2563EB', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  nextButtonText: { color: '#fff', fontWeight: '600' },
-  resultBox: { marginTop: 24, padding: 12, backgroundColor: '#F3F4F6', borderRadius: 8 },
-  resultTitle: { fontSize: 18, fontWeight: '700' },
-  resultText: { marginTop: 6 },
-  feedbackList: { marginTop: 8 },
-  feedbackItem: { marginTop: 8, padding: 8, backgroundColor: '#fff', borderRadius: 6 },
-  feedbackQ: { fontWeight: '600' },
-  feedbackA: { marginTop: 4 },
-  feedbackExplain: { marginTop: 6, color: '#6B7280' },
-  doneButton: { marginTop: 12, backgroundColor: '#10B981', padding: 10, borderRadius: 6, alignItems: 'center' },
-  doneText: { color: '#fff', fontWeight: '700' },
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  progressContainer: {
+    marginBottom: 8,
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+  },
+  timerContainer: {
+    alignItems: 'flex-end',
+  },
+  timerText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  contentContainer: {
+    flex: 1,
+  },
+  contentPadding: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 100,
+  },
+  challengeCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  challengeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  challengeDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  codeBlockContainer: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  codeScroll: {
+    paddingHorizontal: 12,
+  },
+  codeLine: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  selectedCodeLine: {
+    borderRadius: 4,
+  },
+  lineNumber: {
+    width: 30,
+    textAlign: 'right',
+    marginRight: 12,
+    fontFamily: 'Courier New',
+    fontSize: 12,
+  },
+  codeText: {
+    fontFamily: 'Courier New',
+    fontSize: 12,
+    minWidth: 250,
+  },
+  instructionText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  submitButton: {
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    borderRadius: 16,
+    padding: 24,
+    maxHeight: '80%',
+    width: SCREEN_WIDTH - 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  scoreContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  scoreLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  scoreValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    marginBottom: 8,
+  },
+  correctText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  feedbackContainer: {
+    marginBottom: 20,
+    maxHeight: 250,
+  },
+  feedbackTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  feedbackScroll: {
+    maxHeight: 200,
+  },
+  feedbackItem: {
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  feedbackItemTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  feedbackItemText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  closeButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
 });

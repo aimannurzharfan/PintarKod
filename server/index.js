@@ -1685,9 +1685,8 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
 
       if (isCorrect) {
         correctCount++;
-        // Calculate score for this *one* question
-        const score = Math.max(100, challenge.basePoints - Math.floor(timePerQuestion / 100));
-        totalScore += score;
+        // CONSISTENT SCORING: Same for both games - 100 points per correct answer
+        totalScore += 100;
       } else {
         // Add wrong answer to feedback array
         feedback.push({

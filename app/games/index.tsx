@@ -21,6 +21,8 @@ type GameCard = {
   description: string;
   icon: keyof typeof Feather.glyphMap;
   enabled: boolean;
+  color: string; // Main theme color
+  lightColor: string; // Light background
   onPress?: () => void;
 };
 
@@ -61,6 +63,8 @@ export default function GamesIndexScreen() {
         description: t('game_ui.debugging_desc'),
         icon: 'alert-triangle',
         enabled: true,
+        color: '#F59E0B', // Yellow/Orange
+        lightColor: 'rgba(245, 158, 11, 0.1)',
         onPress: onPlayRandomChallenge,
       },
       {
@@ -69,6 +73,8 @@ export default function GamesIndexScreen() {
         description: t('game_ui.troubleshooting_desc'),
         icon: 'settings',
         enabled: true,
+        color: '#EF4444', // Red
+        lightColor: 'rgba(239, 68, 68, 0.1)',
         onPress: onPlayTroubleshooting,
       },
       {
@@ -77,6 +83,8 @@ export default function GamesIndexScreen() {
         description: t('game_ui.programming_desc'),
         icon: 'code',
         enabled: false,
+        color: '#10B981', // Green
+        lightColor: 'rgba(16, 185, 129, 0.1)',
       },
       {
         id: 'puzzle',
@@ -84,9 +92,11 @@ export default function GamesIndexScreen() {
         description: t('game_ui.puzzle_desc'),
         icon: 'grid',
         enabled: false,
+        color: '#3B82F6', // Blue
+        lightColor: 'rgba(59, 130, 246, 0.1)',
       },
     ],
-    [t, onPlayRandomChallenge]
+    [t, onPlayRandomChallenge, onPlayTroubleshooting]
   );
 
   const onNavigateToLeaderboard = useCallback(() => {
@@ -117,16 +127,12 @@ export default function GamesIndexScreen() {
                   !game.enabled && styles.challengeCardDisabled,
                   {
                     backgroundColor: game.enabled
-                      ? colorScheme === 'dark'
-                        ? 'rgba(59, 130, 246, 0.1)'
-                        : 'rgba(59, 130, 246, 0.05)'
+                      ? game.lightColor
                       : colorScheme === 'dark'
                       ? 'rgba(148, 163, 184, 0.05)'
                       : 'rgba(148, 163, 184, 0.02)',
                     borderColor: game.enabled
-                      ? colorScheme === 'dark'
-                        ? 'rgba(59, 130, 246, 0.3)'
-                        : 'rgba(59, 130, 246, 0.2)'
+                      ? game.color
                       : colorScheme === 'dark'
                       ? 'rgba(148, 163, 184, 0.2)'
                       : 'rgba(148, 163, 184, 0.1)',
@@ -141,9 +147,7 @@ export default function GamesIndexScreen() {
                     styles.challengeIconWrapper,
                     {
                       backgroundColor: game.enabled
-                        ? colorScheme === 'dark'
-                          ? 'rgba(59, 130, 246, 0.15)'
-                          : 'rgba(59, 130, 246, 0.1)'
+                        ? game.lightColor
                         : colorScheme === 'dark'
                         ? 'rgba(148, 163, 184, 0.1)'
                         : 'rgba(148, 163, 184, 0.05)',

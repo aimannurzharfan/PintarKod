@@ -1,25 +1,19 @@
 import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Alert,
-  Dimensions,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   useColorScheme,
-  View
+  View,
 } from 'react-native';
-import * as Animatable from 'react-native-animatable';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface Challenge {
   title: { en: string; ms: string };
@@ -30,422 +24,297 @@ interface Challenge {
   basePoints: number;
 }
 
-interface QuizResultData {
-  isComplete: boolean;
-  totalScore: number;
-  correctCount: number;
-  totalQuestions: number;
-  feedback: Array<{
-    title: string;
-    explanation: string;
-  }>;
-}
-
-export default function TroubleshootingPlayScreen() {
+export default function TroubleshootingGame() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const { token } = useAuth();
   const colorScheme = useColorScheme();
-  const iconColor = useThemeColor({}, 'icon');
-  const textColor = useThemeColor({}, 'text');
-  const backgroundColor = colorScheme === 'dark' ? '#1a1a1a' : '#f5f5f5';
-  const cardBackgroundColor = colorScheme === 'dark' ? '#2a2a2a' : '#ffffff';
-  const cardBorderColor = colorScheme === 'dark' ? '#404040' : '#e0e0e0';
-
-  // State management
+  
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [answers, setAnswers] = useState<Array<{ challenge: Challenge; selectedLine: number }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showResults, setShowResults] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [totalScore, setTotalScore] = useState(0);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [resultVisible, setResultVisible] = useState(false);
-  const [quizResult, setQuizResult] = useState<QuizResultData | null>(null);
-  const [soundFX] = useState<{ correct?: Audio.Sound; wrong?: Audio.Sound }>({});
+  const [userAnswers, setUserAnswers] = useState<Array<{
+    challenge: Challenge;
+    selectedLine: number;
+  }>>([]);
+  
+  // Sound effects
+  const [soundCorrect, setSoundCorrect] = useState<Audio.Sound | null>(null);
+  const [soundWrong, setSoundWrong] = useState<Audio.Sound | null>(null);
+
+  const isDark = colorScheme === 'dark';
+  const currentLang = i18n.language?.split('-')[0] || 'en';
+  const challenge = challenges[currentQuestionIndex];
+  const codeLines = challenge?.codeBlock.split('\n') || [];
+
+  // Timer
+  useEffect(() => {
+    if (!showResults) {
+      const interval = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [startTime, showResults]);
 
   // Load sounds
   useEffect(() => {
-    const loadSounds = async () => {
-      try {
-        const { sound: correctSound } = await Audio.Sound.createAsync(
-          require('@/assets/sounds/correct.mp3')
-        );
-        const { sound: wrongSound } = await Audio.Sound.createAsync(
-          require('@/assets/sounds/wrong.mp3')
-        );
-        soundFX.correct = correctSound;
-        soundFX.wrong = wrongSound;
-      } catch (error) {
-        console.log('Sound loading error (non-critical):', error);
-      }
-    };
+    let correct: Audio.Sound | null = null;
+    let wrong: Audio.Sound | null = null;
 
-    loadSounds();
+    Audio.Sound.createAsync(require('@/assets/sounds/correct.mp3'))
+      .then(({ sound }) => {
+        correct = sound;
+        setSoundCorrect(sound);
+      })
+      .catch(() => {});
+
+    Audio.Sound.createAsync(require('@/assets/sounds/wrong.mp3'))
+      .then(({ sound }) => {
+        wrong = sound;
+        setSoundWrong(sound);
+      })
+      .catch(() => {});
 
     return () => {
-      soundFX.correct?.unloadAsync().catch(() => {});
-      soundFX.wrong?.unloadAsync().catch(() => {});
+      correct?.unloadAsync();
+      wrong?.unloadAsync();
     };
   }, []);
 
-  // Fetch quiz from server
+  // Fetch quiz
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
-        setLoading(true);
-        const response = await fetch(
-          `${API_URL}/api/games/troubleshooting/quiz`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch quiz: ${response.status}`);
-        }
-
+        const response = await fetch(`${API_URL}/api/games/troubleshooting/quiz`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await response.json();
-        console.log('Received quiz:', data.length, 'challenges');
         setChallenges(data);
+        setIsLoading(false);
       } catch (error) {
-        console.error('Error fetching quiz:', error);
-        Alert.alert(t('Error'), t('Failed to load troubleshooting quiz'));
-      } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
+    fetchQuiz();
+  }, [token]);
 
-    if (token) {
-      fetchQuiz();
-    }
-  }, [token, t]);
+  const handleSubmit = useCallback(async () => {
+    if (selectedLine === null) return;
 
-  // Timer effect
-  useEffect(() => {
-    if (loading || resultVisible) return;
-
-    const timer = setInterval(() => {
-      setElapsedTime(Date.now() - startTime);
-    }, 100);
-
-    return () => clearInterval(timer);
-  }, [loading, resultVisible, startTime]);
-
-  // Format time display
-  const formatTime = useCallback((ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const displaySeconds = seconds % 60;
-    return `${minutes}:${displaySeconds.toString().padStart(2, '0')}`;
-  }, []);
-
-  // Get current challenge
-  const currentChallenge = useMemo(() => {
-    return challenges[currentQuestionIndex] || null;
-  }, [challenges, currentQuestionIndex]);
-
-  // Code lines for display
-  const codeLines = useMemo(() => {
-    if (!currentChallenge) return [];
-    return currentChallenge.codeBlock.split('\n');
-  }, [currentChallenge]);
-
-  // Play sound effect
-  const playSound = useCallback(async (type: 'correct' | 'wrong') => {
-    try {
-      const sound = soundFX[type];
-      if (sound) {
-        await sound.replayAsync();
-      }
-    } catch (error) {
-      console.log('Sound playback error:', error);
-    }
-  }, [soundFX]);
-
-  // Handle answer submission
-  const handleAnswer = useCallback(async () => {
-    if (selectedLine === null || !currentChallenge) {
-      Alert.alert(t('Select an answer'), t('Please select a line'));
-      return;
-    }
-
-    const isCorrect = selectedLine === currentChallenge.buggyLineIndex;
-
-    if (isCorrect) {
-      await playSound('correct');
+    const correct = selectedLine === challenge.buggyLineIndex;
+    setIsCorrect(correct);
+    setShowFeedback(true);
+    
+    if (correct) {
+      soundCorrect?.replayAsync()?.catch(() => {});
     } else {
-      await playSound('wrong');
+      soundWrong?.replayAsync()?.catch(() => {});
     }
 
-    const newAnswers = [...answers, { challenge: currentChallenge, selectedLine }];
-    setAnswers(newAnswers);
+    const newAnswers = [...userAnswers, {
+      challenge,
+      selectedLine,
+    }];
+    setUserAnswers(newAnswers);
+  }, [selectedLine, challenge, userAnswers, soundCorrect, soundWrong]);
 
+  const handleContinue = useCallback(async () => {
+    setShowFeedback(false);
+    
     if (currentQuestionIndex < challenges.length - 1) {
-      // Move to next question
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedLine(null);
     } else {
-      // Submit quiz
-      await submitQuiz(newAnswers);
-    }
-  }, [selectedLine, currentChallenge, answers, currentQuestionIndex, challenges.length, playSound, t]);
-
-  // Submit quiz to server
-  const submitQuiz = useCallback(
-    async (finalAnswers: Array<{ challenge: Challenge; selectedLine: number }>) => {
+      // Submit quiz - userAnswers now has all answers
       try {
-        setSubmitting(true);
-        const totalTimeMs = Date.now() - startTime;
-
-        const response = await fetch(
-          `${API_URL}/api/games/submit-quiz?lang=${i18n.language}`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              answers: finalAnswers,
-              totalTimeMs,
-              gameType: 'TROUBLESHOOTING_QUIZ',
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to submit quiz: ${response.status}`);
-        }
-
+        const response = await fetch(`${API_URL}/api/games/submit-quiz`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            answers: userAnswers, // All answers included
+            totalTimeMs: elapsedTime * 1000, // Convert to milliseconds
+            gameType: 'TROUBLESHOOTING_QUIZ',
+          }),
+        });
         const result = await response.json();
-        setQuizResult(result);
-        setResultVisible(true);
+        console.log('Troubleshooting result:', result);
+        setTotalScore(result.totalScore || 0);
+        setShowResults(true);
       } catch (error) {
-        console.error('Error submitting quiz:', error);
-        Alert.alert(t('Error'), t('Failed to submit quiz'));
-      } finally {
-        setSubmitting(false);
+        console.error('Submit error:', error);
+        setShowResults(true);
       }
-    },
-    [token, startTime, i18n.language, t]
-  );
+    }
+  }, [currentQuestionIndex, challenges.length, userAnswers, token, elapsedTime]);
 
-  // Handle result modal close
-  const handleResultModalClose = useCallback(() => {
-    setResultVisible(false);
-    router.back();
-  }, [router]);
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <ActivityIndicator size="large" color={iconColor} />
-        <Text style={[styles.loadingText, { color: textColor }]}>
-          {t('Loading troubleshooting quiz')}...
-        </Text>
+      <View style={[styles.container, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#F59E0B" />
+          <Text style={[styles.loadingText, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+            Loading Java Challenges...
+          </Text>
+        </View>
       </View>
     );
   }
 
-  if (!currentChallenge) {
-    return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <Text style={[styles.errorText, { color: textColor }]}>
-          {t('No quiz available')}
-        </Text>
-      </View>
-    );
-  }
-
-  const currentLanguage = i18n.language;
-  const langKey = (currentLanguage === 'ms' ? 'ms' : 'en') as 'en' | 'ms';
+  if (!challenge) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
-      {/* Header with progress and timer */}
-      <View style={[styles.header, { borderBottomColor: cardBorderColor }]}>
-        <View style={styles.progressContainer}>
-          <Text style={[styles.progressText, { color: textColor }]}>
-            {t('Question')} {currentQuestionIndex + 1} / {challenges.length}
-          </Text>
-          <View style={[styles.progressBar, { backgroundColor: cardBorderColor }]}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${((currentQuestionIndex + 1) / challenges.length) * 100}%`,
-                  backgroundColor: '#4CAF50',
-                },
-              ]}
-            />
+    <View style={[styles.container, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+          <View style={styles.headerTop}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Text style={{ fontSize: 20 }}>←</Text>
+            </Pressable>
+            <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+              🔍 Bug Detective
+            </Text>
+            <View style={{ width: 40 }} />
+          </View>
+          
+          {/* Progress */}
+          <View style={styles.progressSection}>
+            <Text style={[styles.questionNumber, { color: '#F59E0B' }]}>
+              Case {currentQuestionIndex + 1} of {challenges.length}
+            </Text>
+            <View style={styles.progressBarContainer}>
+              <View 
+                style={[
+                  styles.progressBarFill, 
+                  { width: `${((currentQuestionIndex + 1) / challenges.length) * 100}%` }
+                ]} 
+              />
+            </View>
+          </View>
+
+          {/* Timer */}
+          <View style={styles.timerBadge}>
+            <Text style={{ fontSize: 14 }}>⏱️</Text>
+            <Text style={styles.timerText}>{elapsedTime}s</Text>
           </View>
         </View>
-        <View style={styles.timerContainer}>
-          <Text style={[styles.timerText, { color: '#FF9800' }]}>
-            {formatTime(elapsedTime)}
-          </Text>
-        </View>
-      </View>
 
-      <ScrollView
-        style={styles.contentContainer}
-        contentContainerStyle={styles.contentPadding}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Challenge Title and Description */}
-        <View style={[styles.challengeCard, { backgroundColor: cardBackgroundColor, borderColor: cardBorderColor }]}>
-          <Text style={[styles.challengeTitle, { color: textColor }]}>
-            {currentChallenge.title[langKey]}
-          </Text>
-          <Text style={[styles.challengeDescription, { color: textColor }]}>
-            {currentChallenge.description[langKey]}
-          </Text>
-        </View>
-
-        {/* Code Block */}
-        <View
-          style={[
-            styles.codeBlockContainer,
-            { backgroundColor: colorScheme === 'dark' ? '#0d0d0d' : '#f9f9f9', borderColor: cardBorderColor },
-          ]}
-        >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.codeScroll}
-          >
-            <View>
-              {codeLines.map((line, index) => (
-                <Pressable
-                  key={index}
-                  style={[
-                    styles.codeLine,
-                    selectedLine === index && styles.selectedCodeLine,
-                    {
-                      backgroundColor:
-                        selectedLine === index
-                          ? 'rgba(255, 193, 7, 0.3)'
-                          : 'transparent',
-                    },
-                  ]}
-                  onPress={() => setSelectedLine(index)}
-                >
-                  <Text style={[styles.lineNumber, { color: '#888' }]}>
-                    {index + 1}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.codeText,
-                      { color: selectedLine === index ? '#FFC107' : '#00BCD4' },
-                    ]}
-                  >
-                    {line}
-                  </Text>
-                </Pressable>
-              ))}
+        {/* Challenge Card */}
+        <View style={[styles.challengeCard, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+          <View style={styles.challengeHeader}>
+            <View style={styles.bugIcon}>
+              <Text style={styles.bugEmoji}>🕵️</Text>
             </View>
-          </ScrollView>
-        </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.challengeTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                {currentLang === 'ms' ? challenge.title.ms : challenge.title.en}
+              </Text>
+              <Text style={[styles.challengeDescription, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                {currentLang === 'ms' ? challenge.description.ms : challenge.description.en}
+              </Text>
+            </View>
+          </View>
 
-        {/* Instruction text */}
-        <Text style={[styles.instructionText, { color: textColor }]}>
-          {t('Tap the line with the error')}
-        </Text>
+          {/* Code Block */}
+          <View style={[styles.codeContainer, { 
+            backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
+            borderColor: isDark ? '#334155' : '#E2E8F0',
+          }]}>
+            <View style={styles.codeHeader}>
+              <Text style={{ fontSize: 12 }}>📄</Text>
+              <Text style={[styles.codeHeaderText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                Main.java
+              </Text>
+            </View>
+            {codeLines.map((line, index) => (
+              <Pressable
+                key={index}
+                style={[
+                  styles.codeLine,
+                  selectedLine === index && {
+                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)',
+                    borderLeftColor: '#F59E0B',
+                    borderLeftWidth: 3,
+                  },
+                ]}
+                onPress={() => setSelectedLine(index)}
+              >
+                <Text style={[styles.lineNumber, { color: isDark ? '#475569' : '#94A3B8' }]}>
+                  {index + 1}
+                </Text>
+                <Text style={[styles.codeText, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                  {line || ' '}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
 
-        {/* Submit/Next Button */}
-        <Pressable
-          style={[
-            styles.submitButton,
-            { backgroundColor: selectedLine !== null ? '#4CAF50' : '#CCCCCC' },
-          ]}
-          onPress={handleAnswer}
-          disabled={selectedLine === null || submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
+          {/* Submit Button */}
+          <Pressable
+            style={[
+              styles.submitButton,
+              selectedLine === null && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={selectedLine === null}
+          >
             <Text style={styles.submitButtonText}>
-              {currentQuestionIndex === challenges.length - 1
-                ? t('Finish')
-                : t('Next')}
+              {currentQuestionIndex < challenges.length - 1 ? '✓ Submit Answer' : '🏁 Finish'}
             </Text>
-          )}
-        </Pressable>
+          </Pressable>
+        </View>
       </ScrollView>
 
-      {/* Result Modal */}
-      <Modal
-        visible={resultVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={handleResultModalClose}
-      >
+      {/* Feedback Modal */}
+      <Modal visible={showFeedback} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
-          <Animatable.View
-            animation="bounceIn"
-            duration={600}
-            style={[styles.modalContent, { backgroundColor: cardBackgroundColor }]}
-          >
-            {quizResult && (
-              <>
-                {/* Score Display */}
-                <View style={styles.scoreContainer}>
-                  <Text style={[styles.scoreLabel, { color: textColor }]}>
-                    {t('Total Score')}
-                  </Text>
-                  <Text style={styles.scoreValue}>{quizResult.totalScore}</Text>
-                  <Text style={[styles.correctText, { color: '#4CAF50' }]}>
-                    {t('Correct')}: {quizResult.correctCount} / {quizResult.totalQuestions}
-                  </Text>
-                </View>
+          <View style={[styles.feedbackModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+            <Text style={{ fontSize: 64 }}>{isCorrect ? '✅' : '❌'}</Text>
+            <Text style={[styles.feedbackTitle, { color: isCorrect ? '#10B981' : '#EF4444' }]}>
+              {isCorrect ? 'Correct!' : 'Wrong!'}
+            </Text>
+            <Text style={[styles.feedbackText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+              {currentLang === 'ms' ? challenge?.explanation.ms : challenge?.explanation.en}
+            </Text>
+            <Pressable style={[styles.continueButton, { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }]} onPress={handleContinue}>
+              <Text style={styles.continueButtonText}>
+                {currentQuestionIndex < challenges.length - 1 ? 'Next Case →' : 'See Results'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
-                {/* Feedback for wrong answers */}
-                {quizResult.feedback.length > 0 && (
-                  <View style={styles.feedbackContainer}>
-                    <Text style={[styles.feedbackTitle, { color: textColor }]}>
-                      {t('Areas to improve')}:
-                    </Text>
-                    <ScrollView style={styles.feedbackScroll}>
-                      {quizResult.feedback.map((item, index) => (
-                        <View
-                          key={index}
-                          style={[
-                            styles.feedbackItem,
-                            { backgroundColor: colorScheme === 'dark' ? '#3a3a3a' : '#f0f0f0' },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.feedbackItemTitle,
-                              { color: textColor },
-                            ]}
-                          >
-                            {item.title}
-                          </Text>
-                          <Text style={[styles.feedbackItemText, { color: textColor }]}>
-                            {item.explanation}
-                          </Text>
-                        </View>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-
-                {/* Close Button */}
-                <Pressable
-                  style={styles.closeButton}
-                  onPress={handleResultModalClose}
-                >
-                  <Text style={styles.closeButtonText}>{t('Close')}</Text>
-                </Pressable>
-              </>
-            )}
-          </Animatable.View>
+      {/* Results Modal */}
+      <Modal visible={showResults} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+            <Text style={styles.resultsEmoji}>🎉</Text>
+            <Text style={[styles.resultsTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+              All Cases Solved!
+            </Text>
+            <View style={styles.scoreCard}>
+              <Text style={styles.scoreLabel}>Your Score</Text>
+              <Text style={styles.scoreValue}>{totalScore}</Text>
+              <Text style={[styles.scoreSubtext, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                {totalScore >= 800 ? '🏆 Master Detective!' : totalScore >= 600 ? '👍 Good Work!' : '💪 Keep Investigating!'}
+              </Text>
+            </View>
+            <Pressable style={styles.closeButton} onPress={() => router.back()}>
+              <Text style={styles.closeButtonText}>Back to Games</Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
     </View>
@@ -453,188 +322,49 @@ export default function TroubleshootingPlayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  progressContainer: {
-    marginBottom: 8,
-  },
-  progressText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-  },
-  timerContainer: {
-    alignItems: 'flex-end',
-  },
-  timerText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  contentPadding: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingBottom: 100,
-  },
-  challengeCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-  },
-  challengeTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  challengeDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  codeBlockContainer: {
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  codeScroll: {
-    paddingHorizontal: 12,
-  },
-  codeLine: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  selectedCodeLine: {
-    borderRadius: 4,
-  },
-  lineNumber: {
-    width: 30,
-    textAlign: 'right',
-    marginRight: 12,
-    fontFamily: 'Courier New',
-    fontSize: 12,
-  },
-  codeText: {
-    fontFamily: 'Courier New',
-    fontSize: 12,
-    minWidth: 250,
-  },
-  instructionText: {
-    fontSize: 14,
-    fontStyle: 'italic',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  submitButton: {
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    borderRadius: 16,
-    padding: 24,
-    maxHeight: '80%',
-    width: SCREEN_WIDTH - 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  scoreContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  scoreLabel: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  scoreValue: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginBottom: 8,
-  },
-  correctText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  feedbackContainer: {
-    marginBottom: 20,
-    maxHeight: 250,
-  },
-  feedbackTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  feedbackScroll: {
-    maxHeight: 200,
-  },
-  feedbackItem: {
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  feedbackItemTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  feedbackItemText: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  closeButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
+  loadingText: { fontSize: 16, fontWeight: '600' },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 16, gap: 16 },
+  header: { borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(245, 158, 11, 0.1)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 24, fontWeight: '800' },
+  progressSection: { gap: 8 },
+  questionNumber: { fontSize: 14, fontWeight: '700' },
+  progressBarContainer: { height: 8, backgroundColor: 'rgba(245, 158, 11, 0.15)', borderRadius: 4, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#F59E0B', borderRadius: 4 },
+  timerBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(245, 158, 11, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, alignSelf: 'flex-start', marginTop: 12 },
+  timerText: { fontSize: 14, fontWeight: '700', color: '#F59E0B' },
+  challengeCard: { borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, gap: 20 },
+  challengeHeader: { flexDirection: 'row', gap: 12 },
+  bugIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(245, 158, 11, 0.1)', alignItems: 'center', justifyContent: 'center' },
+  bugEmoji: { fontSize: 24 },
+  challengeTitle: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
+  challengeDescription: { fontSize: 14, lineHeight: 20 },
+  codeContainer: { borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+  codeHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(245, 158, 11, 0.05)' },
+  codeHeaderText: { fontSize: 12, fontWeight: '600' },
+  codeLine: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 12, gap: 12 },
+  lineNumber: { fontSize: 14, fontFamily: 'monospace', minWidth: 24, textAlign: 'right' },
+  codeText: { fontSize: 14, fontFamily: 'monospace', flex: 1 },
+  submitButton: { backgroundColor: '#F59E0B', borderRadius: 16, paddingVertical: 18, alignItems: 'center', shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  submitButtonDisabled: { backgroundColor: '#94A3B8', opacity: 0.5 },
+  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { width: '100%', maxWidth: 400, borderRadius: 24, padding: 32, alignItems: 'center', gap: 20 },
+  resultsEmoji: { fontSize: 64 },
+  resultsTitle: { fontSize: 28, fontWeight: '800' },
+  scoreCard: { alignItems: 'center', gap: 8 },
+  scoreLabel: { fontSize: 14, fontWeight: '600', color: '#F59E0B' },
+  scoreValue: { fontSize: 56, fontWeight: '900', color: '#F59E0B' },
+  scoreSubtext: { fontSize: 16, fontWeight: '600' },
+  closeButton: { backgroundColor: '#F59E0B', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 32, width: '100%' },
+  closeButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  feedbackModal: { width: '90%', maxWidth: 400, borderRadius: 24, padding: 32, alignItems: 'center', gap: 16 },
+  feedbackTitle: { fontSize: 28, fontWeight: '800' },
+  feedbackText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  continueButton: { borderRadius: 16, paddingVertical: 16, paddingHorizontal: 32, width: '100%', marginTop: 8 },
+  continueButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', textAlign: 'center' },
 });

@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { generateRandomDebugChallenge } = require('./gameGenerator');
+const { generateRandomDebugChallenge, generateRandomTroubleshootingChallenge } = require('./gameGenerator');
 
 const app = express();
 app.use(cors());
@@ -1626,6 +1626,29 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/games/troubleshooting/quiz - Get a 10-question troubleshooting quiz
+app.get('/api/games/troubleshooting/quiz', authMiddleware, (req, res) => {
+  try {
+    const challenges = [];
+    
+    // Generate 30 random challenges, then pick 10 to avoid repetition
+    for (let i = 0; i < 30; i++) {
+      challenges.push(generateRandomTroubleshootingChallenge());
+    }
+    
+    // Shuffle and take first 10
+    challenges.sort(() => Math.random() - 0.5);
+    const quizChallenges = challenges.slice(0, 10);
+    
+    console.log('Generated', quizChallenges.length, 'troubleshooting challenges');
+    res.json(quizChallenges); // Returns an array of 10 challenges
+  } catch (err) {
+    console.error('Error generating troubleshooting quiz:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
+  }
+});
+
 // POST /api/games/submit-quiz - Submits a full 10-question quiz
 app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
   try {
@@ -1647,8 +1670,18 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     const feedback = []; // Array to store wrong answers
 
     for (const answer of answers) {
-      const { challenge, selectedLine } = answer;
-      const isCorrect = (challenge.buggyLineIndex === selectedLine);
+      const { challenge, selectedLine, selectedFix } = answer;
+      
+      // For debugging challenges with fix options, validate both line and fix
+      let isCorrect = false;
+      if (challenge.fixOptions && challenge.correctFix) {
+        // New debugging mechanics: check both line and fix
+        isCorrect = (challenge.buggyLineIndex === selectedLine) && 
+                    (selectedFix === challenge.correctFix);
+      } else {
+        // Troubleshooting or old format: just check line
+        isCorrect = (challenge.buggyLineIndex === selectedLine);
+      }
 
       if (isCorrect) {
         correctCount++;
@@ -1692,24 +1725,55 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/leaderboard - Get top 50 users and current user's rank
+// GET /api/leaderboard - Get top 50 users and current user's rank (aggregated by game type)
 app.get('/api/leaderboard', authMiddleware, async (req, res) => {
   try {
     const currentUserId = req.user.id;
 
-    // Get all scores grouped by userId with user information
-    const scoresByUser = await prisma.gameScore.groupBy({
-      by: ['userId'],
-      _max: {
+    // Get all game scores
+    const allScores = await prisma.gameScore.findMany({
+      select: {
+        userId: true,
         score: true,
+        gameType: true,
       },
     });
 
-    // Sort by high score descending
-    scoresByUser.sort((a, b) => (b._max.score || 0) - (a._max.score || 0));
+    // Group scores by userId and gameType, getting the best score for each combination
+    const userGameScores = {};
+    for (const scoreRecord of allScores) {
+      const key = `${scoreRecord.userId}_${scoreRecord.gameType}`;
+      if (!userGameScores[key]) {
+        userGameScores[key] = {
+          userId: scoreRecord.userId,
+          gameType: scoreRecord.gameType,
+          score: scoreRecord.score,
+        };
+      } else {
+        // Keep the highest score for this user+gameType combination
+        userGameScores[key].score = Math.max(userGameScores[key].score, scoreRecord.score);
+      }
+    }
+
+    // Aggregate total score by userId (sum of best scores per gameType)
+    const userTotalScores = {};
+    for (const scoreRecord of Object.values(userGameScores)) {
+      if (!userTotalScores[scoreRecord.userId]) {
+        userTotalScores[scoreRecord.userId] = 0;
+      }
+      userTotalScores[scoreRecord.userId] += scoreRecord.score;
+    }
+
+    // Create sorted leaderboard
+    const sortedUsers = Object.entries(userTotalScores)
+      .map(([userId, totalScore]) => ({
+        userId: parseInt(userId),
+        totalScore,
+      }))
+      .sort((a, b) => b.totalScore - a.totalScore);
 
     // Get user details for all users with scores
-    const userIds = scoresByUser.map((item) => item.userId);
+    const userIds = sortedUsers.map((item) => item.userId);
     const users = await prisma.user.findMany({
       where: {
         id: { in: userIds },
@@ -1717,8 +1781,8 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
       select: {
         id: true,
         username: true,
-        avatarUrl: true,     // Explicitly select avatarUrl
-        profileImage: true,  // Explicitly select profileImage
+        avatarUrl: true,
+        profileImage: true,
         role: true,
         badge: {
           select: {
@@ -1728,54 +1792,30 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
       },
     });
 
-    // Debug: Log to verify image data is being fetched
-    console.log('Leaderboard - Fetched users:', users.length);
-    if (users.length > 0) {
-      const sampleUser = users[0];
-      console.log('Sample user data:', {
-        username: sampleUser.username,
-        hasAvatarUrl: !!sampleUser.avatarUrl,
-        hasProfileImage: !!sampleUser.profileImage,
-        avatarUrlLength: sampleUser.avatarUrl?.length || 0,
-        profileImageLength: sampleUser.profileImage?.length || 0,
-      });
-    }
-
     // Create a map for quick user lookup
     const userMap = new Map(users.map((user) => [user.id, user]));
 
     // Build leaderboard array with top 50
-    const leaderboard = scoresByUser.slice(0, 50).map((item, index) => {
+    const leaderboard = sortedUsers.slice(0, 50).map((item, index) => {
       const user = userMap.get(item.userId);
-      const entry = {
+      return {
         rank: index + 1,
         userId: item.userId,
         username: user?.username || 'Unknown',
-        avatarUrl: user?.avatarUrl || null,      // Explicitly include avatarUrl
-        profileImage: user?.profileImage || null, // Explicitly include profileImage
+        avatarUrl: user?.avatarUrl || null,
+        profileImage: user?.profileImage || null,
         role: user?.role || 'Student',
-        totalScore: item._max.score || 0,
+        totalScore: item.totalScore,
         badgeType: user?.badge?.badgeType || 'Student',
       };
-      
-      // Debug: Log first entry to verify data
-      if (index === 0) {
-        console.log('First leaderboard entry:', {
-          username: entry.username,
-          hasAvatarUrl: !!entry.avatarUrl,
-          hasProfileImage: !!entry.profileImage,
-        });
-      }
-      
-      return entry;
     });
 
-    // Find current user's rank and score
-    const currentUserIndex = scoresByUser.findIndex((item) => item.userId === currentUserId);
+    // Find current user's rank
+    const currentUserIndex = sortedUsers.findIndex((item) => item.userId === currentUserId);
     let userRank = null;
 
     if (currentUserIndex !== -1) {
-      const currentUserItem = scoresByUser[currentUserIndex];
+      const currentUserItem = sortedUsers[currentUserIndex];
       const currentUser = userMap.get(currentUserId);
       userRank = {
         rank: currentUserIndex + 1,
@@ -1784,7 +1824,7 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
         avatarUrl: currentUser?.avatarUrl || null,
         profileImage: currentUser?.profileImage || null,
         role: currentUser?.role || 'Student',
-        totalScore: currentUserItem._max.score || 0,
+        totalScore: currentUserItem.totalScore,
         badgeType: currentUser?.badge?.badgeType || 'Student',
       };
     } else {
@@ -1817,23 +1857,6 @@ app.get('/api/leaderboard', authMiddleware, async (req, res) => {
           badgeType: currentUser.badge?.badgeType || 'Student',
         };
       }
-    }
-
-    // Debug: Log final response structure
-    console.log('Leaderboard response - entries:', leaderboard.length);
-    if (leaderboard.length > 0) {
-      console.log('First entry in response:', {
-        username: leaderboard[0].username,
-        hasAvatarUrl: !!leaderboard[0].avatarUrl,
-        hasProfileImage: !!leaderboard[0].profileImage,
-      });
-    }
-    if (userRank) {
-      console.log('User rank in response:', {
-        username: userRank.username,
-        hasAvatarUrl: !!userRank.avatarUrl,
-        hasProfileImage: !!userRank.profileImage,
-      });
     }
 
     res.json({

@@ -7,19 +7,19 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    useColorScheme,
+    View,
 } from 'react-native';
 import Animated, {
-  FadeIn,
-  BounceIn,
+    BounceIn,
+    FadeIn,
 } from 'react-native-reanimated';
 import { API_URL } from '../../../config';
 
@@ -28,6 +28,8 @@ type DebuggingChallenge = {
   description: { en: string; ms: string };
   codeBlock: string;
   buggyLineIndex: number;
+  correctFix: string;  // NEW: The correct code fix
+  fixOptions: string[];  // NEW: Array of 3 fix options (shuffled)
   explanation: { en: string; ms: string };
   basePoints: number;
 };
@@ -45,13 +47,14 @@ export default function DebuggingChallengeScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
+  const styles = useMemo(() => createStyles(colorScheme ?? null), [colorScheme]);
 
   const [challenges, setChallenges] = useState<DebuggingChallenge[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<Array<{ challenge: DebuggingChallenge; selectedLine: number }>>([]);
+  const [userAnswers, setUserAnswers] = useState<Array<{ challenge: DebuggingChallenge; selectedLine: number; selectedFix: string }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [selectedFix, setSelectedFix] = useState<string | null>(null);  // NEW
   const [startTime, setStartTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showResult, setShowResult] = useState(false);
@@ -60,6 +63,11 @@ export default function DebuggingChallengeScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [correctSound, setCorrectSound] = useState<Audio.Sound | null>(null);
   const [wrongSound, setWrongSound] = useState<Audio.Sound | null>(null);
+  
+  // NEW: Immediate feedback state
+  const [showQuestionFeedback, setShowQuestionFeedback] = useState(false);
+  const [currentQuestionCorrect, setCurrentQuestionCorrect] = useState(false);
+  const [incorrectQuestions, setIncorrectQuestions] = useState<Array<{questionNum: number; title: string; explanation: string}>>([]);
 
   const currentLang = i18n.language?.split('-')[0] || 'en';
   const challenge = challenges[currentQuestionIndex];
@@ -221,75 +229,65 @@ export default function DebuggingChallengeScreen() {
       return;
     }
 
+    // If correct line selected, require fix selection
+    if (selectedLine === challenge.buggyLineIndex && selectedFix === null) {
+      Alert.alert(t('common.error'), 'Please select a fix option');
+      return;
+    }
+
     if (!user?.id || !challenge || submitting) return;
 
     try {
       setSubmitting(true);
       
-      // Store the user's answer
+      // Store the user's answer with both line and fix (if applicable)
       const currentChallenge = challenges[currentQuestionIndex];
       const newAnswers = [...userAnswers, {
         challenge: currentChallenge,
         selectedLine: selectedLine,
+        selectedFix: selectedFix || '',  // Empty string if no fix selected (wrong line)
       }];
       setUserAnswers(newAnswers);
+
+      // NEW: Check if answer is correct immediately
+      let isCorrect = false;
+      if (currentChallenge.fixOptions && currentChallenge.correctFix) {
+        // Debugging game: check both line and fix
+        isCorrect = (currentChallenge.buggyLineIndex === selectedLine) && 
+                    (selectedFix === currentChallenge.correctFix);
+      } else {
+        // Troubleshooting or old format: just check line
+        isCorrect = (currentChallenge.buggyLineIndex === selectedLine);
+      }
+
+      // Play sound immediately
+      if (isCorrect && correctSound) {
+        await correctSound.replayAsync();
+      } else if (!isCorrect && wrongSound) {
+        await wrongSound.replayAsync();
+      }
+
+      // Track incorrect answers with question number
+      if (!isCorrect) {
+        const langKey = (currentLang === 'ms' ? 'ms' : 'en') as 'en' | 'ms';
+        setIncorrectQuestions(prev => [...prev, {
+          questionNum: currentQuestionIndex + 1,
+          title: currentChallenge.title[langKey],
+          explanation: currentChallenge.explanation[langKey],
+        }]);
+      }
+
+      // Show immediate feedback
+      setCurrentQuestionCorrect(isCorrect);
+      setShowQuestionFeedback(true);
 
       const isLastQuestion = currentQuestionIndex === 9;
 
       if (isLastQuestion) {
-        // Submit the entire quiz
-        const totalTimeMs = Date.now() - startTime;
-
-        try {
-          if (!token) {
-            throw new Error('No authentication token available');
-          }
-          
-          const lang = currentLang || 'en';
-          const response = await fetch(
-            `${API_URL}/api/games/submit-quiz?lang=${lang}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                answers: newAnswers,
-                totalTimeMs: totalTimeMs,
-              }),
-            }
-          );
-
-          const result: QuizResultData = await response.json();
-
-          if (!response.ok) {
-            throw new Error(result.error || t('common.error'));
-          }
-
-          // Show final result modal
-          setResultData(result);
-          setShowResult(true);
-
-          // Play sound based on performance (play correct if >50%, wrong if <=50%)
-          try {
-            const correctRate = result.correctCount / result.totalQuestions;
-            if (correctRate > 0.5 && correctSound) {
-              await correctSound.replayAsync();
-            } else if (correctRate <= 0.5 && wrongSound) {
-              await wrongSound.replayAsync();
-            }
-          } catch (soundError) {
-            console.warn('Sound playback error:', soundError);
-          }
-        } catch (err) {
-          console.error('Submit quiz error', err);
-          Alert.alert(t('common.error'), t('common.network_error'));
-        }
+        // After showing feedback, will submit the quiz
+        // (submission happens in handleContinueAfterFeedback)
       } else {
-        // Go to next question
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setSelectedLine(null); // Reset selection
+        // Will move to next question after user clicks continue
       }
     } catch (err) {
       console.error('Error in handleNextOrSubmit', err);
@@ -297,7 +295,62 @@ export default function DebuggingChallengeScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedLine, user, challenge, submitting, startTime, currentQuestionIndex, challenges, userAnswers, token, router, t, correctSound, wrongSound]);
+  }, [selectedLine, selectedFix, user, challenge, submitting, startTime, currentQuestionIndex, challenges, userAnswers, token, router, t, correctSound, wrongSound, currentLang]);
+
+  // NEW: Handle continuing after viewing feedback
+  const handleContinueAfterFeedback = useCallback(async () => {
+    setShowQuestionFeedback(false);
+    
+    const isLastQuestion = currentQuestionIndex === 9;
+    
+    if (isLastQuestion) {
+      // Submit the entire quiz
+      try {
+        setSubmitting(true);
+        const totalTimeMs = Date.now() - startTime;
+        
+        if (!token) {
+          throw new Error('No authentication token available');
+        }
+        
+        const lang = currentLang || 'en';
+        const response = await fetch(
+          `${API_URL}/api/games/submit-quiz?lang=${lang}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              answers: userAnswers,
+              totalTimeMs: totalTimeMs,
+            }),
+          }
+        );
+
+        const result: QuizResultData = await response.json();
+
+        if (!response.ok) {
+          throw new Error('Failed to submit quiz');
+        }
+
+        // Show final result modal
+        setResultData(result);
+        setShowResult(true);
+      } catch (err) {
+        console.error('Submit quiz error', err);
+        Alert.alert(t('common.error'), t('common.network_error'));
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      // Go to next question
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setSelectedLine(null);
+      setSelectedFix(null);
+    }
+  }, [currentQuestionIndex, startTime, token, currentLang, userAnswers, t]);
 
   const handleNext = useCallback(() => {
     setShowResult(false);
@@ -487,18 +540,102 @@ export default function DebuggingChallengeScreen() {
           ))}
         </View>
 
+
+        {/* Fix Options - Only show when CORRECT buggy line is selected */}
+        {selectedLine !== null && selectedLine === challenge.buggyLineIndex && challenge.fixOptions && (
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            style={styles.fixOptionsContainer}
+          >
+            <Text
+              style={[
+                styles.fixOptionsTitle,
+                { color: colorScheme === 'dark' ? '#E2E8F0' : '#0F172A' },
+              ]}
+            >
+              Select the correct fix:
+            </Text>
+            {challenge.fixOptions.map((fix, index) => (
+              <Pressable
+                key={index}
+                style={({ pressed }) => [
+                  styles.fixOptionButton,
+                  selectedFix === fix && styles.fixOptionSelected,
+                  {
+                    backgroundColor:
+                      selectedFix === fix
+                        ? colorScheme === 'dark'
+                          ? 'rgba(59, 130, 246, 0.3)'
+                          : 'rgba(59, 130, 246, 0.15)'
+                        : colorScheme === 'dark'
+                        ? 'rgba(59, 130, 246, 0.05)'
+                        : 'rgba(59, 130, 246, 0.02)',
+                    borderColor:
+                      selectedFix === fix
+                        ? '#3B82F6'
+                        : colorScheme === 'dark'
+                        ? 'rgba(148, 163, 184, 0.2)'
+                        : 'rgba(148, 163, 184, 0.1)',
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                  },
+                ]}
+                onPress={() => setSelectedFix(fix)}
+              >
+                <View style={styles.fixOptionContent}>
+                  <View
+                    style={[
+                      styles.fixOptionRadio,
+                      {
+                        borderColor:
+                          selectedFix === fix
+                            ? '#3B82F6'
+                            : colorScheme === 'dark'
+                            ? '#64748B'
+                            : '#94A3B8',
+                        backgroundColor:
+                          selectedFix === fix ? '#3B82F6' : 'transparent',
+                      },
+                    ]}
+                  >
+                    {selectedFix === fix && (
+                      <View style={styles.fixOptionRadioInner} />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.fixOptionText,
+                      {
+                        color:
+                          selectedFix === fix
+                            ? '#3B82F6'
+                            : colorScheme === 'dark'
+                            ? '#F8FAFC'
+                            : '#0F172A',
+                      },
+                    ]}
+                  >
+                    {fix}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </Animated.View>
+        )}
+
         {/* Submit/Next Button */}
         <Pressable
           style={({ pressed }) => [
             styles.submitButton,
-            (submitting || selectedLine === null) &&
+            (submitting || selectedLine === null || 
+             (selectedLine === challenge.buggyLineIndex && selectedFix === null)) &&
               styles.submitButtonDisabled,
             {
               transform: [{ scale: pressed && !submitting ? 0.98 : 1 }],
             },
           ]}
           onPress={handleNextOrSubmit}
-          disabled={submitting || selectedLine === null}
+          disabled={submitting || selectedLine === null || 
+                   (selectedLine === challenge.buggyLineIndex && selectedFix === null)}
         >
           {submitting ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -509,6 +646,66 @@ export default function DebuggingChallengeScreen() {
           )}
         </Pressable>
       </ScrollView>
+
+      {/* NEW: Question Feedback Modal - Shows after each question */}
+      <Modal
+        visible={showQuestionFeedback}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            entering={BounceIn}
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor:
+                  colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF',
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <IconSymbol
+                name={currentQuestionCorrect ? 'checkmark.circle.fill' : 'xmark.circle.fill'}
+                size={64}
+                color={currentQuestionCorrect ? '#10B981' : '#EF4444'}
+              />
+              <Text
+                style={[
+                  styles.modalTitle,
+                  {
+                    color: currentQuestionCorrect ? '#10B981' : '#EF4444',
+                  },
+                ]}
+              >
+                {currentQuestionCorrect ? t('game_ui.correct') : t('game_ui.incorrect')}
+              </Text>
+            </View>
+            
+            {!currentQuestionCorrect && challenge && (
+              <View style={styles.modalBody}>
+                <Text
+                  style={[
+                    styles.feedbackText,
+                    { color: colorScheme === 'dark' ? '#CBD5F5' : '#475569' },
+                  ]}
+                >
+                  {currentLang === 'ms' ? challenge.explanation.ms : challenge.explanation.en}
+                </Text>
+              </View>
+            )}
+
+            <Pressable
+              style={styles.nextButton}
+              onPress={handleContinueAfterFeedback}
+            >
+              <Text style={styles.nextButtonText}>
+                {currentQuestionIndex === 9 ? t('game_ui.submit_answer') : t('game_ui.next_question')}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Result Modal */}
       <Modal
@@ -596,13 +793,13 @@ export default function DebuggingChallengeScreen() {
             )}
 
             <Animated.View entering={FadeIn.delay(300)}>
-              {resultData && resultData.feedback && resultData.feedback.length > 0 && (
+              {incorrectQuestions.length > 0 && (
                 <Pressable
                   style={styles.feedbackButton}
                   onPress={() => setShowFeedback(true)}
                 >
                   <Text style={styles.feedbackButtonText}>
-                    {t('game_ui.get_feedback')}
+                    {t('game_ui.get_feedback')} ({incorrectQuestions.length} incorrect)
                   </Text>
                 </Pressable>
               )}
@@ -650,7 +847,7 @@ export default function DebuggingChallengeScreen() {
                 {t('game_ui.review_wrong_answers')}
               </Text>
               <ScrollView style={styles.feedbackScroll}>
-                {resultData?.feedback?.map((item, index) => (
+                {incorrectQuestions.map((item, index) => (
                   <View 
                     key={index} 
                     style={[
@@ -668,7 +865,7 @@ export default function DebuggingChallengeScreen() {
                         }
                       ]}
                     >
-                      {item.title}
+                      Question {item.questionNum}: {item.title}
                     </Text>
                     <Text 
                       style={[
@@ -933,6 +1130,116 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
+    },
+    // NEW: Fix options styles
+    fixOptionsContainer: {
+      marginTop: 20,
+      marginBottom: 20,
+      gap: 12,
+    },
+    fixOptionsTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    fixOptionButton: {
+      borderRadius: 12,
+      borderWidth: 2,
+      padding: 16,
+      minHeight: 60,
+    },
+    fixOptionSelected: {
+      borderWidth: 3,
+    },
+    fixOptionContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    fixOptionRadio: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fixOptionRadioInner: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: '#FFFFFF',
+    },
+    fixOptionText: {
+      fontSize: 14,
+      fontFamily: 'monospace',
+      flex: 1,
+      lineHeight: 20,
+    },
+    // NEW: Instruction panel styles
+    instructionPanel: {
+      borderRadius: 16,
+      borderWidth: 2,
+      padding: 16,
+      marginBottom: 20,
+    },
+    instructionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 16,
+    },
+    instructionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    stepsContainer: {
+      gap: 12,
+    },
+    stepRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    stepRowActive: {
+      backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    },
+    stepIndicator: {
+      width: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stepNumber: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stepNumberText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    stepText: {
+      fontSize: 15,
+      flex: 1,
+      fontWeight: '500',
+    },
+    stepTextActive: {
+      fontWeight: '700',
+    },
+    stepTextCompleted: {
+      textDecorationLine: 'none',
+    },
+    currentStepArrow: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: '#8B5CF6',
     },
   });
 };

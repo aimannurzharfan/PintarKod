@@ -185,9 +185,6 @@ export default function DebuggingGame() {
         {/* Header with gradient */}
         <View style={[styles.header, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.headerTop}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Text style={{ fontSize: 20 }}>←</Text>
-            </Pressable>
             <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
               🐛 Code Debugger
             </Text>

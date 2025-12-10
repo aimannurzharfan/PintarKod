@@ -1,7 +1,7 @@
 import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { Audio } from 'expo-av';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -27,6 +27,7 @@ interface Challenge {
 export default function TroubleshootingGame() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const { token } = useAuth();
   const colorScheme = useColorScheme();
   
@@ -38,6 +39,19 @@ export default function TroubleshootingGame() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [totalScore, setTotalScore] = useState(0);
+
+  // Set header title to localized Troubleshooting label
+  useEffect(() => {
+    try {
+      navigation.setOptions({
+        headerTitle: t('game_ui.troubleshooting_title') || 'Troubleshooting',
+        headerBackTitleVisible: false,
+      });
+    } catch (err) {
+      // navigation might not be available in some environments; ignore safely
+      console.debug('Failed to set header title:', err);
+    }
+  }, [navigation, t]);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Array<{
@@ -286,7 +300,7 @@ export default function TroubleshootingGame() {
             </Text>
             <Pressable style={[styles.continueButton, { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }]} onPress={handleContinue}>
               <Text style={styles.continueButtonText}>
-                {currentQuestionIndex < challenges.length - 1 ? 'Next Case →' : 'See Results'}
+                {currentQuestionIndex < challenges.length - 1 ? 'Next Question' : 'See Results'}
               </Text>
             </Pressable>
           </View>

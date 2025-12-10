@@ -325,7 +325,7 @@ export default function DebuggingGame() {
             </Text>
             <Pressable style={[styles.continueButton, { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }]} onPress={handleContinue}>
               <Text style={styles.continueButtonText}>
-                {currentQuestionIndex < challenges.length - 1 ? 'Next Question →' : 'See Results'}
+                {currentQuestionIndex < challenges.length - 1 ? 'Next Question' : 'See Results'}
               </Text>
             </Pressable>
           </View>

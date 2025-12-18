@@ -1,5 +1,4 @@
 # Welcome to PintarKod
-#12345
 
 This is a full-stack mobile learning application built with React Native (Expo) and a Node.js (Express) backend.
 

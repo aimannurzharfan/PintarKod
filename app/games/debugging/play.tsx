@@ -185,9 +185,6 @@ export default function DebuggingGame() {
         {/* Header with gradient */}
         <View style={[styles.header, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.headerTop}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Text style={{ fontSize: 20 }}>←</Text>
-            </Pressable>
             <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
               🐛 Code Debugger
             </Text>
@@ -328,7 +325,7 @@ export default function DebuggingGame() {
             </Text>
             <Pressable style={[styles.continueButton, { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }]} onPress={handleContinue}>
               <Text style={styles.continueButtonText}>
-                {currentQuestionIndex < challenges.length - 1 ? 'Next Question →' : 'See Results'}
+                {currentQuestionIndex < challenges.length - 1 ? 'Next Question' : 'See Results'}
               </Text>
             </Pressable>
           </View>

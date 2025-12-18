@@ -82,7 +82,7 @@ export default function GamesIndexScreen() {
         title: t('game_ui.programming_title'),
         description: t('game_ui.programming_desc'),
         icon: 'code',
-        enabled: false,
+        enabled: true,
         color: '#10B981', // Green
         lightColor: 'rgba(16, 185, 129, 0.1)',
       },
@@ -91,7 +91,7 @@ export default function GamesIndexScreen() {
         title: t('game_ui.puzzle_title'),
         description: t('game_ui.puzzle_desc'),
         icon: 'grid',
-        enabled: false,
+        enabled: true,
         color: '#3B82F6', // Blue
         lightColor: 'rgba(59, 130, 246, 0.1)',
       },

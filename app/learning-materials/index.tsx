@@ -1,4 +1,4 @@
-﻿import { AIChatbot } from '@/components/ai-chatbot';
+import { AIChatbot } from '@/components/ai-chatbot';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -242,7 +242,7 @@ export default function LearningMaterialsScreen() {
     ],
     [t]
   );
-
+// new coding here just to remember 250
   const resetForm = useCallback(() => {
     setFormTitle('');
     setFormDescription('');

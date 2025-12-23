@@ -24,28 +24,44 @@ import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 
 export default function ForgotPassword() {
+  // State to store user's email input
   const [email, setEmail] = useState('');
+  // State to control loading indicator during API request
   const [loading, setLoading] = useState(false);
+  // Router instance for navigation
   const router = useRouter();
+  // Detect system theme (light / dark)
   const colorScheme = useColorScheme();
+  // Memoized styles to avoid unnecessary recalculations on re-render
   const styles = useMemo(() => getStyles(colorScheme), [colorScheme]);
+  // Translation hook for multi-language support
   const { t } = useTranslation();
   const placeholderColor = colorScheme === 'dark' ? '#94A3B8' : '#64748B';
 
+  // Handles forgot password form submission
+  // 1. Validates email input
+  // 2. Sends request to backend API
+  // 3. Displays success or error feedback
   async function handleSubmit() {
+    // Prevent submission if email field is empty
     if (!email.trim()) {
       Alert.alert(t('forgot_password.title'), t('forgot_password.validation_email'));
       return;
     }
+    // Enable loading state while processing request
     setLoading(true);
     try {
+      // Send forgot password request to backend
+      // Email is trimmed and converted to lowercase for consistency
       const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
       const data = await response.json();
+      // Handle API error response
       if (!response.ok || data.success === false) {
+        // Show success message and navigate back to login screen
         Alert.alert(t('forgot_password.error'), data.error || t('forgot_password.error_message'));
         return;
       }
@@ -55,20 +71,25 @@ export default function ForgotPassword() {
           onPress: () => router.back(),
         },
       ]);
+      // Handle network or unexpected errors
     } catch (err) {
       console.error(err);
       Alert.alert(t('forgot_password.error'), t('forgot_password.network_error'));
+      // Reset loading state regardless of outcome
     } finally {
       setLoading(false);
     }
   }
 
   return (
+    // SafeAreaView ensures content is displayed correctly on devices with notches
     <SafeAreaView style={styles.safeArea}>
+      // KeyboardAvoidingView prevents keyboard from overlapping input fields
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.select({ ios: 'padding', android: undefined })}
       >
+        // ScrollView allows screen to remain usable on smaller devices
         <ScrollView
           contentContainerStyle={styles.container}
           style={styles.flex}
@@ -81,12 +102,14 @@ export default function ForgotPassword() {
               <View style={styles.field}>
                 <Text style={styles.label}>{t('forgot_password.email')}</Text>
                 <View style={styles.inputWrapper}>
+                  // Feather icon used to visually indicate email input
                   <Feather
                     name="mail"
                     size={18}
                     color={placeholderColor}
                     style={styles.inputIcon}
                   />
+                  // Email input field with icon and accessibility-friendly keyboard
                   <TextInput
                     placeholder={t('forgot_password.email_placeholder')}
                     placeholderTextColor={placeholderColor}
@@ -99,7 +122,9 @@ export default function ForgotPassword() {
                   />
                 </View>
               </View>
-
+              
+              // Primary submit button
+              // Shows loading indicator when request is in progress
               <Pressable
                 style={({ pressed }) => [
                   styles.primaryButton,
@@ -119,6 +144,7 @@ export default function ForgotPassword() {
                 )}
               </Pressable>
 
+              // Secondary button to navigate back to login screen
               <Pressable
                 style={({ pressed }) => [
                   styles.secondaryButton,
@@ -142,7 +168,10 @@ export default function ForgotPassword() {
   );
 }
 
+// Dynamically generates styles based on system color scheme
+// Ensures consistent theming for light and dark modes
 const getStyles = (colorScheme: any) => {
+  // Color palette definition for light and dark themes
   const palette =
     colorScheme === 'dark'
       ? {

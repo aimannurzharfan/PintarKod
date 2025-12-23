@@ -1,3 +1,8 @@
+// Forgot Password Screen
+// This screen allows users to request a password reset by submitting their email address.
+// It handles user input validation, API communication, loading states, and feedback alerts.
+// The UI adapts to light and dark themes and supports internationalization (i18n).
+
 import { API_URL } from '@/config';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';

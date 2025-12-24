@@ -599,7 +599,7 @@ export default function LearningMaterialsScreen() {
         );
         return;
       }
-// new coding here just to remember 250
+
       try {
         // Use the download endpoint
         const downloadUrl = `${API_URL}/api/learning-materials/download/${materialId}`;

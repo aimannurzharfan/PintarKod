@@ -7,6 +7,7 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { generateRandomDebugChallenge, generateRandomTroubleshootingChallenge } = require('./gameGenerator');
+const { generateBuildCodeQuiz } = require('./buildCodeGenerator');
 
 const app = express();
 app.use(cors());
@@ -1644,6 +1645,19 @@ app.get('/api/games/troubleshooting/quiz', authMiddleware, (req, res) => {
     res.json(quizChallenges); // Returns an array of 10 challenges
   } catch (err) {
     console.error('Error generating troubleshooting quiz:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
+  }
+});
+
+// GET /api/games/build-a-code/quiz - Get a 10-question code assembly quiz
+app.get('/api/games/build-a-code/quiz', authMiddleware, (req, res) => {
+  try {
+    const challenges = generateBuildCodeQuiz();
+    console.log('Generated', challenges.length, 'build-a-code challenges');
+    res.json(challenges);
+  } catch (err) {
+    console.error('Error generating build-a-code quiz:', err);
     console.error('Stack:', err.stack);
     res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
   }

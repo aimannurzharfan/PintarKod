@@ -6,7 +6,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  BackHandler,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,6 +50,13 @@ export default function DebuggingGame() {
     selectedLine: number;
     selectedFix: string;
   }>>([]);
+  
+  // Feedback review state
+  const [quizFeedback, setQuizFeedback] = useState<Array<{ title: string; explanation: string }>>([]);
+  const [showFeedbackReview, setShowFeedbackReview] = useState(false);
+  
+  // Exit confirmation state
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   
   // Sound effects
   const [soundCorrect, setSoundCorrect] = useState<Audio.Sound | null>(null);
@@ -110,6 +119,24 @@ export default function DebuggingGame() {
     fetchQuiz();
   }, [token]);
 
+  // Handle back button press
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    
+    const handleBackPress = () => {
+      if (showResults || showFeedbackReview) {
+        // Allow normal back behavior when viewing results
+        return false;
+      }
+      // Show exit confirmation when game is in progress
+      setShowExitConfirm(true);
+      return true; // Prevent default back behavior
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => subscription.remove();
+  }, [showResults, showFeedbackReview]);
+
   const handleSubmit = useCallback(async () => {
     if (selectedLine === null || selectedFix === null) return;
 
@@ -156,6 +183,10 @@ export default function DebuggingGame() {
         const result = await response.json();
         console.log('Quiz result:', result);
         setTotalScore(result.totalScore || 0);
+        // Store feedback for wrong answers
+        if (result.feedback && result.feedback.length > 0) {
+          setQuizFeedback(result.feedback);
+        }
         setShowResults(true);
       } catch (error) {
         console.error('Submit error:', error);
@@ -347,9 +378,66 @@ export default function DebuggingGame() {
                 {totalScore >= 800 ? '🏆 Excellent!' : totalScore >= 600 ? '👍 Good Job!' : '💪 Keep Practicing!'}
               </Text>
             </View>
+            {quizFeedback.length > 0 && (
+              <Pressable 
+                style={[styles.feedbackButton]} 
+                onPress={() => setShowFeedbackReview(true)}
+              >
+                <Text style={styles.feedbackButtonText}>📝 View Feedback ({quizFeedback.length} wrong)</Text>
+              </Pressable>
+            )}
             <Pressable style={styles.closeButton} onPress={() => router.back()}>
               <Text style={styles.closeButtonText}>Back to Games</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Feedback Review Modal */}
+      <Modal visible={showFeedbackReview} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.feedbackReviewModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+            <Text style={[styles.feedbackReviewTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+              📝 Review Your Mistakes
+            </Text>
+            <ScrollView style={styles.feedbackReviewScroll} showsVerticalScrollIndicator={false}>
+              {quizFeedback.map((item, index) => (
+                <View key={index} style={[styles.feedbackItem, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
+                  <Text style={[styles.feedbackItemTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                    {index + 1}. {item.title}
+                  </Text>
+                  <Text style={[styles.feedbackItemExplanation, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                    {item.explanation}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+            <Pressable style={styles.feedbackCloseButton} onPress={() => setShowFeedbackReview(false)}>
+              <Text style={styles.feedbackCloseButtonText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Exit Confirmation Modal */}
+      <Modal visible={showExitConfirm} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.exitConfirmModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+            <Text style={{ fontSize: 48 }}>⚠️</Text>
+            <Text style={[styles.exitConfirmTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+              Leave Game?
+            </Text>
+            <Text style={[styles.exitConfirmText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+              Leaving the game will make you lose your progress and points. Are you sure you want to exit?
+            </Text>
+            <View style={styles.exitConfirmButtons}>
+              <Pressable style={styles.exitStayButton} onPress={() => setShowExitConfirm(false)}>
+                <Text style={styles.exitStayButtonText}>Stay</Text>
+              </Pressable>
+              <Pressable style={styles.exitLeaveButton} onPress={() => { setShowExitConfirm(false); router.back(); }}>
+                <Text style={styles.exitLeaveButtonText}>Exit</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -626,5 +714,107 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  feedbackButton: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+  },
+  feedbackButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  feedbackReviewModal: {
+    width: '95%',
+    maxWidth: 450,
+    maxHeight: '80%',
+    borderRadius: 24,
+    padding: 24,
+    gap: 16,
+  },
+  feedbackReviewTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  feedbackReviewScroll: {
+    maxHeight: 350,
+  },
+  feedbackItem: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  feedbackItemTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  feedbackItemExplanation: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  feedbackCloseButton: {
+    backgroundColor: '#8B5CF6',
+    borderRadius: 16,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  feedbackCloseButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  exitConfirmModal: {
+    width: '90%',
+    maxWidth: 380,
+    borderRadius: 24,
+    padding: 28,
+    alignItems: 'center',
+    gap: 12,
+  },
+  exitConfirmTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  exitConfirmText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  exitConfirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+    width: '100%',
+  },
+  exitStayButton: {
+    flex: 1,
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  exitStayButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  exitLeaveButton: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  exitLeaveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

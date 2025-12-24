@@ -242,7 +242,7 @@ export default function LearningMaterialsScreen() {
     ],
     [t]
   );
-// new coding here just to remember 250
+
   const resetForm = useCallback(() => {
     setFormTitle('');
     setFormDescription('');
@@ -599,7 +599,7 @@ export default function LearningMaterialsScreen() {
         );
         return;
       }
-
+ 
       try {
         // Use the download endpoint
         const downloadUrl = `${API_URL}/api/learning-materials/download/${materialId}`;
@@ -1615,5 +1615,3 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 });
-
-

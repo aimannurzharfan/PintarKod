@@ -600,6 +600,20 @@ export default function LearningMaterialsScreen() {
         return;
       }
 
+/*This section of the code is mainly responsible for handling student learning material progress tracking and displaying progress visually in the application. The core functionality allows students to mark a learning material as completed or incomplete and immediately see their overall progress updated in the user interface. This feature supports the user stories US009-05 (Update Material Status) and US010-02 (View Material Progress).
+
+The toggleMaterialCompletion function is implemented using useCallback to ensure performance optimization by preventing unnecessary re-creation of the function during re-renders. The function first checks whether the user is authenticated by verifying the presence of a token. If the token is missing, the system prevents the action and displays an error message, ensuring that only logged-in students can track their learning progress.
+
+An optimistic update approach is used to improve user experience. This means the UI updates immediately when a student toggles the completion status of a material, without waiting for the server response. The system temporarily updates the completedMaterials state by either adding or removing the selected material ID. This makes the application feel more responsive and smooth.
+
+After the optimistic update, a POST request is sent to the backend API endpoint /api/progress/toggle. This request updates the student’s progress record in the database. If the request is successful, the system synchronizes the local state with the server response to ensure data accuracy. In case of an error, the code safely reverts the optimistic update, restoring the previous state to prevent incorrect progress data from being displayed. Proper error handling is implemented using try-catch, along with alert messages to inform the user if something goes wrong.
+
+The progress calculation logic is handled separately using useMemo, which computes the progress percentage based on the total number of learning materials and the number of completed materials. This calculation is only triggered when relevant dependencies change, improving performance. The calculated percentage is then used to update the progress bar and progress text dynamically.
+
+The UI section displays a progress bar that visually represents the student’s learning progress. It also includes conditional rendering to ensure that only students can see this progress section. When all materials are completed, the system displays a congratulatory message, which helps motivate students and enhances engagement.
+
+Overall, this code demonstrates effective use of React hooks, role-based access control, API integration, error handling, and user-centered design. It ensures accurate progress tracking while maintaining a responsive and user-friendly interface, which is essential for supporting student learning in the application.
+     */   
       try {
         // Use the download endpoint
         const downloadUrl = `${API_URL}/api/learning-materials/download/${materialId}`;

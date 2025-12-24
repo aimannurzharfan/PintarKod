@@ -73,7 +73,6 @@ export default function ForumThreadScreen() {
   const [showChatbot, setShowChatbot] = useState(false);
   const [commentBadges, setCommentBadges] = useState<Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'>>({});
 
-  // Fetch badges for all comment authors
   useEffect(() => {
     if (!thread?.comments) return;
 

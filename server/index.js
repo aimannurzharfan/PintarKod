@@ -2152,57 +2152,251 @@ app.get('/api/teacher/students/:id/logs', authMiddleware, async (req, res) => {
 // AI Chatbot Proxy Endpoint
 app.post('/api/chat', authMiddleware, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, image } = req.body;
     const API_KEY = process.env.AI_CHATBOT_API_KEY;
 
     if (!API_KEY) {
       return res.status(500).json({ error: 'AI Chatbot API key not configured' });
     }
 
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ error: 'Message is required' });
+    if ((!message || typeof message !== 'string') && !image) {
+      return res.status(400).json({ error: 'Message or image is required' });
     }
 
     // Call Google Gemini API
-    // The model name from the frontend is 'gemini-2.5-flash'
-    const model = 'gemini-2.5-flash';
+    // Use gemini-1.5-flash for vision capabilities (supports multimodal input)
+    const model = 'gemini-1.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: message
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
-      return res.status(response.status).json({ 
-        error: 'Failed to get response from AI',
-        details: errorText 
+    // Build parts array for multimodal input
+    const parts = [];
+    
+    // Add image part first if image exists (Gemini works better with image before text)
+    if (image && typeof image === 'string') {
+      // Extract base64 data from data URI if present
+      let cleanBase64 = image;
+      let mimeType = 'image/png'; // Default fallback for PNG (screenshots)
+      
+      // Extract real MIME type and data if it has the data URI prefix
+      if (image.startsWith('data:')) {
+        const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          mimeType = matches[1]; // Use the actual MIME type from data URI
+          cleanBase64 = matches[2]; // The raw base64 data Gemini needs
+        } else {
+          // Fallback: try to extract just base64 if format is slightly different
+          const base64Match = image.match(/base64,(.+)$/);
+          if (base64Match) {
+            cleanBase64 = base64Match[1];
+          }
+        }
+      }
+      
+      // Validate that we have base64 data
+      if (!cleanBase64 || cleanBase64.length === 0) {
+        console.error('Invalid image data: empty base64 string');
+        return res.status(400).json({ error: 'Invalid image data: empty base64 string' });
+      }
+      
+      // Validate image size (Gemini has a 20MB limit, but base64 is ~33% larger)
+      // Approximate: base64 size / 1.33 = original size
+      const estimatedSizeMB = (cleanBase64.length * 3) / 4 / (1024 * 1024);
+      if (estimatedSizeMB > 15) {
+        console.error('Image too large:', estimatedSizeMB, 'MB');
+        return res.status(400).json({ 
+          error: `Image is too large (${estimatedSizeMB.toFixed(2)}MB). Please use a smaller image (max 15MB).` 
+        });
+      }
+      
+      // Validate MIME type (Gemini supports: image/jpeg, image/png, image/gif, image/webp)
+      const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!supportedTypes.includes(mimeType)) {
+        console.warn('Unsupported MIME type:', mimeType, '- defaulting to image/png');
+        mimeType = 'image/png';
+      }
+      
+      console.log('Adding image to Gemini request:', {
+        mimeType: mimeType,
+        base64Length: cleanBase64.length,
+        estimatedSizeMB: estimatedSizeMB.toFixed(2)
+      });
+      
+      parts.push({
+        inline_data: {
+          mime_type: mimeType,
+          data: cleanBase64
+        }
       });
     }
+    
+    // Add text part - if no message provided with image, ask AI to analyze the image
+    const textMessage = message && typeof message === 'string' && message.trim() 
+      ? message 
+      : (image ? 'Please analyze this image and describe what you see. If there is any text in the image, please read it and explain the content.' : '');
+    
+    if (textMessage) {
+      parts.push({ text: textMessage });
+    }
 
-    const data = await response.json();
+    // Ensure we have at least one part (text or image)
+    if (parts.length === 0) {
+      return res.status(400).json({ error: 'Message or image is required' });
+    }
+
+    const requestBody = {
+      contents: [{
+        parts: parts
+      }]
+    };
+
+    // Log request for debugging (without sensitive data)
+    console.log('Sending to Gemini:', {
+      hasImage: !!image,
+      hasText: !!textMessage,
+      partsCount: parts.length,
+      model: model,
+      partsTypes: parts.map(p => p.text ? 'text' : 'image')
+    });
+
+    let response;
+    let data;
+    
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const responseText = await response.text();
+      console.log('Gemini API response status:', response.status);
+      console.log('Gemini API response preview:', responseText.substring(0, 200));
+
+      if (!response.ok) {
+        console.error('Gemini API error - Status:', response.status);
+        console.error('Gemini API error - Response:', responseText);
+        try {
+          const errorJson = JSON.parse(responseText);
+          console.error('Gemini API error details (JSON):', JSON.stringify(errorJson, null, 2));
+          return res.status(response.status).json({ 
+            error: 'Failed to get response from AI',
+            details: errorJson.error?.message || errorJson.message || responseText
+          });
+        } catch (e) {
+          // Error text is not JSON
+          return res.status(response.status).json({ 
+            error: 'Failed to get response from AI',
+            details: responseText 
+          });
+        }
+      }
+
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse Gemini response as JSON:', parseError);
+        console.error('Response text:', responseText);
+        return res.status(500).json({ 
+          error: 'Invalid response from AI',
+          details: 'Response was not valid JSON'
+        });
+      }
+    } catch (fetchError) {
+      console.error('Network error calling Gemini API:', fetchError);
+      return res.status(500).json({ 
+        error: 'Network error connecting to AI service',
+        details: fetchError.message 
+      });
+    }
+    
+    // Check for API errors (common in React Native dev or API issues)
+    if (data.error) {
+      console.error('Gemini API Error:', data.error);
+      const errorMessage = data.error.message || data.error.details || JSON.stringify(data.error);
+      return res.status(500).json({ 
+        error: 'Failed to get response from AI',
+        details: errorMessage
+      });
+    }
     
     // Extract the text from Gemini's response format
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+    let text = 'Sorry, I could not generate a response.';
+    
+    if (!data || typeof data !== 'object') {
+      console.error('Invalid Gemini response data:', data);
+      return res.status(500).json({ 
+        error: 'Invalid response from AI',
+        details: 'Response data is not valid'
+      });
+    }
+    
+    if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
+      const candidate = data.candidates[0];
+      
+      // Check for finish reason issues
+      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+        console.warn('Gemini finish reason:', candidate.finishReason);
+        if (candidate.safetyRatings) {
+          console.warn('Safety ratings:', JSON.stringify(candidate.safetyRatings, null, 2));
+        }
+        
+        // Handle blocked content
+        if (candidate.finishReason === 'SAFETY') {
+          return res.status(400).json({ 
+            error: 'Content was blocked by safety filters. Please try a different image.',
+            details: candidate.safetyRatings
+          });
+        }
+        
+        // Handle other finish reasons
+        if (candidate.finishReason === 'MAX_TOKENS') {
+          return res.status(400).json({ 
+            error: 'Response was too long. Please try with a simpler question.',
+          });
+        }
+      }
+      
+      // Extract text from response
+      if (candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts)) {
+        const textPart = candidate.content.parts.find(part => part && part.text);
+        if (textPart && textPart.text && typeof textPart.text === 'string') {
+          text = textPart.text;
+        } else {
+          console.error('No valid text part found in candidate:', JSON.stringify(candidate.content.parts, null, 2));
+        }
+      } else {
+        console.error('Invalid candidate content structure:', JSON.stringify(candidate, null, 2));
+      }
+      
+      // If no text found, log the full candidate for debugging
+      if (text === 'Sorry, I could not generate a response.') {
+        console.error('No text extracted from Gemini response. Full candidate:', JSON.stringify(candidate, null, 2));
+        return res.status(500).json({ 
+          error: 'AI response did not contain text',
+          details: 'The AI response was received but did not contain readable text. Please try again.'
+        });
+      }
+    } else {
+      console.error('No candidates in Gemini response. Full response:', JSON.stringify(data, null, 2));
+      return res.status(500).json({ 
+        error: 'No response candidates from AI',
+        details: 'The AI service did not return any response candidates. Please try again.'
+      });
+    }
+    
+    // Log successful response
+    console.log('Gemini response received successfully, text length:', text.length);
     
     // Save the chat log to database
     try {
       await prisma.chatLog.create({
         data: {
           userId: req.user.id,
-          message: message,
+          message: message || (image ? '[Image]' : ''),
           response: text,
+          imageData: image || null, // Store the image data (base64 data URI)
         },
       });
     } catch (logError) {

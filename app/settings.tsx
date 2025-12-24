@@ -23,12 +23,15 @@ export default function SettingsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
+
+  /* -------------------- Notification Context -------------------- */
   const {
     preferences,
     updatePreferences,
     updatingPreferences,
   } = useNotifications();
 
+  /* -------------------- Language Options -------------------- */
   const languages = useMemo(
     () => [
       { code: 'ms', label: t('settings.language_ms') },
@@ -39,6 +42,7 @@ export default function SettingsScreen() {
 
   const currentLanguage = (i18n.language || 'ms').split('-')[0];
 
+  /* -------------------- Handlers -------------------- */
   const handleLanguageChange = useCallback(
     async (code: string) => {
       try {
@@ -51,6 +55,10 @@ export default function SettingsScreen() {
     [i18n]
   );
 
+  /**
+   * Toggles a notification preference.
+   * Disabled while preferences are being synced to prevent race conditions.
+   */
   const handlePreferenceToggle = useCallback(
     (key: keyof NotificationPreferences, value: boolean) => {
       updatePreferences({ [key]: value });
@@ -65,12 +73,21 @@ export default function SettingsScreen() {
         <Text style={styles.subtitle}>{t('settings.description')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* -------------------- Language Settings -------------------- */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{t('settings.language_title')}</Text>
+            <Text style={styles.cardTitle}>
+              {t('settings.language_title')}
+            </Text>
           </View>
-          <Text style={styles.cardDescription}>{t('settings.language_hint')}</Text>
+          <Text style={styles.cardDescription}>
+            {t('settings.language_hint')}
+          </Text>
+
           <View style={styles.languageRow}>
             {languages.map((lang) => {
               const isActive = currentLanguage === lang.code;
@@ -98,15 +115,23 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* -------------------- Notification Settings -------------------- */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{t('settings.notifications_title')}</Text>
+            <Text style={styles.cardTitle}>
+              {t('settings.notifications_title')}
+            </Text>
           </View>
-          <Text style={styles.cardDescription}>{t('settings.notifications_hint')}</Text>
+          <Text style={styles.cardDescription}>
+            {t('settings.notifications_hint')}
+          </Text>
 
+          {/* Forum thread notifications */}
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceText}>
-              <Text style={styles.preferenceTitle}>{t('settings.notifications_forum')}</Text>
+              <Text style={styles.preferenceTitle}>
+                {t('settings.notifications_forum')}
+              </Text>
               <Text style={styles.preferenceSubtitle}>
                 {t('settings.notifications_forum_hint')}
               </Text>
@@ -120,6 +145,7 @@ export default function SettingsScreen() {
             />
           </View>
 
+          {/* Learning material notifications */}
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceText}>
               <Text style={styles.preferenceTitle}>
@@ -138,6 +164,7 @@ export default function SettingsScreen() {
             />
           </View>
 
+          {/* Forum reply notifications */}
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceText}>
               <Text style={styles.preferenceTitle}>
@@ -155,12 +182,20 @@ export default function SettingsScreen() {
               disabled={updatingPreferences}
             />
           </View>
+
+          {/* Sync status hint */}
+          {updatingPreferences && (
+            <Text style={styles.cardDescription}>
+              {t('settings.notifications_updating')}
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+/* ======================= Styles ======================= */
 const createStyles = (colorScheme: 'light' | 'dark' | null) => {
   const isDark = colorScheme === 'dark';
   return StyleSheet.create({

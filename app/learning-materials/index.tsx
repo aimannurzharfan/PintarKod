@@ -1,4 +1,4 @@
-﻿import { AIChatbot } from '@/components/ai-chatbot';
+import { AIChatbot } from '@/components/ai-chatbot';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -599,7 +599,7 @@ export default function LearningMaterialsScreen() {
         );
         return;
       }
-
+ 
       try {
         // Use the download endpoint
         const downloadUrl = `${API_URL}/api/learning-materials/download/${materialId}`;
@@ -621,7 +621,14 @@ export default function LearningMaterialsScreen() {
     },
     [t]
   );
+//This part of the code focuses on managing student interaction with learning materials and ensuring that their learning progress is accurately recorded and displayed in real time. The main goal of this implementation is to allow students to update the completion status of learning materials while keeping the system responsive, reliable, and user-friendly.
+//The toggleMaterialCompletion function handles the action when a student marks a learning material as completed or uncompleted. Before performing any operation, the system checks whether the user is authenticated by validating the presence of a token. This step is important to prevent unauthorized access and ensure that learning progress is only tracked for valid users. If the token is missing, the system immediately stops the action and displays an error message, protecting both user data and system integrity.
+//To improve user experience, the code applies an optimistic UI update strategy. This means the application updates the completion status instantly when the user interacts with the material, without waiting for the server’s response. This approach reduces delay and makes the application feel faster. The state update is carefully handled using a Set to avoid duplicate entries and maintain clean progress data.
+//After the optimistic update, the system sends a POST request to the backend API to update the progress record in the database. The request includes the selected material ID and authorization token. If the backend confirms the update, the local state is synchronized with the server’s response to ensure consistency. In case of a failure, the system automatically rolls back the changes made during the optimistic update. This prevents incorrect progress data from being displayed and maintains data accuracy.
+//The progress calculation logic is separated from the update logic to improve readability and maintainability. Using useMemo, the system calculates the completion percentage only when there are changes in the number of completed materials or total materials. This helps reduce unnecessary recalculations and improves performance, especially when the list of learning materials grows.
+//The user interface then reflects this progress through a dynamic progress bar and text description. Conditional rendering is applied so that only students can view the progress section. The progress bar visually represents the student’s learning journey, and motivational messages such as “Great Job!” appear when all materials are completed, encouraging continued engagement.
 
+Overall, this code demonstrates good software design practices, including clear separation of concerns, effective state management, secure API communication, and strong error handling. It supports meaningful learning progress tracking while maintaining a smooth and engaging user experience, which is essential for educational applications.
   // Toggle material completion status with API call
   const toggleMaterialCompletion = useCallback(
     async (materialId: string) => {
@@ -1615,5 +1622,3 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 });
-
-

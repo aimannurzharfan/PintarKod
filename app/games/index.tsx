@@ -7,12 +7,12 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    useColorScheme,
+    View,
 } from 'react-native';
 
 type GameCard = {
@@ -55,6 +55,16 @@ export default function GamesIndexScreen() {
     router.push('/games/troubleshooting/play' as any);
   }, [user, router]);
 
+  const onPlayBuildCode = useCallback(() => {
+    if (!user?.id) {
+      router.replace('/');
+      return;
+    }
+
+    // Navigate to the build-a-code game
+    router.push('/games/build-a-code/play' as any);
+  }, [user, router]);
+
   const gameCards: GameCard[] = useMemo(
     () => [
       {
@@ -78,25 +88,26 @@ export default function GamesIndexScreen() {
         onPress: onPlayTroubleshooting,
       },
       {
-        id: 'programming',
-        title: t('game_ui.programming_title'),
-        description: t('game_ui.programming_desc'),
-        icon: 'code',
+        id: 'build-a-code',
+        title: t('game_ui.build_code_title') || 'Build-a-Code',
+        description: t('game_ui.build_code_desc') || 'Arrange code blocks to build programs',
+        icon: 'layers',
         enabled: true,
         color: '#10B981', // Green
         lightColor: 'rgba(16, 185, 129, 0.1)',
+        onPress: onPlayBuildCode,
       },
       {
         id: 'puzzle',
         title: t('game_ui.puzzle_title'),
         description: t('game_ui.puzzle_desc'),
         icon: 'grid',
-        enabled: true,
+        enabled: false,
         color: '#3B82F6', // Blue
         lightColor: 'rgba(59, 130, 246, 0.1)',
       },
     ],
-    [t, onPlayRandomChallenge, onPlayTroubleshooting]
+    [t, onPlayRandomChallenge, onPlayTroubleshooting, onPlayBuildCode]
   );
 
   const onNavigateToLeaderboard = useCallback(() => {

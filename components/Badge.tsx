@@ -87,5 +87,14 @@ export function Badge({ badgeType, size = 'small' }: BadgeProps) {
   );
 }
 
-
+const styles = StyleSheet.create({
+  badge: {
+    borderRadius: 4,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  badgeText: {
+    fontWeight: '600',
+  },
+});
 

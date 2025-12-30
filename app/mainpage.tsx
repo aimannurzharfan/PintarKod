@@ -53,6 +53,67 @@ const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | nul
   return `${API_URL}${avatarUrl}`;
 };
 
+const formatUnreadBadge = (count: number) => (count > 9 ? '9+' : String(count));
+
+/**
+ * HeaderActions: memoized header buttons for notifications and profile avatar.
+ * Keeps header rendering isolated for better readability and performance.
+ */
+const HeaderActions = React.memo(function HeaderActions({
+  unreadCount,
+  userAvatarUri,
+  colorScheme,
+  onOpenNotifications,
+  onOpenMenu,
+  t,
+}: {
+  unreadCount: number;
+  userAvatarUri?: string;
+  colorScheme: any;
+  onOpenNotifications: () => void;
+  onOpenMenu: () => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <View style={styles.headerActions}>
+      <Pressable
+        onPress={onOpenNotifications}
+        hitSlop={12}
+        style={styles.headerIconButton}
+        accessibilityLabel={t('main.notifications_title')}
+      >
+        <Feather
+          name="bell"
+          size={20}
+          color={colorScheme === 'dark' ? '#FACC15' : '#1E293B'}
+        />
+        {unreadCount > 0 && (
+          <View style={styles.notificationBadge}>
+            <Text style={styles.notificationBadgeText}>{formatUnreadBadge(unreadCount)}</Text>
+          </View>
+        )}
+      </Pressable>
+      <Pressable
+        onPress={onOpenMenu}
+        hitSlop={12}
+        style={styles.headerAvatarButton}
+        accessibilityLabel={t('main.menu_view_profile')}
+      >
+        {userAvatarUri ? (
+          <Image
+            source={{ uri: userAvatarUri }}
+            style={{ width: 28, height: 28, borderRadius: 14 }}
+          />
+        ) : (
+          <View style={styles.headerAvatarFallback}>
+            <Feather name="user" size={18} color="#fff" />
+          </View>
+        )}
+      </Pressable>
+    </View>
+  );
+});
+
 export default function MainPage() {
   const { user, logout } = useAuth();
   const { error: forumError } = useForum();
@@ -182,44 +243,14 @@ export default function MainPage() {
     navigation.setOptions({
       title: t('main.header_title'),
       headerRight: () => (
-        <View style={styles.headerActions}>
-          <Pressable
-            onPress={openNotificationsPanel}
-            hitSlop={12}
-            style={styles.headerIconButton}
-            accessibilityLabel={t('main.notifications_title')}
-          >
-            <Feather
-              name="bell"
-              size={20}
-              color={colorScheme === 'dark' ? '#FACC15' : '#1E293B'}
-            />
-            {unreadCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </Pressable>
-          <Pressable
-            onPress={openMenu}
-            hitSlop={12}
-            style={styles.headerAvatarButton}
-            accessibilityLabel={t('main.menu_view_profile')}
-          >
-            {userAvatarUri ? (
-              <Image
-                source={{ uri: userAvatarUri }}
-                style={{ width: 28, height: 28, borderRadius: 14 }}
-              />
-            ) : (
-              <View style={styles.headerAvatarFallback}>
-                <Feather name="user" size={18} color="#fff" />
-              </View>
-            )}
-          </Pressable>
-        </View>
+        <HeaderActions
+          unreadCount={unreadCount}
+          userAvatarUri={userAvatarUri}
+          colorScheme={colorScheme}
+          onOpenNotifications={openNotificationsPanel}
+          onOpenMenu={openMenu}
+          t={t}
+        />
       ),
     });
   }, [

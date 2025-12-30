@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { generateRandomDebugChallenge, generateRandomTroubleshootingChallenge } = require('./gameGenerator');
+const { generateRandomDebugChallenge, generateRandomTroubleshootingChallenge, generateRandomLogicPuzzle } = require('./gameGenerator');
 const { generateBuildCodeQuiz } = require('./buildCodeGenerator');
 
 const app = express();
@@ -1601,25 +1601,36 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
 
     console.log('Generating quiz for user:', userId);
 
-    // Generate a pool of challenges (more than needed to ensure variety)
-    const challengePool = [];
-    const poolSize = 30; // Generate 30 challenges to ensure variety
+    // Generate unique challenges
+    const challenges = [];
+    const seenCodeBlocks = new Set(); // Track unique code blocks to avoid duplicates
     
-    for (let i = 0; i < poolSize; i++) {
-      challengePool.push(generateRandomDebugChallenge());
+    // Generate challenges until we have 10 unique ones
+    while (challenges.length < 10) {
+      const challenge = generateRandomDebugChallenge();
+      // Use code block as unique identifier
+      const codeKey = challenge.codeBlock.trim();
+      
+      // Only add if we haven't seen this code block before
+      if (!seenCodeBlocks.has(codeKey)) {
+        seenCodeBlocks.add(codeKey);
+        challenges.push(challenge);
+      }
+      
+      // Safety check to prevent infinite loop
+      if (seenCodeBlocks.size > 50) {
+        break;
+      }
     }
 
     // Fisher-Yates shuffle algorithm
-    for (let i = challengePool.length - 1; i > 0; i--) {
+    for (let i = challenges.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [challengePool[i], challengePool[j]] = [challengePool[j], challengePool[i]];
+      [challenges[i], challenges[j]] = [challenges[j], challenges[i]];
     }
-
-    // Take the first 10 unique challenges
-    const challenges = challengePool.slice(0, 10);
     
-    console.log('Generated', challenges.length, 'challenges');
-    res.json(challenges); // Returns an array of 10 challenges
+    console.log('Generated', challenges.length, 'unique challenges');
+    res.json(challenges); // Returns an array of 10 unique challenges
   } catch (err) {
     console.error('Error generating quiz:', err);
     console.error('Stack:', err.stack);
@@ -1631,18 +1642,31 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
 app.get('/api/games/troubleshooting/quiz', authMiddleware, (req, res) => {
   try {
     const challenges = [];
+    const seenCodeBlocks = new Set(); // Track unique code blocks to avoid duplicates
     
-    // Generate 30 random challenges, then pick 10 to avoid repetition
-    for (let i = 0; i < 30; i++) {
-      challenges.push(generateRandomTroubleshootingChallenge());
+    // Generate challenges until we have 10 unique ones
+    while (challenges.length < 10) {
+      const challenge = generateRandomTroubleshootingChallenge();
+      // Use code block as unique identifier
+      const codeKey = challenge.codeBlock.trim();
+      
+      // Only add if we haven't seen this code block before
+      if (!seenCodeBlocks.has(codeKey)) {
+        seenCodeBlocks.add(codeKey);
+        challenges.push(challenge);
+      }
+      
+      // Safety check to prevent infinite loop
+      if (seenCodeBlocks.size > 50) {
+        break;
+      }
     }
     
-    // Shuffle and take first 10
+    // Shuffle the final challenges
     challenges.sort(() => Math.random() - 0.5);
-    const quizChallenges = challenges.slice(0, 10);
     
-    console.log('Generated', quizChallenges.length, 'troubleshooting challenges');
-    res.json(quizChallenges); // Returns an array of 10 challenges
+    console.log('Generated', challenges.length, 'unique troubleshooting challenges');
+    res.json(challenges); // Returns an array of 10 unique challenges
   } catch (err) {
     console.error('Error generating troubleshooting quiz:', err);
     console.error('Stack:', err.stack);
@@ -1658,6 +1682,56 @@ app.get('/api/games/build-a-code/quiz', authMiddleware, (req, res) => {
     res.json(challenges);
   } catch (err) {
     console.error('Error generating build-a-code quiz:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
+  }
+});
+
+// GET /api/games/logic-puzzles/quiz - Get a 10-question logic puzzles quiz
+app.get('/api/games/logic-puzzles/quiz', authMiddleware, (req, res) => {
+  try {
+    const challenges = [];
+    const seenCodeBlocks = new Set(); // Track unique code blocks to avoid duplicates
+    let attempts = 0;
+    const maxAttempts = 100; // Increased safety limit
+    
+    // Generate challenges until we have 10 unique ones
+    while (challenges.length < 10 && attempts < maxAttempts) {
+      attempts++;
+      try {
+        const challenge = generateRandomLogicPuzzle();
+        
+        if (!challenge || !challenge.codeBlock) {
+          console.warn('Invalid challenge generated, skipping');
+          continue;
+        }
+        
+        // Use code block as unique identifier
+        const codeKey = challenge.codeBlock.trim();
+        
+        // Only add if we haven't seen this code block before
+        if (!seenCodeBlocks.has(codeKey)) {
+          seenCodeBlocks.add(codeKey);
+          challenges.push(challenge);
+        }
+      } catch (genError) {
+        console.error('Error generating single challenge:', genError);
+        // Continue trying to generate more
+        continue;
+      }
+    }
+    
+    if (challenges.length === 0) {
+      return res.status(500).json({ error: 'Failed to generate any challenges' });
+    }
+    
+    // Shuffle the final challenges
+    challenges.sort(() => Math.random() - 0.5);
+    
+    console.log('Generated', challenges.length, 'unique logic puzzle challenges');
+    res.json(challenges); // Returns an array of challenges
+  } catch (err) {
+    console.error('Error generating logic puzzles quiz:', err);
     console.error('Stack:', err.stack);
     res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
   }
@@ -1684,11 +1758,14 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     const feedback = []; // Array to store wrong answers
 
     for (const answer of answers) {
-      const { challenge, selectedLine, selectedFix } = answer;
+      const { challenge, selectedLine, selectedFix, selectedOutput } = answer;
       
       // For debugging challenges with fix options, validate both line and fix
       let isCorrect = false;
-      if (challenge.fixOptions && challenge.correctFix) {
+      if (challenge.correctOutput !== undefined) {
+        // Logic Puzzles: check if selected output matches correct output
+        isCorrect = (selectedOutput === challenge.correctOutput);
+      } else if (challenge.fixOptions && challenge.correctFix) {
         // New debugging mechanics: check both line and fix
         isCorrect = (challenge.buggyLineIndex === selectedLine) && 
                     (selectedFix === challenge.correctFix);

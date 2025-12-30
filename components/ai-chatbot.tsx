@@ -268,7 +268,9 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     setError(null);
     
     // Auto-scroll to bottom when user sends message
-    
+     setTimeout(() => {
+      messagesListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
 
     try {
       // Send the user's message to our secure proxy endpoint

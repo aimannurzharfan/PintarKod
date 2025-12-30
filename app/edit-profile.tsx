@@ -243,5 +243,308 @@ export default function EditProfileScreen() {
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
-          {/* UI unchanged */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t('edit_profile.title')}</Text>
+
+            {/* Avatar Section */}
+            <View style={styles.avatarSection}>
+              {avatarPreview ? (
+                <Image source={{ uri: avatarPreview }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarFallback}>
+                  <IconSymbol name="person.fill" size={32} color="#FFFFFF" />
+                </View>
+              )}
+              <View style={styles.avatarActions}>
+                <Pressable
+                  style={styles.avatarButton}
+                  onPress={handlePickAvatar}
+                  disabled={pickingAvatar}
+                >
+                  {pickingAvatar ? (
+                    <ActivityIndicator size="small" color="#2563EB" />
+                  ) : (
+                    <>
+                      <Feather name="camera" size={16} color="#2563EB" />
+                      <Text style={styles.avatarButtonText}>
+                        {avatarPreview ? t('edit_profile.avatar_change') : t('edit_profile.avatar_upload')}
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+                {avatarChanged && (
+                  <Pressable style={styles.avatarResetButton} onPress={handleResetAvatar}>
+                    <Feather name="x" size={16} color="#EF4444" />
+                    <Text style={styles.avatarResetText}>{t('common.cancel')}</Text>
+                  </Pressable>
+                )}
+              </View>
+              <Text style={styles.avatarHint}>{t('edit_profile.avatar_hint')}</Text>
+            </View>
+
+            {/* Form Fields */}
+            <View style={styles.form}>
+              {/* Username */}
+              <View style={styles.field}>
+                <Text style={styles.label}>{t('edit_profile.username')}</Text>
+                <View style={styles.inputWrapper}>
+                  <Feather name="user" size={18} color={placeholderColor} />
+                  <TextInput
+                    placeholder={t('edit_profile.username')}
+                    placeholderTextColor={placeholderColor}
+                    value={username}
+                    onChangeText={setUsername}
+                    style={styles.inputField}
+                    autoCapitalize="words"
+                    textContentType="username"
+                  />
+                </View>
+              </View>
+
+              {/* Email */}
+              <View style={styles.field}>
+                <Text style={styles.label}>{t('edit_profile.email')}</Text>
+                <View style={styles.inputWrapper}>
+                  <Feather name="mail" size={18} color={placeholderColor} />
+                  <TextInput
+                    placeholder={t('edit_profile.email')}
+                    placeholderTextColor={placeholderColor}
+                    value={email}
+                    onChangeText={setEmail}
+                    style={styles.inputField}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                  />
+                </View>
+              </View>
+
+              {/* Password Section */}
+              <View style={styles.passwordSection}>
+                <Text style={styles.sectionTitle}>{t('edit_profile.change_password')}</Text>
+
+                {/* New Password */}
+                <View style={styles.field}>
+                  <Text style={styles.label}>{t('edit_profile.new_password')}</Text>
+                  <View style={styles.inputWrapper}>
+                    <Feather name="lock" size={18} color={placeholderColor} />
+                    <TextInput
+                      placeholder={t('edit_profile.new_password')}
+                      placeholderTextColor={placeholderColor}
+                      value={password}
+                      onChangeText={setPassword}
+                      style={styles.inputField}
+                      secureTextEntry
+                      textContentType="newPassword"
+                    />
+                  </View>
+                </View>
+
+                {/* Confirm Password */}
+                <View style={styles.field}>
+                  <Text style={styles.label}>{t('edit_profile.confirm_password')}</Text>
+                  <View style={styles.inputWrapper}>
+                    <Feather name="lock" size={18} color={placeholderColor} />
+                    <TextInput
+                      placeholder={t('edit_profile.confirm_password')}
+                      placeholderTextColor={placeholderColor}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      style={styles.inputField}
+                      secureTextEntry
+                      textContentType="newPassword"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Save Button */}
+              <Pressable
+                style={[styles.primaryButton, saving && styles.primaryButtonDisabled]}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.primaryButtonText}>{t('common.loading')}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.primaryButtonText}>{t('edit_profile.save_button')}</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+/* ======================= Styles ======================= */
+const createStyles = (colorScheme: 'light' | 'dark' | null) => {
+  const isDark = colorScheme === 'dark';
+  const palette = isDark
+    ? {
+        background: '#020617',
+        card: 'rgba(15, 23, 42, 0.88)',
+        border: 'rgba(148, 163, 184, 0.35)',
+        input: 'rgba(15, 23, 42, 0.92)',
+        text: '#E2E8F0',
+        muted: '#94A3B8',
+      }
+    : {
+        background: '#F0F4FF',
+        card: '#FFFFFF',
+        border: '#E2E8F0',
+        input: '#F8FAFC',
+        text: '#0F172A',
+        muted: '#64748B',
+      };
+
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    container: {
+      flexGrow: 1,
+      padding: 24,
+    },
+    card: {
+      backgroundColor: palette.card,
+      borderRadius: 28,
+      padding: 28,
+      borderWidth: 1,
+      borderColor: palette.border,
+      gap: 24,
+    },
+    cardTitle: {
+      fontSize: 26,
+      fontWeight: '700',
+      textAlign: 'center',
+      color: palette.text,
+    },
+    avatarSection: {
+      alignItems: 'center',
+      gap: 16,
+    },
+    avatar: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      borderWidth: 3,
+      borderColor: '#2563EB',
+    },
+    avatarFallback: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: '#2563EB',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarActions: {
+      flexDirection: 'row',
+      gap: 12,
+      alignItems: 'center',
+    },
+    avatarButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#2563EB',
+      backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    },
+    avatarButtonText: {
+      color: '#2563EB',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    avatarResetButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#EF4444',
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
+    avatarResetText: {
+      color: '#EF4444',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    avatarHint: {
+      fontSize: 12,
+      color: palette.muted,
+      textAlign: 'center',
+    },
+    form: {
+      gap: 20,
+    },
+    field: {
+      gap: 8,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: palette.text,
+    },
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: palette.input,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: palette.border,
+      paddingHorizontal: 14,
+    },
+    inputField: {
+      flex: 1,
+      fontSize: 15,
+      color: palette.text,
+      paddingVertical: 12,
+    },
+    passwordSection: {
+      gap: 16,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: palette.border,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: palette.text,
+    },
+    primaryButton: {
+      marginTop: 12,
+      backgroundColor: '#2563EB',
+      borderRadius: 18,
+      paddingVertical: 14,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    primaryButtonDisabled: {
+      opacity: 0.75,
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
+};
 

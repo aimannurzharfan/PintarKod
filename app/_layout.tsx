@@ -4,8 +4,8 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import '../i18n';
 import i18n from '../i18n';
 
@@ -116,6 +116,18 @@ export default function RootLayout() {
       <Stack.Screen 
         name="games/debugging/play" 
         options={() => ({ title: t('headers.debugging_challenge') })} 
+      />
+      <Stack.Screen 
+        name="games/troubleshooting/play" 
+        options={() => ({ title: t('game_ui.troubleshooting_title') })} 
+      />
+      <Stack.Screen 
+        name="games/build-a-code/play" 
+        options={() => ({ title: t('game_ui.build_code_title') || 'Build-a-Code' })} 
+      />
+      <Stack.Screen 
+        name="games/logic-puzzles/play" 
+        options={() => ({ title: t('game_ui.puzzle_title') || 'Logic Puzzles' })} 
       />
       <Stack.Screen 
         name="leaderboard/index" 

@@ -658,7 +658,455 @@ function generateRandomDebugChallenge() {
   return randomGenerator();
 }
 
+// ==========================================
+// JAVA-BASED LOGIC PUZZLES (PREDICT OUTPUT)
+// ==========================================
+
+const logicPuzzleTemplates = [
+  {
+    title: { en: 'Simple Addition', ms: 'Penambahan Mudah' },
+    description: { 
+      en: 'What will be printed when this code runs?',
+      ms: 'Apakah yang akan dicetak apabila kod ini dijalankan?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int a = 5;
+    int b = 3;
+    int sum = a + b;
+    System.out.println(sum);
+  }
+}`,
+    correctOutput: '8',
+    explanation: {
+      en: 'The code adds 5 + 3 = 8, then prints 8.',
+      ms: 'Kod menambah 5 + 3 = 8, kemudian mencetak 8.'
+    }
+  },
+  {
+    title: { en: 'String Concatenation', ms: 'Penyambungan String' },
+    description: { 
+      en: 'What will be printed?',
+      ms: 'Apakah yang akan dicetak?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    String name = "Ali";
+    String greeting = "Hello, " + name;
+    System.out.println(greeting);
+  }
+}`,
+    correctOutput: 'Hello, Ali',
+    explanation: {
+      en: 'The + operator joins strings together. "Hello, " + "Ali" = "Hello, Ali"',
+      ms: 'Operator + menyambung string bersama. "Hello, " + "Ali" = "Hello, Ali"'
+    }
+  },
+  {
+    title: { en: 'Multiplication', ms: 'Pendaraban' },
+    description: { 
+      en: 'Predict the output',
+      ms: 'Ramal output'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int x = 4;
+    int y = 6;
+    int result = x * y;
+    System.out.println(result);
+  }
+}`,
+    correctOutput: '24',
+    explanation: {
+      en: '4 multiplied by 6 equals 24.',
+      ms: '4 darab 6 sama dengan 24.'
+    }
+  },
+  {
+    title: { en: 'Division', ms: 'Pembahagian' },
+    description: { 
+      en: 'What is the output?',
+      ms: 'Apakah output?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int num1 = 20;
+    int num2 = 4;
+    int answer = num1 / num2;
+    System.out.println(answer);
+  }
+}`,
+    correctOutput: '5',
+    explanation: {
+      en: '20 divided by 4 equals 5.',
+      ms: '20 bahagi 4 sama dengan 5.'
+    }
+  },
+  {
+    title: { en: 'Subtraction', ms: 'Penolakan' },
+    description: { 
+      en: 'What will be printed?',
+      ms: 'Apakah yang akan dicetak?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int total = 100;
+    int spent = 35;
+    int remaining = total - spent;
+    System.out.println(remaining);
+  }
+}`,
+    correctOutput: '65',
+    explanation: {
+      en: '100 minus 35 equals 65.',
+      ms: '100 tolak 35 sama dengan 65.'
+    }
+  },
+  {
+    title: { en: 'Multiple Operations', ms: 'Operasi Berganda' },
+    description: { 
+      en: 'Calculate the result',
+      ms: 'Kira hasil'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int a = 10;
+    int b = 5;
+    int c = 2;
+    int result = a + b * c;
+    System.out.println(result);
+  }
+}`,
+    correctOutput: '20',
+    explanation: {
+      en: 'Multiplication happens first: 5 * 2 = 10, then 10 + 10 = 20.',
+      ms: 'Pendaraban berlaku dahulu: 5 * 2 = 10, kemudian 10 + 10 = 20.'
+    }
+  },
+  {
+    title: { en: 'Integer Division', ms: 'Pembahagian Integer' },
+    description: { 
+      en: 'What is printed?',
+      ms: 'Apakah yang dicetak?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int x = 15;
+    int y = 4;
+    int quotient = x / y;
+    System.out.println(quotient);
+  }
+}`,
+    correctOutput: '3',
+    explanation: {
+      en: 'Integer division: 15 / 4 = 3 (remainder is ignored).',
+      ms: 'Pembahagian integer: 15 / 4 = 3 (baki diabaikan).'
+    }
+  },
+  {
+    title: { en: 'Modulus Operation', ms: 'Operasi Modulus' },
+    description: { 
+      en: 'Predict the output',
+      ms: 'Ramal output'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int num = 17;
+    int divisor = 5;
+    int remainder = num % divisor;
+    System.out.println(remainder);
+  }
+}`,
+    correctOutput: '2',
+    explanation: {
+      en: '17 % 5 = 2 (remainder when 17 is divided by 5).',
+      ms: '17 % 5 = 2 (baki apabila 17 dibahagikan dengan 5).'
+    }
+  },
+  {
+    title: { en: 'String and Number', ms: 'String dan Nombor' },
+    description: { 
+      en: 'What will be printed?',
+      ms: 'Apakah yang akan dicetak?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    String item = "Apple";
+    int count = 5;
+    System.out.println(item + ": " + count);
+  }
+}`,
+    correctOutput: 'Apple: 5',
+    explanation: {
+      en: 'When you add a number to a string, it becomes part of the string. "Apple" + ": " + 5 = "Apple: 5"',
+      ms: 'Apabila anda tambah nombor kepada string, ia menjadi sebahagian string. "Apple" + ": " + 5 = "Apple: 5"'
+    }
+  },
+  {
+    title: { en: 'Variable Reassignment', ms: 'Penugasan Semula Pemboleh Ubah' },
+    description: { 
+      en: 'What is the final output?',
+      ms: 'Apakah output akhir?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int score = 50;
+    score = score + 10;
+    System.out.println(score);
+  }
+}`,
+    correctOutput: '60',
+    explanation: {
+      en: 'score starts at 50, then becomes 50 + 10 = 60.',
+      ms: 'score bermula pada 50, kemudian menjadi 50 + 10 = 60.'
+    }
+  },
+  {
+    title: { en: 'Multiple Variables', ms: 'Pemboleh Ubah Berganda' },
+    description: { 
+      en: 'Calculate the result',
+      ms: 'Kira hasil'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int price = 25;
+    int quantity = 3;
+    int total = price * quantity;
+    System.out.println(total);
+  }
+}`,
+    correctOutput: '75',
+    explanation: {
+      en: '25 multiplied by 3 equals 75.',
+      ms: '25 darab 3 sama dengan 75.'
+    }
+  },
+  {
+    title: { en: 'Order of Operations', ms: 'Susunan Operasi' },
+    description: { 
+      en: 'What is the output?',
+      ms: 'Apakah output?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int a = 8;
+    int b = 2;
+    int c = 3;
+    int result = a - b + c;
+    System.out.println(result);
+  }
+}`,
+    correctOutput: '9',
+    explanation: {
+      en: 'Operations from left to right: 8 - 2 = 6, then 6 + 3 = 9.',
+      ms: 'Operasi dari kiri ke kanan: 8 - 2 = 6, kemudian 6 + 3 = 9.'
+    }
+  },
+  {
+    title: { en: 'Parentheses First', ms: 'Kurungan Dahulu' },
+    description: { 
+      en: 'Predict the output',
+      ms: 'Ramal output'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int x = 2;
+    int y = 3;
+    int z = 4;
+    int result = (x + y) * z;
+    System.out.println(result);
+  }
+}`,
+    correctOutput: '20',
+    explanation: {
+      en: 'Parentheses first: (2 + 3) = 5, then 5 * 4 = 20.',
+      ms: 'Kurungan dahulu: (2 + 3) = 5, kemudian 5 * 4 = 20.'
+    }
+  },
+  {
+    title: { en: 'String Length', ms: 'Panjang String' },
+    description: { 
+      en: 'What will be printed?',
+      ms: 'Apakah yang akan dicetak?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    String word = "Java";
+    int length = word.length();
+    System.out.println(length);
+  }
+}`,
+    correctOutput: '4',
+    explanation: {
+      en: 'The string "Java" has 4 characters, so length() returns 4.',
+      ms: 'String "Java" mempunyai 4 aksara, jadi length() mengembalikan 4.'
+    }
+  },
+  {
+    title: { en: 'Modulus with Even Number', ms: 'Modulus dengan Nombor Genap' },
+    description: { 
+      en: 'What is the result?',
+      ms: 'Apakah hasilnya?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int number = 20;
+    int result = number % 2;
+    System.out.println(result);
+  }
+}`,
+    correctOutput: '0',
+    explanation: {
+      en: '20 % 2 = 0 because 20 is divisible by 2 (even number).',
+      ms: '20 % 2 = 0 kerana 20 boleh dibahagikan dengan 2 (nombor genap).'
+    }
+  },
+  {
+    title: { en: 'Modulus with Odd Number', ms: 'Modulus dengan Nombor Ganjil' },
+    description: { 
+      en: 'What will be printed?',
+      ms: 'Apakah yang akan dicetak?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int number = 21;
+    int result = number % 2;
+    System.out.println(result);
+  }
+}`,
+    correctOutput: '1',
+    explanation: {
+      en: '21 % 2 = 1 because 21 is not divisible by 2 (odd number).',
+      ms: '21 % 2 = 1 kerana 21 tidak boleh dibahagikan dengan 2 (nombor ganjil).'
+    }
+  },
+  {
+    title: { en: 'Complex Expression', ms: 'Ungkapan Kompleks' },
+    description: { 
+      en: 'Calculate step by step',
+      ms: 'Kira langkah demi langkah'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int a = 6;
+    int b = 2;
+    int c = 4;
+    int result = a / b + c;
+    System.out.println(result);
+  }
+}`,
+    correctOutput: '7',
+    explanation: {
+      en: 'Division first: 6 / 2 = 3, then 3 + 4 = 7.',
+      ms: 'Pembahagian dahulu: 6 / 2 = 3, kemudian 3 + 4 = 7.'
+    }
+  },
+  {
+    title: { en: 'String Repetition', ms: 'Pengulangan String' },
+    description: { 
+      en: 'What is printed?',
+      ms: 'Apakah yang dicetak?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    String text = "Hi";
+    String repeated = text + text;
+    System.out.println(repeated);
+  }
+}`,
+    correctOutput: 'HiHi',
+    explanation: {
+      en: 'Concatenating "Hi" + "Hi" results in "HiHi".',
+      ms: 'Menyambung "Hi" + "Hi" menghasilkan "HiHi".'
+    }
+  },
+  {
+    title: { en: 'Zero Division Check', ms: 'Semak Pembahagian Sifar' },
+    description: { 
+      en: 'What will be printed?',
+      ms: 'Apakah yang akan dicetak?'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int numerator = 0;
+    int denominator = 5;
+    int result = numerator / denominator;
+    System.out.println(result);
+  }
+}`,
+    correctOutput: '0',
+    explanation: {
+      en: '0 divided by any number equals 0.',
+      ms: '0 dibahagikan dengan sebarang nombor sama dengan 0.'
+    }
+  },
+  {
+    title: { en: 'Multiple Assignments', ms: 'Penugasan Berganda' },
+    description: { 
+      en: 'Predict the output',
+      ms: 'Ramal output'
+    },
+    codeBlock: `public class Main {
+  public static void main(String[] args) {
+    int x = 5;
+    int y = x + 2;
+    int z = y * 2;
+    System.out.println(z);
+  }
+}`,
+    correctOutput: '14',
+    explanation: {
+      en: 'x = 5, y = 5 + 2 = 7, z = 7 * 2 = 14.',
+      ms: 'x = 5, y = 5 + 2 = 7, z = 7 * 2 = 14.'
+    }
+  }
+];
+
+function generateRandomLogicPuzzle() {
+  const template = logicPuzzleTemplates[Math.floor(Math.random() * logicPuzzleTemplates.length)];
+  
+  // Generate wrong answer options
+  const wrongOptions = generateWrongOutputs(template.correctOutput, template.codeBlock);
+  
+  return {
+    ...template,
+    options: [template.correctOutput, ...wrongOptions].sort(() => Math.random() - 0.5), // Shuffle options
+    basePoints: 100
+  };
+}
+
+// Helper function to generate plausible wrong answers
+function generateWrongOutputs(correctOutput, codeBlock) {
+  const correct = parseInt(correctOutput);
+  const wrongOptions = [];
+  
+  if (!isNaN(correct)) {
+    // For numeric outputs, generate common mistakes
+    wrongOptions.push(String(correct + 1));
+    wrongOptions.push(String(correct - 1));
+    wrongOptions.push(String(correct * 2));
+    if (correct > 0) {
+      wrongOptions.push(String(Math.floor(correct / 2)));
+    }
+    // Add some random variations
+    wrongOptions.push(String(correct + 5));
+    wrongOptions.push(String(Math.abs(correct - 3)));
+  } else {
+    // For string outputs, generate variations
+    wrongOptions.push('Error');
+    wrongOptions.push('null');
+    wrongOptions.push(correctOutput + '!');
+    wrongOptions.push(correctOutput.toUpperCase());
+    wrongOptions.push(correctOutput.toLowerCase());
+  }
+  
+  // Remove duplicates and the correct answer
+  const unique = [...new Set(wrongOptions)].filter(opt => opt !== correctOutput);
+  return unique.slice(0, 3); // Return 3 wrong options
+}
+
 module.exports = {
   generateRandomDebugChallenge,
-  generateRandomTroubleshootingChallenge
+  generateRandomTroubleshootingChallenge,
+  generateRandomLogicPuzzle
 };

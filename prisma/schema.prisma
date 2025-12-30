@@ -134,6 +134,7 @@ model ChatLog {
   id        Int      @id @default(autoincrement())
   message   String   @db.Text // The student's prompt
   response  String?  @db.Text // Optional: The AI's answer
+  imageData String? @db.LongText // Optional: Base64 encoded image data
   createdAt DateTime @default(now())
 
   userId    Int

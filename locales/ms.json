@@ -400,7 +400,9 @@
     "challenges_title": "Cabaran",
     "rankings_title": "Kedudukan",
     "leaderboard_title": "Papan Pendahulu",
-    "leaderboard_desc": "Lihat kedudukan anda antara pelajar lain!"
+    "leaderboard_desc": "Lihat kedudukan anda antara pelajar lain!",
+    "build_code_title": "Bina-Kod",
+    "build_code_desc": "Susun blok untuk bina program Java"
   },
   "headers": {
     "mainpage": "Laman Utama",

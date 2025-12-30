@@ -22,8 +22,9 @@ import {
 import { API_URL } from '../config';
 
 /**
- * Resolves the correct avatar URI for a user.
- * Supports base64 images, remote URLs, and API-served avatars.
+ * Decide which avatar to show.
+ * If profileImage is available, use it (base64 or data URI)
+ * Otherwise use avatarUrl (remote or API path)
  */
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -40,8 +41,8 @@ const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | nul
 
 /**
  * DeleteAccountScreen
- * Allows teachers to search for students and permanently delete accounts.
- * Includes strict role-based access control and confirmation safeguards.
+ * Teachers can search for students and delete their accounts.
+ * Includes username confirmation and role-based access.
  */
 export default function DeleteAccountScreen() {
   const router = useRouter();
@@ -50,6 +51,7 @@ export default function DeleteAccountScreen() {
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme);
 
+  // ================== States ==================
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,7 +69,8 @@ export default function DeleteAccountScreen() {
   >({});
 
   /**
-   * Avatar component for student list and card
+   * Component to show student's avatar
+   * If no avatar, show a default icon
    */
   const StudentAvatar = ({
     profileImage,
@@ -88,7 +91,8 @@ export default function DeleteAccountScreen() {
   };
 
   /**
-   * Ensure only teachers can access this screen
+   * Make sure only teachers can access this screen
+   * If not a teacher, show alert and go back
    */
   useEffect(() => {
     if (currentUser?.role !== 'Teacher') {
@@ -128,7 +132,7 @@ export default function DeleteAccountScreen() {
   }, [selectedStudent]);
 
   /**
-   * Fetch badges for search results list
+   * Fetch badges for students in search results
    */
   useEffect(() => {
     if (searchResults.length === 0) {
@@ -159,7 +163,7 @@ export default function DeleteAccountScreen() {
   }, [searchResults]);
 
   /**
-   * Search students by username/email (Student role only)
+   * Search for students by username or email
    */
   const searchStudents = async (query: string) => {
     setSelectedStudent(null);
@@ -191,8 +195,8 @@ export default function DeleteAccountScreen() {
   };
 
   /**
-   * Permanently deletes a student account
-   * Requires exact username confirmation
+   * Permanently delete a student account
+   * Requires typing exact username
    */
   const confirmDelete = async (username: string) => {
     setLoading(true);
@@ -225,7 +229,7 @@ export default function DeleteAccountScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{t('delete_student.title')}</Text>
 
-      {/* Search */}
+      {/* Search bar */}
       <View style={styles.searchInputContainer}>
         <TextInput
           placeholder={t('delete_student.search_placeholder')}
@@ -247,14 +251,15 @@ export default function DeleteAccountScreen() {
         </Pressable>
       </View>
 
-      {/* Results */}
+      {/* Show loading spinner */}
       {searching && <ActivityIndicator style={styles.loading} />}
 
+      {/* Show message if no students found */}
       {!searching && searchResults.length === 0 && searchQuery.trim() !== '' && (
         <Text style={styles.studentMeta}>{t('delete_student.no_results')}</Text>
       )}
 
-      {/* Modal */}
+      {/* Modal for delete confirmation */}
       {selectedStudent && (
         <Modal visible={showDeleteModal} transparent animationType="slide">
           <Pressable style={styles.modalOverlay} onPress={() => setShowDeleteModal(false)}>

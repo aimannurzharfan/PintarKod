@@ -1,8 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
@@ -28,6 +30,7 @@ export interface Message {
   role: Role;
   text: string;
   timestamp: Date;
+  imageUri?: string;
 }
 
 interface ChatHistoryItem {
@@ -51,6 +54,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isConversationLoaded, setIsConversationLoaded] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [pickingImage, setPickingImage] = useState(false);
   const messagesListRef = useRef<FlatList>(null);
   const colorScheme = useColorScheme();
   const { token } = useAuth();
@@ -169,18 +174,96 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     }
   };
 
+  const handlePickImage = async () => {
+    try {
+      setPickingImage(true);
+      
+      // Request permissions
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to upload images.'
+        );
+        return;
+      }
+
+      // Launch image picker
+      // Note: mediaTypes removed to avoid Android compatibility issues
+      // base64: true is REQUIRED to get base64 string for Gemini API
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: false,
+        quality: 0.5, // Lower quality for better API speed/limits
+        base64: true, // <--- REQUIRED: Must be true to get base64 string
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (!result.assets || result.assets.length === 0) {
+        Alert.alert(
+          'Error',
+          'No image was selected.'
+        );
+        return;
+      }
+
+      const asset = result.assets[0];
+      
+      // Check if it's a PNG image (screenshots are usually PNG)
+      const isPNG = asset.mimeType === 'image/png' || 
+                    asset.uri.toLowerCase().endsWith('.png');
+      
+      if (!isPNG) {
+        Alert.alert(
+          'Invalid Format',
+          'Please select a PNG image file (screenshots are usually PNG format).'
+        );
+        return;
+      }
+
+      // Handle base64 data
+      if (asset.base64) {
+        const mimeType = asset.mimeType || 'image/png';
+        const dataUri = `data:${mimeType};base64,${asset.base64}`;
+        setSelectedImage(dataUri);
+      } else if (asset.uri) {
+        // Fallback to URI if base64 is not available
+        setSelectedImage(asset.uri);
+      } else {
+        Alert.alert(
+          'Error',
+          'Could not read image data. Please try again.'
+        );
+      }
+    } catch (err) {
+      console.error('Image picker error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert(
+        'Error',
+        `Failed to pick image: ${errorMessage}. Please try again.`
+      );
+    } finally {
+      setPickingImage(false);
+    }
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !selectedImage) || isLoading) return;
 
     const userMessage: Message = {
       role: 'user',
-      text: input,
+      text: input || (selectedImage ? '[Image]' : ''),
       timestamp: new Date(),
+      imageUri: selectedImage || undefined,
     };
 
     setMessages(prev => [...prev, userMessage]);
     const currentInput = input;
+    const currentImage = selectedImage;
     setInput('');
+    setSelectedImage(null);
     setIsLoading(true);
     setError(null);
     
@@ -198,20 +281,35 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
           'Authorization': `Bearer ${token}` // Use the user's login token
         },
         body: JSON.stringify({
-          message: currentInput
+          message: currentInput || undefined,
+          image: currentImage || undefined
         })
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get response from AI');
+        let errorMessage = 'Failed to get response from AI';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.details || errorMessage;
+          console.error('API Error:', errorData);
+        } catch (e) {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+          console.error('API Error (text):', errorText);
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       
+      if (!data.text) {
+        console.error('No text in response:', data);
+        throw new Error('AI did not return a valid response');
+      }
+      
       const botMessage: Message = {
         role: 'gemini',
-        text: data.text || 'Sorry, I could not generate a response.',
+        text: data.text,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, botMessage]);
@@ -264,9 +362,18 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             !isUser && { borderColor: colorScheme === 'dark' ? '#444' : '#E0E0E0' },
           ]}
         >
-           <Markdown style={{ body: { color: isUser ? '#FFFFFF' : (colorScheme === 'dark' ? '#FFFFFF' : '#000000'), fontSize: 16 } }}>
+          {item.imageUri && (
+            <Image
+              source={{ uri: item.imageUri }}
+              style={styles.messageImage}
+              contentFit="contain"
+            />
+          )}
+          {item.text && (
+            <Markdown style={{ body: { color: isUser ? '#FFFFFF' : (colorScheme === 'dark' ? '#FFFFFF' : '#000000'), fontSize: 16 } }}>
               {item.text}
-           </Markdown>
+            </Markdown>
+          )}
         </View>
       </View>
     );
@@ -299,6 +406,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                   ]);
                   setIsConversationLoaded(false);
                   setInput('');
+                  setSelectedImage(null);
                   setError(null);
                 }} 
                 style={styles.newChatButton}
@@ -376,6 +484,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                       ]);
                       setIsConversationLoaded(false);
                       setInput('');
+                      setSelectedImage(null);
                       setError(null);
                     }} 
                     style={styles.newChatButton}
@@ -407,7 +516,37 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             }}
           />
           {error && <Text style={styles.errorText}>{error}</Text>}
+          {selectedImage && (
+            <View style={styles.selectedImageContainer}>
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.selectedImagePreview}
+                contentFit="cover"
+              />
+              <TouchableOpacity
+                onPress={() => setSelectedImage(null)}
+                style={styles.removeImageButton}
+              >
+                <IconSymbol name="xmark" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={[styles.inputContainer, { backgroundColor: colorScheme === 'dark' ? '#111' : '#FFFFFF', borderTopColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
+            <TouchableOpacity
+              onPress={handlePickImage}
+              style={[
+                styles.plusButton, 
+                { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#3A3A3C' },
+                pickingImage && styles.disabledButton
+              ]}
+              disabled={isLoading || pickingImage}
+            >
+              {pickingImage ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <IconSymbol name="plus" size={20} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
             <TextInput
               style={[styles.input, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F0F0F0', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
               value={input}
@@ -418,8 +557,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             />
             <TouchableOpacity
               onPress={handleSend}
-              style={[styles.sendButton, (isLoading || !input.trim()) && styles.disabledButton]}
-              disabled={isLoading || !input.trim()}
+              style={[styles.sendButton, (isLoading || (!input.trim() && !selectedImage)) && styles.disabledButton]}
+              disabled={isLoading || (!input.trim() && !selectedImage)}
             >
               {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -609,6 +748,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
     fontSize: 16,
   },
+  plusButton: {
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    width: 40,
+    height: 40,
+  },
   sendButton: {
     backgroundColor: '#007AFF',
     borderRadius: 20,
@@ -624,6 +773,34 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#A9A9A9',
+  },
+  selectedImageContainer: {
+    position: 'relative',
+    marginHorizontal: 10,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  selectedImagePreview: {
+    width: 150,
+    height: 150,
+    borderRadius: 12,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 8,
   },
 });
 

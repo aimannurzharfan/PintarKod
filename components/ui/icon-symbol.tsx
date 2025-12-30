@@ -30,6 +30,8 @@ const MAPPING = {
   'person.badge.plus': 'person-add',
   'trash.circle.fill': 'delete',
   'line.3.horizontal': 'menu',
+  'plus': 'add',
+  'plus.circle.fill': 'add-circle',
 } as IconMapping;
 
 /**

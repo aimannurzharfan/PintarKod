@@ -27,12 +27,7 @@ export function Badge({ badgeType, size = 'small' }: BadgeProps) {
   // Get badge styles based on type
   const getBadgeStyles = () => {
     switch (badgeType) {
-      case 'Champion':
-        return {
-          backgroundColor: isDark ? 'rgba(251, 191, 36, 0.2)' : 'rgba(251, 191, 36, 0.15)',
-          borderColor: isDark ? 'rgba(251, 191, 36, 0.4)' : 'rgba(251, 191, 36, 0.3)',
-          textColor: '#FBBF24',
-        };
+     
       case 'RisingStar':
         return {
           backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.15)',

@@ -202,7 +202,7 @@ export default function BuildACodeGame() {
     setIsCorrect(isAnswerCorrect);
     setShowFeedback(true);
 
-    // Store answer
+    // Store answer (server will calculate score based on time)
     setUserAnswers(prev => [...prev, {
       challenge,
       userOrder,
@@ -210,35 +210,11 @@ export default function BuildACodeGame() {
       hintsUsed
     }]);
 
-    // Update streak
+    // Update streak (for display purposes only)
     if (isAnswerCorrect) {
       setStreak(prev => prev + 1);
     } else {
       setStreak(0);
-    }
-
-    // Calculate score for this question
-    if (isAnswerCorrect) {
-      let points = challenge.basePoints;
-      
-      // Time bonus (under 30 seconds)
-      if (timeForQuestion < 30000) {
-        points += 20;
-      }
-      
-      // Streak bonus
-      const newStreak = streak + 1;
-      if (newStreak >= 5) {
-        points = Math.floor(points * 2);
-      } else if (newStreak >= 3) {
-        points = Math.floor(points * 1.5);
-      }
-      
-      // Hint penalty
-      points -= (hintsUsed * 30);
-      points = Math.max(0, points);
-      
-      setTotalScore(prev => prev + points);
     }
 
     setHintsUsed(0); // Reset hints for next question
@@ -250,6 +226,7 @@ export default function BuildACodeGame() {
 
     if (currentQuestionIndex < challenges.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
+      setQuestionStartTime(Date.now()); // Start timer for next question
     } else {
       // Submit final quiz results
       try {
@@ -263,15 +240,15 @@ export default function BuildACodeGame() {
             answers: userAnswers.map(a => ({
               challenge: a.challenge,
               userOrder: a.userOrder,
-              isCorrect: JSON.stringify(a.userOrder) === JSON.stringify(a.challenge.correctOrder)
+              timeMs: a.timeMs, // Include time per question
             })),
-            totalTimeMs: Date.now() - startTime,
+            totalTimeMs: Date.now() - startTime, // Total time for backward compatibility
             gameType: 'BUILD_A_CODE_QUIZ',
-            totalScore
           }),
         });
 
         const result = await response.json();
+        setTotalScore(result.totalScore || 0); // Use server-calculated score
         if (result.feedback && result.feedback.length > 0) {
           setQuizFeedback(result.feedback);
         }
@@ -281,7 +258,7 @@ export default function BuildACodeGame() {
         setShowResults(true);
       }
     }
-  }, [currentQuestionIndex, challenges.length, userAnswers, token, startTime, totalScore]);
+  }, [currentQuestionIndex, challenges.length, userAnswers, token, startTime]);
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {

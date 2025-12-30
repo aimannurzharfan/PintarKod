@@ -1747,18 +1747,37 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     // Read lang from query string (default to 'en')
     const lang = req.query.lang || 'en';
 
-    // 'answers' is an array: [{ challenge, selectedLine }, ...]
-    if (!Array.isArray(answers) || !totalTimeMs) {
+    // 'answers' is an array: [{ challenge, selectedLine, timeMs }, ...]
+    if (!Array.isArray(answers)) {
       return res.status(400).json({ error: 'Invalid quiz submission' });
     }
 
     let totalScore = 0;
     let correctCount = 0;
-    const timePerQuestion = totalTimeMs / answers.length;
     const feedback = []; // Array to store wrong answers
 
+    // Scoring function based on time
+    const calculateScore = (timeMs, isCorrect) => {
+      if (!isCorrect) {
+        return 0; // Wrong answer = 0 points
+      }
+      
+      const timeSeconds = timeMs / 1000; // Convert to seconds
+      
+      if (timeSeconds < 15) {
+        return 500; // Under 15 seconds = 500 points
+      } else if (timeSeconds < 30) {
+        return 375; // Under 30 seconds = 375 points
+      } else {
+        return 250; // 30 seconds or more = 250 points
+      }
+    };
+
     for (const answer of answers) {
-      const { challenge, selectedLine, selectedFix, selectedOutput } = answer;
+      const { challenge, selectedLine, selectedFix, selectedOutput, timeMs, userOrder } = answer;
+      
+      // Calculate time per question (use provided timeMs or fallback to average)
+      const questionTime = timeMs || (totalTimeMs ? totalTimeMs / answers.length : 30000);
       
       // For debugging challenges with fix options, validate both line and fix
       let isCorrect = false;
@@ -1769,15 +1788,20 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
         // New debugging mechanics: check both line and fix
         isCorrect = (challenge.buggyLineIndex === selectedLine) && 
                     (selectedFix === challenge.correctFix);
+      } else if (challenge.correctOrder && userOrder) {
+        // Build-a-Code: check if order matches
+        isCorrect = (JSON.stringify(userOrder) === JSON.stringify(challenge.correctOrder));
       } else {
         // Troubleshooting or old format: just check line
         isCorrect = (challenge.buggyLineIndex === selectedLine);
       }
 
+      // Calculate score based on time and correctness
+      const questionScore = calculateScore(questionTime, isCorrect);
+      totalScore += questionScore;
+
       if (isCorrect) {
         correctCount++;
-        // CONSISTENT SCORING: Same for both games - 100 points per correct answer
-        totalScore += 100;
       } else {
         // Add wrong answer to feedback array
         feedback.push({

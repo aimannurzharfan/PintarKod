@@ -56,9 +56,11 @@ export default function TroubleshootingGame() {
   }, [navigation, t]);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [userAnswers, setUserAnswers] = useState<Array<{
     challenge: Challenge;
     selectedLine: number;
+    timeMs: number;
   }>>([]);
   
   // Feedback review state
@@ -122,12 +124,20 @@ export default function TroubleshootingGame() {
         const data = await response.json();
         setChallenges(data);
         setIsLoading(false);
+        setQuestionStartTime(Date.now()); // Start timer for first question
       } catch (error) {
         setIsLoading(false);
       }
     };
     fetchQuiz();
   }, [token]);
+
+  // Reset question timer when moving to next question
+  useEffect(() => {
+    if (currentQuestionIndex > 0 && !showResults) {
+      setQuestionStartTime(Date.now());
+    }
+  }, [currentQuestionIndex]);
 
   // Handle back button press
   useEffect(() => {
@@ -160,12 +170,16 @@ export default function TroubleshootingGame() {
       soundWrong?.replayAsync()?.catch(() => {});
     }
 
+    // Calculate time for this question
+    const timeForQuestion = Date.now() - questionStartTime;
+
     const newAnswers = [...userAnswers, {
       challenge,
       selectedLine,
+      timeMs: timeForQuestion,
     }];
     setUserAnswers(newAnswers);
-  }, [selectedLine, challenge, userAnswers, soundCorrect, soundWrong]);
+  }, [selectedLine, challenge, userAnswers, soundCorrect, soundWrong, questionStartTime]);
 
   const handleContinue = useCallback(async () => {
     setShowFeedback(false);
@@ -173,6 +187,7 @@ export default function TroubleshootingGame() {
     if (currentQuestionIndex < challenges.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedLine(null);
+      setQuestionStartTime(Date.now()); // Start timer for next question
     } else {
       // Submit quiz - userAnswers now has all answers
       try {
@@ -183,8 +198,8 @@ export default function TroubleshootingGame() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            answers: userAnswers, // All answers included
-            totalTimeMs: elapsedTime * 1000, // Convert to milliseconds
+            answers: userAnswers, // All answers included with timeMs
+            totalTimeMs: elapsedTime * 1000, // Convert to milliseconds (for backward compatibility)
             gameType: 'TROUBLESHOOTING_QUIZ',
           }),
         });

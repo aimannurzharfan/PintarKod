@@ -5,17 +5,17 @@ import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    ActivityIndicator,
-    Animated,
-    BackHandler,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Animated,
+  BackHandler,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
 } from 'react-native';
 
 interface Challenge {
@@ -45,9 +45,11 @@ export default function LogicPuzzlesGame() {
   const [totalScore, setTotalScore] = useState(0);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [userAnswers, setUserAnswers] = useState<Array<{
     challenge: Challenge;
     selectedOutput: string;
+    timeMs: number;
   }>>([]);
   
   // Feedback review state
@@ -155,6 +157,7 @@ export default function LogicPuzzlesGame() {
         const data = await response.json();
         setChallenges(data);
         setIsLoading(false);
+        setQuestionStartTime(Date.now()); // Start timer for first question
       } catch (error) {
         console.error('Error fetching quiz:', error);
         setIsLoading(false);
@@ -165,6 +168,13 @@ export default function LogicPuzzlesGame() {
       fetchQuiz();
     }
   }, [token]);
+
+  // Reset question timer when moving to next question
+  useEffect(() => {
+    if (currentQuestionIndex > 0 && !showResults) {
+      setQuestionStartTime(Date.now());
+    }
+  }, [currentQuestionIndex]);
 
   // Handle back button press
   useEffect(() => {
@@ -207,12 +217,16 @@ export default function LogicPuzzlesGame() {
       triggerShake();
     }
 
+    // Calculate time for this question
+    const timeForQuestion = Date.now() - questionStartTime;
+
     const newAnswers = [...userAnswers, {
       challenge,
       selectedOutput,
+      timeMs: timeForQuestion,
     }];
     setUserAnswers(newAnswers);
-  }, [selectedOutput, challenge, userAnswers, soundCorrect, soundWrong]);
+  }, [selectedOutput, challenge, userAnswers, soundCorrect, soundWrong, questionStartTime]);
 
   const handleContinue = useCallback(async () => {
     setShowFeedback(false);
@@ -220,6 +234,7 @@ export default function LogicPuzzlesGame() {
     if (currentQuestionIndex < challenges.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedOutput(null);
+      setQuestionStartTime(Date.now()); // Start timer for next question
     } else {
       // Submit quiz
       try {
@@ -230,8 +245,8 @@ export default function LogicPuzzlesGame() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            answers: userAnswers,
-            totalTimeMs: elapsedTime * 1000,
+            answers: userAnswers, // All answers with timeMs
+            totalTimeMs: elapsedTime * 1000, // Convert to milliseconds (for backward compatibility)
             gameType: 'LOGIC_PUZZLES_QUIZ',
           }),
         });

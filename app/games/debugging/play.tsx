@@ -45,10 +45,12 @@ export default function DebuggingGame() {
   const [totalScore, setTotalScore] = useState(0);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [userAnswers, setUserAnswers] = useState<Array<{
     challenge: Challenge;
     selectedLine: number;
     selectedFix: string;
+    timeMs: number;
   }>>([]);
   
   // Feedback review state
@@ -112,12 +114,20 @@ export default function DebuggingGame() {
         const data = await response.json();
         setChallenges(data);
         setIsLoading(false);
+        setQuestionStartTime(Date.now()); // Start timer for first question
       } catch (error) {
         setIsLoading(false);
       }
     };
     fetchQuiz();
   }, [token]);
+
+  // Reset question timer when moving to next question
+  useEffect(() => {
+    if (currentQuestionIndex > 0 && !showResults) {
+      setQuestionStartTime(Date.now());
+    }
+  }, [currentQuestionIndex]);
 
   // Handle back button press
   useEffect(() => {
@@ -150,13 +160,17 @@ export default function DebuggingGame() {
       soundWrong?.replayAsync()?.catch(() => {});
     }
 
+    // Calculate time for this question
+    const timeForQuestion = Date.now() - questionStartTime;
+
     const newAnswers = [...userAnswers, {
       challenge,
       selectedLine,
       selectedFix,
+      timeMs: timeForQuestion,
     }];
     setUserAnswers(newAnswers);
-  }, [selectedLine, selectedFix, challenge, userAnswers, soundCorrect, soundWrong]);
+  }, [selectedLine, selectedFix, challenge, userAnswers, soundCorrect, soundWrong, questionStartTime]);
 
   const handleContinue = useCallback(async () => {
     setShowFeedback(false);
@@ -165,6 +179,7 @@ export default function DebuggingGame() {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedLine(null);
       setSelectedFix(null);
+      setQuestionStartTime(Date.now()); // Start timer for next question
     } else {
       // Submit quiz - use userAnswers which now includes the last answer
       try {
@@ -175,8 +190,8 @@ export default function DebuggingGame() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            answers: userAnswers, // This now has all answers including the last one
-            totalTimeMs: elapsedTime * 1000, // Convert seconds to milliseconds
+            answers: userAnswers, // This now has all answers including the last one with timeMs
+            totalTimeMs: elapsedTime * 1000, // Convert seconds to milliseconds (for backward compatibility)
             gameType: 'DEBUGGING_QUIZ',
           }),
         });

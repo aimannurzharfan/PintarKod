@@ -5,7 +5,7 @@
 
 import { API_URL } from '@/config';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,17 +23,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 
-/**
- * Simple email validation helper.
- * Returns true for basic valid-looking email addresses.
- */
-const validateEmail = (value?: string) => {
-  if (!value) return false;
-  const v = value.trim().toLowerCase();
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(v);
-};
-
 export default function ForgotPassword() {
   // State to store user's email input
   const [email, setEmail] = useState('');
@@ -47,108 +36,101 @@ export default function ForgotPassword() {
   const styles = useMemo(() => getStyles(colorScheme), [colorScheme]);
   // Translation hook for multi-language support
   const { t } = useTranslation();
-  // Memoized placeholder color derived from theme
-  const placeholderColor = useMemo(() => (colorScheme === 'dark' ? '#94A3B8' : '#64748B'), [colorScheme]);
+  const placeholderColor = colorScheme === 'dark' ? '#94A3B8' : '#64748B';
 
-  /** Small input component that pairs an icon with a text input */
-  const InputWithIcon = ({
-    value,
-    onChangeText,
-  }: {
-    value: string;
-    onChangeText: (v: string) => void;
-  }) => (
-    <View style={styles.inputWrapper}>
-      <Feather name="mail" size={18} color={placeholderColor} style={styles.inputIcon} />
-      <TextInput
-        placeholder={t('forgot_password.email_placeholder')}
-        placeholderTextColor={placeholderColor}
-        value={value}
-        onChangeText={onChangeText}
-        style={styles.inputField}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        textContentType="emailAddress"
-      />
-    </View>
-  );
-
-  /** Returns the style array for the primary button */
-  const getPrimaryButtonStyles = useCallback(
-    (pressed: boolean) => [
-      styles.primaryButton,
-      loading && styles.primaryButtonDisabled,
-      pressed && !loading && styles.primaryButtonPressed,
-    ],
-    [styles, loading]
-  );
-
-  /**
-   * Handles forgot password form submission
-   * - Validates email input
-   * - Sends request to backend API
-   * - Displays success or error feedback
-   */
-  const handleSubmit = useCallback(async () => {
-    if (!validateEmail(email)) {
+  // Handles forgot password form submission
+  // 1. Validates email input
+  // 2. Sends request to backend API
+  // 3. Displays success or error feedback
+  async function handleSubmit() {
+    // Prevent submission if email field is empty
+    if (!email.trim()) {
       Alert.alert(t('forgot_password.title'), t('forgot_password.validation_email'));
       return;
     }
-
+    // Enable loading state while processing request
     setLoading(true);
     try {
+      // Send forgot password request to backend
+      // Email is trimmed and converted to lowercase for consistency
       const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
       const data = await response.json();
-
+      // Handle API error response
       if (!response.ok || data.success === false) {
+        // Show success message and navigate back to login screen
         Alert.alert(t('forgot_password.error'), data.error || t('forgot_password.error_message'));
         return;
       }
-
       Alert.alert(t('forgot_password.success_title'), t('forgot_password.success_message'), [
         {
           text: t('common.ok'),
           onPress: () => router.back(),
         },
       ]);
+      // Handle network or unexpected errors
     } catch (err) {
       console.error(err);
       Alert.alert(t('forgot_password.error'), t('forgot_password.network_error'));
+      // Reset loading state regardless of outcome
     } finally {
       setLoading(false);
     }
-  }, [email, router, t]);
+  }
 
   return (
+    // SafeAreaView ensures content is displayed correctly on devices with notches
     <SafeAreaView style={styles.safeArea}>
-      {/* SafeAreaView ensures content is displayed correctly on devices with notches */}
+      // KeyboardAvoidingView prevents keyboard from overlapping input fields
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.select({ ios: 'padding', android: undefined })}
       >
-        {/* KeyboardAvoidingView prevents keyboard from overlapping input fields */}
+        // ScrollView allows screen to remain usable on smaller devices
         <ScrollView
           contentContainerStyle={styles.container}
           style={styles.flex}
           keyboardShouldPersistTaps="handled"
         >
-          {/* ScrollView allows screen to remain usable on smaller devices */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('forgot_password.title')}</Text>
             <Text style={styles.subtitle}>{t('forgot_password.subtitle')}</Text>
             <View style={styles.form}>
               <View style={styles.field}>
                 <Text style={styles.label}>{t('forgot_password.email')}</Text>
-                <InputWithIcon value={email} onChangeText={setEmail} />
+                <View style={styles.inputWrapper}>
+                  // Feather icon used to visually indicate email input
+                  <Feather
+                    name="mail"
+                    size={18}
+                    color={placeholderColor}
+                    style={styles.inputIcon}
+                  />
+                  // Email input field with icon and accessibility-friendly keyboard
+                  <TextInput
+                    placeholder={t('forgot_password.email_placeholder')}
+                    placeholderTextColor={placeholderColor}
+                    value={email}
+                    onChangeText={setEmail}
+                    style={styles.inputField}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                  />
+                </View>
               </View>
               
-              {/* Primary submit button — shows loading indicator when request is in progress */}
+              // Primary submit button
+              // Shows loading indicator when request is in progress
               <Pressable
-                style={({ pressed }) => getPrimaryButtonStyles(pressed)}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  loading && styles.primaryButtonDisabled,
+                  pressed && !loading && styles.primaryButtonPressed,
+                ]}
                 onPress={handleSubmit}
                 disabled={loading}
               >
@@ -162,7 +144,7 @@ export default function ForgotPassword() {
                 )}
               </Pressable>
 
-              {/* Secondary button to navigate back to login screen */}
+              // Secondary button to navigate back to login screen
               <Pressable
                 style={({ pressed }) => [
                   styles.secondaryButton,

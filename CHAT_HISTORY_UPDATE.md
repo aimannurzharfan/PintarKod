@@ -74,5 +74,5 @@ After updating the dates:
 
 ## File Created
 
-- `update-chatlog-dates.sql` - Complete SQL script with all commands
+- `update-chatlog-dates.sql` - 
 

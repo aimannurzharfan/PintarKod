@@ -1601,36 +1601,41 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
 
     console.log('Generating quiz for user:', userId);
 
-    // Generate unique challenges
-    const challenges = [];
-    const seenCodeBlocks = new Set(); // Track unique code blocks to avoid duplicates
+    // Generate a pool of challenges first (faster approach)
+    const challengePool = [];
+    const poolSize = 30; // Generate 30 to ensure variety
     
-    // Generate challenges until we have 10 unique ones
-    while (challenges.length < 10) {
-      const challenge = generateRandomDebugChallenge();
-      // Use code block as unique identifier
+    for (let i = 0; i < poolSize; i++) {
+      challengePool.push(generateRandomDebugChallenge());
+    }
+
+    // Filter for unique challenges based on code block
+    const seenCodeBlocks = new Set();
+    const uniqueChallenges = [];
+    
+    for (const challenge of challengePool) {
       const codeKey = challenge.codeBlock.trim();
-      
-      // Only add if we haven't seen this code block before
       if (!seenCodeBlocks.has(codeKey)) {
         seenCodeBlocks.add(codeKey);
-        challenges.push(challenge);
-      }
-      
-      // Safety check to prevent infinite loop
-      if (seenCodeBlocks.size > 50) {
-        break;
+        uniqueChallenges.push(challenge);
+        if (uniqueChallenges.length >= 10) break; // Stop when we have 10
       }
     }
 
+    // If we don't have 10 unique, fill with remaining from pool (allow some duplicates if needed)
+    if (uniqueChallenges.length < 10) {
+      const remaining = challengePool.filter(c => !seenCodeBlocks.has(c.codeBlock.trim()));
+      uniqueChallenges.push(...remaining.slice(0, 10 - uniqueChallenges.length));
+    }
+
     // Fisher-Yates shuffle algorithm
-    for (let i = challenges.length - 1; i > 0; i--) {
+    for (let i = uniqueChallenges.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [challenges[i], challenges[j]] = [challenges[j], challenges[i]];
+      [uniqueChallenges[i], uniqueChallenges[j]] = [uniqueChallenges[j], uniqueChallenges[i]];
     }
     
-    console.log('Generated', challenges.length, 'unique challenges');
-    res.json(challenges); // Returns an array of 10 unique challenges
+    console.log('Generated', uniqueChallenges.length, 'challenges');
+    res.json(uniqueChallenges.slice(0, 10)); // Return up to 10 challenges
   } catch (err) {
     console.error('Error generating quiz:', err);
     console.error('Stack:', err.stack);
@@ -1641,32 +1646,38 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
 // GET /api/games/troubleshooting/quiz - Get a 10-question troubleshooting quiz
 app.get('/api/games/troubleshooting/quiz', authMiddleware, (req, res) => {
   try {
-    const challenges = [];
-    const seenCodeBlocks = new Set(); // Track unique code blocks to avoid duplicates
+    // Generate a pool of challenges first (faster approach)
+    const challengePool = [];
+    const poolSize = 30; // Generate 30 to ensure variety
     
-    // Generate challenges until we have 10 unique ones
-    while (challenges.length < 10) {
-      const challenge = generateRandomTroubleshootingChallenge();
-      // Use code block as unique identifier
+    for (let i = 0; i < poolSize; i++) {
+      challengePool.push(generateRandomTroubleshootingChallenge());
+    }
+
+    // Filter for unique challenges based on code block
+    const seenCodeBlocks = new Set();
+    const uniqueChallenges = [];
+    
+    for (const challenge of challengePool) {
       const codeKey = challenge.codeBlock.trim();
-      
-      // Only add if we haven't seen this code block before
       if (!seenCodeBlocks.has(codeKey)) {
         seenCodeBlocks.add(codeKey);
-        challenges.push(challenge);
+        uniqueChallenges.push(challenge);
+        if (uniqueChallenges.length >= 10) break; // Stop when we have 10
       }
-      
-      // Safety check to prevent infinite loop
-      if (seenCodeBlocks.size > 50) {
-        break;
-      }
+    }
+
+    // If we don't have 10 unique, fill with remaining from pool (allow some duplicates if needed)
+    if (uniqueChallenges.length < 10) {
+      const remaining = challengePool.filter(c => !seenCodeBlocks.has(c.codeBlock.trim()));
+      uniqueChallenges.push(...remaining.slice(0, 10 - uniqueChallenges.length));
     }
     
     // Shuffle the final challenges
-    challenges.sort(() => Math.random() - 0.5);
+    uniqueChallenges.sort(() => Math.random() - 0.5);
     
-    console.log('Generated', challenges.length, 'unique troubleshooting challenges');
-    res.json(challenges); // Returns an array of 10 unique challenges
+    console.log('Generated', uniqueChallenges.length, 'troubleshooting challenges');
+    res.json(uniqueChallenges.slice(0, 10)); // Return up to 10 challenges
   } catch (err) {
     console.error('Error generating troubleshooting quiz:', err);
     console.error('Stack:', err.stack);
@@ -1804,9 +1815,13 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
         correctCount++;
       } else {
         // Add wrong answer to feedback array
+        const explanation = challenge.explanation 
+          ? (challenge.explanation[lang] || challenge.explanation.en || 'No explanation available')
+          : (challenge.scenario?.[lang] || challenge.scenario?.en || 'No explanation available');
+        
         feedback.push({
           title: challenge.title[lang] || challenge.title.en || 'Challenge',
-          explanation: challenge.explanation[lang] || challenge.explanation.en || 'No explanation available',
+          explanation: explanation,
         });
       }
     }

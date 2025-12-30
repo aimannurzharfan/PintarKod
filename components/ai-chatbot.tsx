@@ -201,6 +201,13 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
         return;
       }
 
+      if (!result.assets || result.assets.length === 0) {
+        Alert.alert(
+          'Error',
+          'No image was selected.'
+        );
+        return;
+      }
 
       const asset = result.assets[0];
       

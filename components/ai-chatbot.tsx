@@ -179,7 +179,14 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
       setPickingImage(true);
       
       // Request permissions
-     
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to upload images.'
+        );
+        return;
+      }
 
       // Launch image picker
       // Note: mediaTypes removed to avoid Android compatibility issues

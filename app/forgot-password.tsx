@@ -4,8 +4,10 @@
 // The UI adapts to light and dark themes and supports internationalization (i18n).
 
 import { API_URL } from '@/config';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -20,8 +22,6 @@ import {
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { Feather } from '@expo/vector-icons';
 
 /**
  * Simple email validation helper.

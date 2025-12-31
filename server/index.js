@@ -365,6 +365,8 @@ app.post('/api/login', async (req, res) => {
       { expiresIn: '7d' } // Token expires in 7 days
     );
 
+    console.debug('Login successful', { userId: user.id, email: user.email });
+
     const { password: _pw, ...userSafe } = user;
     res.status(200).json({ user: userSafe, token });
   } catch (err) {
@@ -514,6 +516,23 @@ app.get('/api/users/:username', async (req, res) => {
     res.json(userSafe);
   } catch (err) {
     console.error('View user error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DEV: debug endpoint to inspect user by email (returns reset token and password hash) - remove in production
+app.get('/api/debug/user-by-email', async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email || typeof email !== 'string') return res.status(400).json({ error: 'email query required' });
+
+    const user = await prisma.user.findUnique({ where: { email: email.trim() } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Return only debug fields
+    res.json({ id: user.id, email: user.email, resetToken: user.resetToken, resetTokenExpiry: user.resetTokenExpiry, passwordHash: user.password });
+  } catch (err) {
+    console.error('Debug user error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

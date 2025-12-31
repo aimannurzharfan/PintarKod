@@ -219,6 +219,8 @@ export default function RegisterScreen() {
                 {/* strength */}
                 <View>
                   <PasswordStrength password={password} />
+
+                <Text style={styles.hintText}>{t('common.password_requirements')}</Text>
                 </View>
 
               </View>

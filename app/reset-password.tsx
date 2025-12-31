@@ -103,6 +103,8 @@ export default function ResetPassword() {
 
       <PasswordStrength password={newPassword} />
 
+      <Text style={styles.hintText}>{t('common.password_requirements')}</Text>
+
       <TextInput
         placeholder="Confirm Password"
         placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'}
@@ -146,4 +148,5 @@ const getStyles = (colorScheme: any) =>
       borderRadius: 8,
       padding: 10,
     },
+    hintText: { fontSize: 12, color: colorScheme === 'dark' ? '#94A3B8' : '#64748B' }
   });

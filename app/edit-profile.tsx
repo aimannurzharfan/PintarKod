@@ -347,6 +347,8 @@ export default function EditProfileScreen() {
                   </View>
 
                   <PasswordStrength password={password} />
+
+                  <Text style={styles.hintText}>{t('common.password_requirements')}</Text>
                 </View>
 
                 {/* Confirm Password */}
@@ -369,9 +371,9 @@ export default function EditProfileScreen() {
 
               {/* Save Button */}
               <Pressable
-                style={[styles.primaryButton, (saving || (password && !isPasswordValid)) && styles.primaryButtonDisabled]}
+                style={[styles.primaryButton, (saving || (!!password && !isPasswordValid)) && styles.primaryButtonDisabled]}
                 onPress={handleSave}
-                disabled={saving || (password && !isPasswordValid)}
+                disabled={saving || (!!password && !isPasswordValid)}
               >
                 {saving ? (
                   <>

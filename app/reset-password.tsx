@@ -2,6 +2,7 @@ import { API_URL } from '@/config';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Button,
@@ -20,67 +21,77 @@ export default function ResetPassword() {
   const resetToken = Array.isArray(token) ? token[0] : token ?? '';
 
   // -------------------- State --------------------
+  const [tokenInput, setTokenInput] = useState(resetToken);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [debugResponse, setDebugResponse] = useState<string | null>(null);
 
   const isPasswordValid = useMemo(() => passwordCompliant(newPassword), [newPassword]);
+  const tokenToUse = tokenInput || resetToken;
 
   // -------------------- Theme & Styles --------------------
   const colorScheme = useColorScheme();
   const styles = useMemo(() => getStyles(colorScheme), [colorScheme]);
 
   // -------------------- Handlers --------------------
+  const { t } = useTranslation();
+
   async function handleSubmit() {
     // Validation checks
-    if (!resetToken) {
-      Alert.alert('Invalid Link', 'Reset token missing. Please request a new link.');
+    if (!tokenToUse) {
+      Alert.alert(t('forgot_password.title'), t('forgot_password.validation_email'));
       return;
     }
 
     if (!newPassword.trim() || !confirmPassword.trim()) {
-      Alert.alert('Validation', 'Please fill in both password fields.');
+      Alert.alert(t('forgot_password.title'), t('forgot_password.validation_password'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Validation', 'Passwords do not match.');
+      Alert.alert(t('forgot_password.title'), t('edit_profile.password_mismatch'));
       return;
     }
 
     if (!isPasswordValid) {
-      Alert.alert('Validation', t('common.password_requirements'));
+      Alert.alert(t('forgot_password.title'), t('common.password_requirements'));
       return;
     }
 
     setLoading(true);
 
     try {
+      console.debug('Reset request', { apiUrl: API_URL, token: tokenToUse, newPassword });
+
       const response = await fetch(`${API_URL}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token: resetToken,
+          token: tokenToUse,
           newPassword,
         }),
       });
 
       const data = await response.json();
 
+      console.debug('Reset response', { status: response.status, data });
+      setDebugResponse(JSON.stringify({ status: response.status, data }, null, 2));
+
       if (!response.ok) {
-        Alert.alert('Error', data.error || 'Unable to reset password.');
+        Alert.alert(t('forgot_password.error'), data.error || t('forgot_password.error_message'));
         return;
       }
 
-      Alert.alert('Success', 'Password updated successfully.', [
+      Alert.alert(t('forgot_password.success_title'), t('forgot_password.success_message'), [
         {
-          text: 'OK',
+          text: t('common.ok'),
           onPress: () => router.replace('/login'),
         },
       ]);
     } catch (err) {
-      console.error(err);
-      Alert.alert('Error', 'Unable to reset password.');
+      console.error('Reset submit error', err);
+      Alert.alert(t('forgot_password.error'), t('forgot_password.network_error'));
     } finally {
       setLoading(false);
     }
@@ -110,6 +121,27 @@ export default function ResetPassword() {
         onChangeText={setConfirmPassword}
         style={styles.input}
       />
+
+      {/* Dev helper: paste token if URL token not present */}
+      {__DEV__ && (
+        <View>
+          <Text style={styles.subtitle}>Dev token (paste here to test):</Text>
+          <TextInput
+            placeholder="paste reset token"
+            placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'}
+            value={tokenInput}
+            onChangeText={setTokenInput}
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+          <Text style={styles.subtitle}>API: {API_URL}</Text>
+          {debugResponse && (
+            <Text style={[styles.subtitle, { fontFamily: 'monospace' }]}>{debugResponse}</Text>
+          )}
+        </View>
+      )}
 
       <Button
         title={loading ? 'Resetting...' : 'Reset Password'}

@@ -49,7 +49,7 @@ export default function ResetPassword() {
     }
 
     if (!isPasswordValid) {
-      Alert.alert('Validation', 'Password is too weak. Please choose at least 8 chars with letters and numbers/symbols.');
+      Alert.alert('Validation', t('common.password_requirements'));
       return;
     }
 

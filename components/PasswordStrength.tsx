@@ -54,6 +54,7 @@ export default function PasswordStrength({ password, minScore = 3 }: Props) {
   // If empty, don't render anything
   if (!password) return null;
 
+  const compliant = passwordCompliant(password);
   const segments = [0, 1, 2, 3, 4];
 
   return (
@@ -71,10 +72,12 @@ export default function PasswordStrength({ password, minScore = 3 }: Props) {
       </View>
 
       <View style={styles.metaRow}>
-        <Text style={[styles.label, score < minScore ? styles.labelWeak : null]}>{label}</Text>
-        {score < minScore ? (
+        <Text style={[styles.label, !compliant ? styles.labelWeak : null]}>{label}</Text>
+        {!compliant ? (
           <Text style={[styles.hint, styles.hintWeak, styles.requirementText]}>{t('common.password_requirements')}</Text>
-        ) : null}
+        ) : (
+          <Text style={styles.hint}>{t('common.password_good', 'Good password')}</Text>
+        )}
       </View>
     </View>
   );

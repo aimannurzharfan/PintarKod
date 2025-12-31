@@ -173,8 +173,7 @@ const getStyles = (colorScheme: any) => {
           muted: '#94A3B8',
           shadow: 0,
           link: '#93C5FD',
-        }
-      : {
+        } : {
           background: '#EEF2FF',
           card: '#FFFFFF',
           border: '#E2E8F0',

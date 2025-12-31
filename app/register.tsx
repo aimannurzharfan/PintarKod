@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { API_URL } from '../config';
-import PasswordStrength, { passwordScore } from '@/components/PasswordStrength';
+import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 
 /* ======================= Register Screen ======================= */
 export default function RegisterScreen() {
@@ -36,8 +36,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
 
-  const pwScore = useMemo(() => passwordScore(password), [password]);
-  const isPasswordValid = pwScore >= 3;
+  const isPasswordValid = useMemo(() => passwordCompliant(password), [password]);
 
   const [role, setRole] = useState('Student');
   const [className, setClassName] = useState('');
@@ -70,7 +69,7 @@ export default function RegisterScreen() {
     }
 
     if (!isPasswordValid) {
-      Alert.alert(t('register.title'), 'Please choose a stronger password (min 8 chars, mix of letters, numbers, and symbols).');
+      Alert.alert(t('register.title'), t('common.password_requirements'));
       return;
     }
 

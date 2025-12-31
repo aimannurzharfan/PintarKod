@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from '../config';import PasswordStrength, { passwordScore } from '@/components/PasswordStrength';
+import { API_URL } from '../config';import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 /* ------------------------- Helpers ------------------------- */
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -53,8 +53,7 @@ export default function EditProfileScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const pwScore = useMemo(() => passwordScore(password), [password]);
-  const isPasswordValid = pwScore >= 3;
+  const isPasswordValid = useMemo(() => passwordCompliant(password), [password]);
 
   const [saving, setSaving] = useState(false);
   const [pickingAvatar, setPickingAvatar] = useState(false);
@@ -141,7 +140,7 @@ export default function EditProfileScreen() {
     }
 
     if (password && !isPasswordValid) {
-      Alert.alert(t('edit_profile.title'), 'Password too weak. Please choose at least 8 chars with letters and numbers/symbols.');
+      Alert.alert(t('edit_profile.title'), t('common.password_requirements'));
       return;
     }
 
@@ -369,9 +368,9 @@ export default function EditProfileScreen() {
 
               {/* Save Button */}
               <Pressable
-                style={[styles.primaryButton, (saving || (password && !isPasswordValid)) && styles.primaryButtonDisabled]}
+                style={[styles.primaryButton, (saving || (!!password && !isPasswordValid)) && styles.primaryButtonDisabled]}
                 onPress={handleSave}
-                disabled={saving || (password && !isPasswordValid)}
+                disabled={saving || (!!password && !isPasswordValid)}
               >
                 {saving ? (
                   <>

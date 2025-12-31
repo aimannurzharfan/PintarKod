@@ -16,7 +16,8 @@
     "reset": "Reset",
     "back": "Back",
     "retry": "Retry",
-    "password_requirements": "Password must be at least 8 characters and include uppercase, lowercase, numbers, and symbols."
+    "password_requirements": "Password must be at least 8 characters and include uppercase, lowercase, numbers, and symbols.",
+    "password_good": "Good password"
   },
   "login": {
     "title": "Login",

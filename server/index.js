@@ -409,7 +409,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body || {};
+    console.debug('POST /api/auth/reset-password called', { tokenPresent: !!token });
     if (!token || typeof token !== 'string' || !newPassword || typeof newPassword !== 'string') {
+      console.debug('Reset password validation failed - missing token/newPassword');
       return res.status(400).json({ error: 'Token and new password are required' });
     }
 
@@ -423,6 +425,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     });
 
     if (!user) {
+      console.debug('Reset token invalid or expired for token', token);
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
 
@@ -436,6 +439,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
       },
     });
 
+    console.debug('Password updated for user id', user.id);
     res.json({ success: true });
   } catch (err) {
     console.error('Reset password error', err);

@@ -69,7 +69,7 @@ export default function RegisterScreen() {
     }
 
     if (!isPasswordValid) {
-      Alert.alert(t('register.title'), 'Please choose a stronger password (min 8 chars, mix of letters, numbers, and symbols).');
+      Alert.alert(t('register.title'), t('common.password_requirements'));
       return;
     }
 

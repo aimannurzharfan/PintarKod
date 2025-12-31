@@ -140,7 +140,7 @@ export default function EditProfileScreen() {
     }
 
     if (password && !isPasswordValid) {
-      Alert.alert(t('edit_profile.title'), 'Password too weak. Please choose at least 8 chars with letters and numbers/symbols.');
+      Alert.alert(t('edit_profile.title'), t('common.password_requirements'));
       return;
     }
 

@@ -16,7 +16,8 @@
     "reset": "Tetapkan semula",
     "back": "Kembali",
     "retry": "Cuba lagi",
-    "password_requirements": "Kata laluan mestilah sekurang-kurangnya 8 aksara dan mengandungi huruf besar, huruf kecil, nombor, dan simbol."
+    "password_requirements": "Kata laluan mestilah sekurang-kurangnya 8 aksara dan mengandungi huruf besar, huruf kecil, nombor, dan simbol.",
+    "password_good": "Kata laluan kukuh"
   },
   "login": {
     "title": "Log Masuk",

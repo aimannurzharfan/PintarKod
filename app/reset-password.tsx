@@ -1,7 +1,7 @@
 import { API_URL } from '@/config';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import PasswordStrength, { passwordScore } from '@/components/PasswordStrength';
+import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 import {
   Alert,
   Button,
@@ -24,8 +24,7 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const pwScore = useMemo(() => passwordScore(newPassword), [newPassword]);
-  const isPasswordValid = pwScore >= 3;
+  const isPasswordValid = useMemo(() => passwordCompliant(newPassword), [newPassword]);
 
   // -------------------- Theme & Styles --------------------
   const colorScheme = useColorScheme();
@@ -102,8 +101,6 @@ export default function ResetPassword() {
       />
 
       <PasswordStrength password={newPassword} />
-
-      <Text style={styles.hintText}>{t('common.password_requirements')}</Text>
 
       <TextInput
         placeholder="Confirm Password"

@@ -128,8 +128,6 @@ export default function Index() {
 
                 <PasswordStrength password={password} />
 
-                <Text style={styles.hintText}>{t('common.password_requirements')}</Text>
-
               </View>
               <Pressable
                 style={({ pressed }) => [
@@ -175,9 +173,7 @@ const getStyles = (colorScheme: any) => {
           muted: '#94A3B8',
           shadow: 0,
           link: '#93C5FD',
-        },
-    hintText: { fontSize: 12, color: palette.muted }
-      : {
+        } : {
           background: '#EEF2FF',
           card: '#FFFFFF',
           border: '#E2E8F0',

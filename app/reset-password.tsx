@@ -1,6 +1,7 @@
 import { API_URL } from '@/config';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
+import PasswordStrength, { passwordScore } from '@/components/PasswordStrength';
 import {
   Alert,
   Button,
@@ -23,6 +24,9 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const pwScore = useMemo(() => passwordScore(newPassword), [newPassword]);
+  const isPasswordValid = pwScore >= 3;
+
   // -------------------- Theme & Styles --------------------
   const colorScheme = useColorScheme();
   const styles = useMemo(() => getStyles(colorScheme), [colorScheme]);
@@ -42,6 +46,11 @@ export default function ResetPassword() {
 
     if (newPassword !== confirmPassword) {
       Alert.alert('Validation', 'Passwords do not match.');
+      return;
+    }
+
+    if (!isPasswordValid) {
+      Alert.alert('Validation', 'Password is too weak. Please choose at least 8 chars with letters and numbers/symbols.');
       return;
     }
 
@@ -92,6 +101,8 @@ export default function ResetPassword() {
         style={styles.input}
       />
 
+      <PasswordStrength password={newPassword} />
+
       <TextInput
         placeholder="Confirm Password"
         placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'}
@@ -104,7 +115,7 @@ export default function ResetPassword() {
       <Button
         title={loading ? 'Resetting...' : 'Reset Password'}
         onPress={handleSubmit}
-        disabled={loading}
+        disabled={loading || !isPasswordValid}
       />
     </View>
   );

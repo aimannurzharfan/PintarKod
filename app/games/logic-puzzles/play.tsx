@@ -1,21 +1,22 @@
 import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Audio } from 'expo-av';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
-  Animated,
-  BackHandler,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    Animated,
+    BackHandler,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    useColorScheme,
+    View,
 } from 'react-native';
 
 interface Challenge {
@@ -289,8 +290,8 @@ export default function LogicPuzzlesGame() {
         <View style={[styles.header, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.headerTop}>
             <Animated.View style={[styles.badgeContainer, { transform: [{ scale: pulseAnim }] }]}>
-              <Text style={styles.badgeEmoji}>🧩</Text>
-            </Animated.View>
+                <MaterialCommunityIcons name="puzzle-outline" size={28} color={isDark ? '#E2E8F0' : '#1E293B'} />
+              </Animated.View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
                 Predict the Output!
@@ -300,9 +301,9 @@ export default function LogicPuzzlesGame() {
               </Text>
             </View>
             <View style={[styles.timerBadge, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)' }]}>
-              <Text style={{ fontSize: 16 }}>⏱️</Text>
-              <Text style={[styles.timerText, { color: '#3B82F6' }]}>{elapsedTime}s</Text>
-            </View>
+                <MaterialCommunityIcons name="clock-outline" size={16} color="#3B82F6" />
+                <Text style={[styles.timerText, { color: '#3B82F6' }]}>{elapsedTime}s</Text>
+              </View>
           </View>
           
           {/* Progress Bar */}
@@ -320,7 +321,7 @@ export default function LogicPuzzlesGame() {
         <Animated.View style={[styles.challengeCard, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }, shakeStyle]}>
           <View style={styles.challengeHeader}>
             <View style={[styles.iconWrapper, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)' }]}>
-              <Text style={styles.iconEmoji}>💡</Text>
+              <MaterialCommunityIcons name="lightbulb-on-outline" size={24} color={isDark ? '#E2E8F0' : '#1E293B'} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.challengeTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
@@ -338,8 +339,8 @@ export default function LogicPuzzlesGame() {
             borderColor: isDark ? '#334155' : '#E2E8F0',
           }]}>
             <View style={[styles.codeHeader, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)' }]}>
-              <Text style={{ fontSize: 14 }}>📝</Text>
-              <Text style={[styles.codeHeaderText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+              <MaterialCommunityIcons name="file-document-outline" size={14} color={isDark ? '#94A3B8' : '#64748B'} />
+              <Text style={[styles.codeHeaderText, { color: isDark ? '#94A3B8' : '#64748B' }]}> 
                 Code to Analyze
               </Text>
             </View>
@@ -357,9 +358,10 @@ export default function LogicPuzzlesGame() {
 
           {/* Output Prediction Section */}
           <View style={styles.predictionSection}>
-            <Text style={[styles.predictionTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-              🎯 What will be printed?
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="bullseye" size={16} color={isDark ? '#E2E8F0' : '#1E293B'} style={{ marginRight: 8 }} />
+              <Text style={[styles.predictionTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>What will be printed?</Text>
+            </View>
             <View style={styles.optionsGrid}>
               {challenge.options?.map((option, index) => (
                 <Pressable
@@ -404,7 +406,7 @@ export default function LogicPuzzlesGame() {
             disabled={selectedOutput === null}
           >
             <Text style={styles.submitButtonText}>
-              {currentQuestionIndex < challenges.length - 1 ? '✓ Submit Answer' : '🏁 Finish Quiz'}
+              {currentQuestionIndex < challenges.length - 1 ? 'Submit Answer' : 'Finish Quiz'}
             </Text>
           </Pressable>
         </Animated.View>
@@ -414,7 +416,7 @@ export default function LogicPuzzlesGame() {
       <Modal visible={showFeedback} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.feedbackModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <Text style={{ fontSize: 72 }}>{isCorrect ? '🎉' : '😔'}</Text>
+            <MaterialCommunityIcons name={isCorrect ? 'check-circle-outline' : 'emoticon-sad-outline'} size={72} color={isCorrect ? '#10B981' : '#EF4444'} />
             <Text style={[styles.feedbackTitle, { color: isCorrect ? '#10B981' : '#EF4444' }]}>
               {isCorrect ? 'Excellent!' : 'Not Quite'}
             </Text>
@@ -425,7 +427,7 @@ export default function LogicPuzzlesGame() {
               <Text style={[styles.correctAnswerLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>
                 Correct Output:
               </Text>
-              <Text style={[styles.correctAnswerValue, { color: '#3B82F6' }]}>
+              <Text style={[styles.correctAnswerValue, { color: '#3B82F6' }]}> 
                 {challenge?.correctOutput}
               </Text>
             </View>
@@ -445,7 +447,7 @@ export default function LogicPuzzlesGame() {
       <Modal visible={showResults} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <Text style={styles.resultsEmoji}>🏆</Text>
+            <MaterialCommunityIcons name="trophy-outline" size={64} color="#3B82F6" />
             <Text style={[styles.resultsTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
               Puzzle Master!
             </Text>
@@ -453,7 +455,7 @@ export default function LogicPuzzlesGame() {
               <Text style={styles.scoreLabel}>Your Score</Text>
               <Text style={[styles.scoreValue, { color: '#3B82F6' }]}>{totalScore}</Text>
               <Text style={[styles.scoreSubtext, { color: isDark ? '#94A3B8' : '#64748B' }]}>
-                {totalScore >= 800 ? '🌟 Perfect Logic!' : totalScore >= 600 ? '👍 Great Thinking!' : '💪 Keep Practicing!'}
+                {totalScore >= 800 ? 'Perfect Logic!' : totalScore >= 600 ? 'Great Thinking!' : 'Keep Practicing!'}
               </Text>
             </View>
             {quizFeedback.length > 0 && (
@@ -462,7 +464,7 @@ export default function LogicPuzzlesGame() {
                 onPress={() => setShowFeedbackReview(true)}
               >
                 <Text style={styles.feedbackButtonText}>
-                  📝 Review Mistakes ({quizFeedback.length})
+                  Review Mistakes ({quizFeedback.length})
                 </Text>
               </Pressable>
             )}
@@ -477,9 +479,10 @@ export default function LogicPuzzlesGame() {
       <Modal visible={showFeedbackReview} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.feedbackReviewModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <Text style={[styles.feedbackReviewTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-              📚 Review Your Mistakes
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="book-open-outline" size={18} color={isDark ? '#E2E8F0' : '#1E293B'} style={{ marginRight: 8 }} />
+              <Text style={[styles.feedbackReviewTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Review Your Mistakes</Text>
+            </View>
             <ScrollView style={styles.feedbackReviewScroll} showsVerticalScrollIndicator={false}>
               {quizFeedback.map((item, index) => (
                 <View key={index} style={[styles.feedbackItem, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
@@ -503,7 +506,7 @@ export default function LogicPuzzlesGame() {
       <Modal visible={showExitConfirm} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.exitConfirmModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <Text style={{ fontSize: 48 }}>⚠️</Text>
+            <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#F59E0B" />
             <Text style={[styles.exitConfirmTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
               Leave Game?
             </Text>

@@ -1,20 +1,21 @@
 import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
-  BackHandler,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View
+    ActivityIndicator,
+    BackHandler,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    useColorScheme,
+    View
 } from 'react-native';
 
 interface Challenge {
@@ -231,9 +232,10 @@ export default function DebuggingGame() {
         {/* Header with gradient */}
         <View style={[styles.header, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.headerTop}>
-            <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-              🐛 Code Debugger
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="bug" size={20} color={isDark ? '#E2E8F0' : '#1E293B'} style={{ marginRight: 8 }} />
+              <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Code Debugger</Text>
+            </View>
             <View style={{ width: 40 }} />
           </View>
           
@@ -254,7 +256,7 @@ export default function DebuggingGame() {
 
           {/* Timer */}
           <View style={styles.timerBadge}>
-            <Text style={{ fontSize: 14 }}>⏱️</Text>
+            <MaterialCommunityIcons name="clock-outline" size={14} color="#8B5CF6" />
             <Text style={styles.timerText}>{elapsedTime}s</Text>
           </View>
         </View>
@@ -263,7 +265,7 @@ export default function DebuggingGame() {
         <View style={[styles.challengeCard, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.challengeHeader}>
             <View style={styles.bugIcon}>
-              <Text style={styles.bugEmoji}>🔍</Text>
+              <MaterialCommunityIcons name="magnify" size={24} color={isDark ? '#E2E8F0' : '#1E293B'} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.challengeTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
@@ -281,7 +283,7 @@ export default function DebuggingGame() {
             borderColor: isDark ? '#334155' : '#E2E8F0',
           }]}>
             <View style={styles.codeHeader}>
-              <Text style={{ fontSize: 12 }}>📄</Text>
+              <MaterialCommunityIcons name="file-document-outline" size={14} color={isDark ? '#94A3B8' : '#64748B'} style={{ marginRight: 6 }} />
               <Text style={[styles.codeHeaderText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
                 Main.java
               </Text>
@@ -312,9 +314,10 @@ export default function DebuggingGame() {
           {/* Fix Options */}
           {selectedLine === challenge.buggyLineIndex && challenge.fixOptions && (
             <View style={styles.fixOptionsContainer}>
-              <Text style={[styles.fixOptionsTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-                💉 Choose the fix:
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="stethoscope" size={16} color={isDark ? '#E2E8F0' : '#1E293B'} style={{ marginRight: 8 }} />
+                <Text style={[styles.fixOptionsTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Choose the fix:</Text>
+              </View>
               {challenge.fixOptions.map((option, index) => (
                 <Pressable
                   key={index}
@@ -352,7 +355,7 @@ export default function DebuggingGame() {
             disabled={selectedLine === null || selectedFix === null}
           >
             <Text style={styles.submitButtonText}>
-              {currentQuestionIndex < challenges.length - 1 ? '✓ Next Question' : '🏁 Finish'}
+              {currentQuestionIndex < challenges.length - 1 ? 'Next Question' : 'Finish'}
             </Text>
           </Pressable>
         </View>
@@ -362,7 +365,11 @@ export default function DebuggingGame() {
       <Modal visible={showFeedback} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.feedbackModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <Text style={{ fontSize: 64 }}>{isCorrect ? '✅' : '❌'}</Text>
+            <MaterialCommunityIcons
+              name={isCorrect ? 'check-circle-outline' : 'close-circle-outline'}
+              size={64}
+              color={isCorrect ? '#10B981' : '#EF4444'}
+            />
             <Text style={[styles.feedbackTitle, { color: isCorrect ? '#10B981' : '#EF4444' }]}>
               {isCorrect ? 'Correct!' : 'Wrong!'}
             </Text>
@@ -382,15 +389,15 @@ export default function DebuggingGame() {
       <Modal visible={showResults} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <Text style={styles.resultsEmoji}>🎉</Text>
+            <MaterialCommunityIcons name="trophy-outline" size={64} color="#8B5CF6" />
             <Text style={[styles.resultsTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
               Challenge Complete!
             </Text>
             <View style={styles.scoreCard}>
               <Text style={styles.scoreLabel}>Your Score</Text>
               <Text style={styles.scoreValue}>{totalScore}</Text>
-              <Text style={[styles.scoreSubtext, { color: isDark ? '#94A3B8' : '#64748B' }]}>
-                {totalScore >= 800 ? '🏆 Excellent!' : totalScore >= 600 ? '👍 Good Job!' : '💪 Keep Practicing!'}
+              <Text style={[styles.scoreSubtext, { color: isDark ? '#94A3B8' : '#64748B' }]}> 
+                {totalScore >= 800 ? 'Excellent!' : totalScore >= 600 ? 'Good Job!' : 'Keep Practicing!'}
               </Text>
             </View>
             {quizFeedback.length > 0 && (
@@ -398,7 +405,7 @@ export default function DebuggingGame() {
                 style={[styles.feedbackButton]} 
                 onPress={() => setShowFeedbackReview(true)}
               >
-                <Text style={styles.feedbackButtonText}>📝 View Feedback ({quizFeedback.length} wrong)</Text>
+                <Text style={styles.feedbackButtonText}>View Feedback ({quizFeedback.length} wrong)</Text>
               </Pressable>
             )}
             <Pressable style={styles.closeButton} onPress={() => router.back()}>
@@ -412,9 +419,10 @@ export default function DebuggingGame() {
       <Modal visible={showFeedbackReview} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.feedbackReviewModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <Text style={[styles.feedbackReviewTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-              📝 Review Your Mistakes
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="note-text-outline" size={18} color={isDark ? '#E2E8F0' : '#1E293B'} style={{ marginRight: 8 }} />
+              <Text style={[styles.feedbackReviewTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Review Your Mistakes</Text>
+            </View>
             <ScrollView style={styles.feedbackReviewScroll} showsVerticalScrollIndicator={false}>
               {quizFeedback.map((item, index) => (
                 <View key={index} style={[styles.feedbackItem, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
@@ -438,7 +446,7 @@ export default function DebuggingGame() {
       <Modal visible={showExitConfirm} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.exitConfirmModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <Text style={{ fontSize: 48 }}>⚠️</Text>
+            <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#F59E0B" />
             <Text style={[styles.exitConfirmTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
               Leave Game?
             </Text>

@@ -1,5 +1,6 @@
 import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Audio } from 'expo-av';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -319,9 +320,10 @@ export default function BuildACodeGame() {
         {/* Header */}
         <View style={[styles.header, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.headerTop}>
-            <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-              🧩 Code Builder
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="puzzle" size={20} color={isDark ? '#E2E8F0' : '#1E293B'} style={{ marginRight: 8 }} />
+              <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Code Builder</Text>
+            </View>
             <View style={{ width: 40 }} />
           </View>
           
@@ -342,16 +344,16 @@ export default function BuildACodeGame() {
 
           {/* Timer */}
           <View style={styles.timerBadge}>
-            <Text style={{ fontSize: 14 }}>⏱️</Text>
+            <MaterialCommunityIcons name="clock-outline" size={14} color="#10B981" />
             <Text style={styles.timerText}>{elapsedTime}s</Text>
           </View>
         </View>
 
         {/* Challenge Card */}
         <View style={[styles.challengeCard, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-          <View style={styles.challengeHeader}>
+            <View style={styles.challengeHeader}>
             <View style={styles.iconWrapper}>
-              <Text style={styles.iconEmoji}>📋</Text>
+              <MaterialCommunityIcons name="file-document-outline" size={20} color={isDark ? '#E2E8F0' : '#1E293B'} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.challengeTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
@@ -380,9 +382,10 @@ export default function BuildACodeGame() {
         {/* Code Assembly Area */}
         <View style={[styles.assemblyCard, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.assemblyHeader}>
-            <Text style={[styles.assemblyTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-              📝 Your Code ({arrangedBlocks.length}/{challenge?.blocks?.length || 0})
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="file-document-edit-outline" size={16} color={isDark ? '#E2E8F0' : '#1E293B'} style={{ marginRight: 8 }} />
+              <Text style={[styles.assemblyTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Your Code ({arrangedBlocks.length}/{challenge?.blocks?.length || 0})</Text>
+            </View>
           </View>
 
           {/* Arranged Blocks */}
@@ -435,9 +438,10 @@ export default function BuildACodeGame() {
         {/* Available Blocks */}
         <View style={[styles.blocksCard, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.blocksHeader}>
-            <Text style={[styles.blocksTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-              🧱 Available Blocks ({availableBlocks.length})
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="cube-outline" size={18} color={isDark ? '#E2E8F0' : '#1E293B'} style={{ marginRight: 8 }} />
+              <Text style={[styles.blocksTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Available Blocks ({availableBlocks.length})</Text>
+            </View>
           </View>
           
           <View style={styles.blocksContainer}>

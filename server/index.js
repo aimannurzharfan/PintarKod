@@ -774,6 +774,7 @@ app.get('/api/forum/search', async (req, res) => {
     const { 
       keyword = '', 
       author = '', 
+      authorId = '',
       sortBy = 'latest',
       startDate = '',
       endDate = ''
@@ -793,17 +794,29 @@ app.get('/api/forum/search', async (req, res) => {
       whereConditions.push({
         OR: [
           { title: { contains: searchKeyword } },
-          { content: { contains: searchKeyword } }
+          { content: { contains: searchKeyword } },
+          {
+            comments: {
+              some: {
+                content: { contains: searchKeyword }
+              }
+            }
+          }
         ]
       });
     }
 
-    // Author search
-    if (searchAuthor) {
+    // Author search by id or text
+    const searchAuthorId = authorId ? Number(authorId) : null;
+    if (searchAuthorId && Number.isInteger(searchAuthorId)) {
+      whereConditions.push({ authorId: searchAuthorId });
+    } else if (searchAuthor) {
       whereConditions.push({
-        author: {
-          username: { contains: searchAuthor }
-        }
+        OR: [
+          { author: { username: { contains: searchAuthor } } },
+          { author: { email: { contains: searchAuthor } } },
+          { authorName: { contains: searchAuthor } },
+        ]
       });
     }
 
@@ -814,8 +827,11 @@ app.get('/api/forum/search', async (req, res) => {
       });
     }
     if (end) {
+      // include the entire end date by setting time to end of day
+      const endOfDay = new Date(end);
+      endOfDay.setHours(23, 59, 59, 999);
       whereConditions.push({
-        createdAt: { lte: end }
+        createdAt: { lte: endOfDay }
       });
     }
 

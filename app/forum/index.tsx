@@ -67,6 +67,10 @@ export default function ForumScreen() {
     startDate: '',
     endDate: '',
   });
+  const [authorSuggestions, setAuthorSuggestions] = useState<Array<{ username: string; email?: string; id?: number }>>([]);
+  const [showAuthorSuggestions, setShowAuthorSuggestions] = useState(false);
+  const [selectedAuthors, setSelectedAuthors] = useState<Array<{ username: string; id: number }>>([]);
+  const authorFetchTimeout = useRef<number | null>(null);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [startDateValue, setStartDateValue] = useState<Date | null>(null);
@@ -251,12 +255,45 @@ export default function ForumScreen() {
   // Advanced search function
   const performAdvancedSearch = useCallback(async () => {
     try {
+      // Copy current filters so we don't rely on async state updates
+      const { keyword, author: authorText, sortBy, startDate, endDate } = searchFilters;
+      let finalAuthor = authorText && authorText.trim() ? authorText.trim() : '';
+      let finalAuthorIdList: number[] = selectedAuthors.length ? selectedAuthors.map(s => s.id) : [];
+
+      // If we don't have selected author ids but there's an author text, validate it
+      if (finalAuthor && finalAuthorIdList.length === 0) {
+        try {
+          const ures = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(finalAuthor)}`);
+          if (!ures.ok) {
+            throw new Error('Author lookup failed');
+          }
+          const users = await ures.json();
+          if (!Array.isArray(users) || users.length === 0) {
+            Alert.alert(t('common.error'), t('forum_list.advanced_search_author_not_found'));
+            return;
+          }
+          // Prefer exact username match if present
+          const exact = users.find((u: any) => u.username === finalAuthor || String(u.id) === finalAuthor);
+          const chosen = exact || users[0];
+          // Use the validated username and capture id for server search
+          finalAuthor = chosen.username;
+          finalAuthorIdList = chosen.id != null ? [Number(chosen.id)] : [];
+          setSearchFilters(prev => ({ ...prev, author: finalAuthor }));
+        } catch (err) {
+          console.error('Author validation error', err);
+          Alert.alert(t('common.error'), t('forum_list.advanced_search_author_not_found'));
+          return;
+        }
+      }
+
       const params = new URLSearchParams();
-      if (searchFilters.keyword) params.append('keyword', searchFilters.keyword);
-      if (searchFilters.author) params.append('author', searchFilters.author);
-      if (searchFilters.sortBy) params.append('sortBy', searchFilters.sortBy);
-      if (searchFilters.startDate) params.append('startDate', searchFilters.startDate);
-      if (searchFilters.endDate) params.append('endDate', searchFilters.endDate);
+      if (keyword) params.append('keyword', keyword);
+      if (finalAuthorIdList.length > 0) {
+        finalAuthorIdList.forEach(id => params.append('authorId', String(id)));
+      } else if (finalAuthor) params.append('author', finalAuthor);
+      if (sortBy) params.append('sortBy', sortBy);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
 
       const response = await fetch(`${API_URL}/api/forum/search?${params.toString()}`);
       if (!response.ok) {
@@ -294,7 +331,7 @@ export default function ForumScreen() {
       console.error('Advanced search error:', err);
       Alert.alert(t('common.error'), t('forum_list.advanced_search_error'));
     }
-  }, [searchFilters]);
+  }, [searchFilters, selectedAuthors]);
 
   const resetFilters = useCallback(() => {
     setSearchFilters({
@@ -326,6 +363,13 @@ export default function ForumScreen() {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (authorFetchTimeout.current) clearTimeout(authorFetchTimeout.current as any);
+    };
+  }, []);
 
   const handleStartDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -447,7 +491,7 @@ export default function ForumScreen() {
       </View>
 
       <FlatList
-        data={filteredThreads}
+        data={isAdvancedSearch ? advancedSearchResults : filteredThreads}
         keyExtractor={(thread) => thread.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -755,16 +799,87 @@ export default function ForumScreen() {
               <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
                 {t('forum_list.advanced_search_author')}
               </Text>
-              <TextInput
-                style={[styles.filterInput, { 
-                  backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC',
-                  color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A',
-                }]}
-                placeholder={t('forum_list.advanced_search_author_placeholder')}
-                placeholderTextColor="#94A3B8"
-                value={searchFilters.author}
-                onChangeText={(text) => setSearchFilters(prev => ({ ...prev, author: text }))}
-              />
+                <View style={[styles.authorInputContainer, { backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.03)' : '#FFFFFF' }] }>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', flex: 1 }}>
+                    {selectedAuthors.map((sa) => (
+                      <View key={String(sa.id)} style={styles.authorChip}>
+                        <Text style={styles.authorChipText}>{sa.username}</Text>
+                        <Pressable onPress={() => {
+                          setSelectedAuthors(prev => prev.filter(p => p.id !== sa.id));
+                        }} style={styles.authorChipRemove}>
+                          <Text style={styles.authorChipRemoveText}>×</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                    <TextInput
+                      style={[styles.authorTextInput, { 
+                        color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A',
+                      }]}
+                      placeholder={t('forum_list.advanced_search_author_placeholder')}
+                      placeholderTextColor="#94A3B8"
+                      value={searchFilters.author}
+                      onChangeText={(text) => {
+                        setSearchFilters(prev => ({ ...prev, author: text }));
+                        // debounce suggestions
+                        if (authorFetchTimeout.current) {
+                          clearTimeout(authorFetchTimeout.current as any);
+                        }
+                        if (!text || !text.trim()) {
+                          setAuthorSuggestions([]);
+                          setShowAuthorSuggestions(false);
+                          return;
+                        }
+                        authorFetchTimeout.current = setTimeout(async () => {
+                          try {
+                            const res = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(text.trim())}`);
+                            if (!res.ok) {
+                              setAuthorSuggestions([]);
+                              setShowAuthorSuggestions(false);
+                              return;
+                            }
+                            const users = await res.json();
+                            if (Array.isArray(users) && users.length > 0) {
+                              setAuthorSuggestions(users.map((u: any) => ({ username: u.username, email: u.email, id: u.id })));
+                              setShowAuthorSuggestions(true);
+                            } else {
+                              setAuthorSuggestions([]);
+                              setShowAuthorSuggestions(false);
+                            }
+                          } catch (err) {
+                            console.error('Author suggestions error', err);
+                            setAuthorSuggestions([]);
+                            setShowAuthorSuggestions(false);
+                          }
+                        }, 300) as unknown as number;
+                      }}
+                    />
+                  </View>
+                </View>
+              {showAuthorSuggestions && authorSuggestions.length > 0 && (
+                <View style={[styles.authorSuggestionsContainer, { backgroundColor: colorScheme === 'dark' ? '#0F172A' : '#FFFFFF' }]}>
+                  {authorSuggestions.map((u) => (
+                    <Pressable
+                      key={String(u.username) + String(u.id)}
+                      style={styles.authorSuggestion}
+                      onPress={() => {
+                        // add to selectedAuthors if not already present
+                        setSelectedAuthors(prev => {
+                          const exists = prev.some(p => String(p.id) === String(u.id));
+                          if (exists) return prev;
+                          return [...prev, { username: u.username, id: Number(u.id) }];
+                        });
+                        // clear input text
+                        setSearchFilters(prev => ({ ...prev, author: '' }));
+                        setAuthorSuggestions([]);
+                        setShowAuthorSuggestions(false);
+                      }}
+                    >
+                      <Text style={[styles.authorSuggestionText, { color: colorScheme === 'dark' ? '#E2E8F0' : '#0F172A' }]}>{u.username}</Text>
+                      {u.email ? <Text style={styles.authorSuggestionSub}>{u.email}</Text> : null}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* Sort Order */}
@@ -1546,6 +1661,74 @@ const styles = StyleSheet.create({
     fontSize: 15,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  authorInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  authorInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  authorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  authorChipText: {
+    color: '#1D4ED8',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  authorChipRemove: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  authorChipRemoveText: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  authorSuggestionsContainer: {
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    maxHeight: 200,
+    overflow: 'hidden',
+    elevation: 6,
+  },
+  authorSuggestion: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  authorSuggestionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  authorSuggestionSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  authorTextInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
   sortOptions: {
     flexDirection: 'row',

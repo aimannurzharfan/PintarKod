@@ -105,11 +105,16 @@ export default function LearningMaterialsScreen() {
   const isTeacher = user?.role === 'Teacher';
   const isStudent = user?.role === 'Student';
 
-  // Calculate progress percentage
+  // Calculate progress percentage based on currently visible (filtered) materials
   const progressPercentage = useMemo(() => {
     if (!isStudent || materials.length === 0) return 0;
-    return Math.round((completedMaterials.size / materials.length) * 100);
-  }, [completedMaterials.size, materials.length, isStudent]);
+    const visibleIds = new Set(materials.map((m) => m.id));
+    let completedInVisible = 0;
+    for (const id of completedMaterials) {
+      if (visibleIds.has(id)) completedInVisible++;
+    }
+    return Math.round((completedInVisible / materials.length) * 100);
+  }, [completedMaterials, materials, isStudent]);
   const userIdNumber = useMemo(() => {
     if (!user?.id) return null;
     const numeric = Number(user.id);

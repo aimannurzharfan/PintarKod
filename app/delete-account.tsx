@@ -1,4 +1,3 @@
-import { Badge } from '@/components/Badge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { Feather } from '@expo/vector-icons';
@@ -22,9 +21,10 @@ import {
 import { API_URL } from '../config';
 
 /**
- * Decide which avatar to show.
- * If profileImage is available, use it (base64 or data URI)
- * Otherwise use avatarUrl (remote or API path)
+ * Resolve avatar URI.
+ * - Uses `profileImage` if available (data URI or base64).
+ * - Otherwise uses `avatarUrl` (absolute URL or API path).
+ * - Returns `undefined` when none is available.
  */
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -40,9 +40,10 @@ const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | nul
 };
 
 /**
- * DeleteAccountScreen
- * Teachers can search for students and delete their accounts.
- * Includes username confirmation and role-based access.
+ * DeleteAccountScreen component.
+ * - Lets teachers search for students and permanently delete accounts.
+ * - Deletion requires typing the exact username for confirmation.
+ * - Access is restricted to users with role `Teacher`.
  */
 export default function DeleteAccountScreen() {
   const router = useRouter();
@@ -68,10 +69,7 @@ export default function DeleteAccountScreen() {
     Record<string, 'Champion' | 'RisingStar' | 'Student' | 'Teacher'>
   >({});
 
-  /**
-   * Component to show student's avatar
-   * If no avatar, show a default icon
-   */
+  /** StudentAvatar: shows student's avatar, or a default icon if none exists. */
   const StudentAvatar = ({
     profileImage,
     avatarUrl,
@@ -90,10 +88,7 @@ export default function DeleteAccountScreen() {
     return <Image source={{ uri }} style={styles.studentAvatar} />;
   };
 
-  /**
-   * Make sure only teachers can access this screen
-   * If not a teacher, show alert and go back
-   */
+  /** Restrict access to users with role `Teacher`. Show an alert and navigate back otherwise. */
   useEffect(() => {
     if (currentUser?.role !== 'Teacher') {
       Alert.alert(
@@ -104,9 +99,7 @@ export default function DeleteAccountScreen() {
     }
   }, [currentUser, router, t]);
 
-  /**
-   * Fetch badge for selected student
-   */
+  /** Fetch the badge for the currently-selected student (runs when `selectedStudent` changes). */
   useEffect(() => {
     if (!selectedStudent?.id) {
       setSelectedStudentBadge(null);
@@ -131,9 +124,7 @@ export default function DeleteAccountScreen() {
     fetchBadge();
   }, [selectedStudent]);
 
-  /**
-   * Fetch badges for students in search results
-   */
+  /** Fetch badges for each student returned in `searchResults`. */
   useEffect(() => {
     if (searchResults.length === 0) {
       setStudentBadges({});
@@ -162,9 +153,7 @@ export default function DeleteAccountScreen() {
     fetchBadges();
   }, [searchResults]);
 
-  /**
-   * Search for students by username or email
-   */
+  /** Search students by username or email (filters by role=Student). */
   const searchStudents = async (query: string) => {
     setSelectedStudent(null);
     const searchQ = query.trim().toLowerCase();
@@ -194,10 +183,7 @@ export default function DeleteAccountScreen() {
     }
   };
 
-  /**
-   * Permanently delete a student account
-   * Requires typing exact username
-   */
+  /** Permanently delete a student account; requires exact username confirmation. */
   const confirmDelete = async (username: string) => {
     setLoading(true);
     try {
@@ -251,15 +237,15 @@ export default function DeleteAccountScreen() {
         </Pressable>
       </View>
 
-      {/* Show loading spinner */}
+      {/* Show loading spinner while searching */}
       {searching && <ActivityIndicator style={styles.loading} />}
 
-      {/* Show message if no students found */}
+      {/* Show message when no students match the query */}
       {!searching && searchResults.length === 0 && searchQuery.trim() !== '' && (
         <Text style={styles.studentMeta}>{t('delete_student.no_results')}</Text>
       )}
 
-      {/* Modal for delete confirmation */}
+      {/* Modal shown to confirm deletion */}
       {selectedStudent && (
         <Modal visible={showDeleteModal} transparent animationType="slide">
           <Pressable style={styles.modalOverlay} onPress={() => setShowDeleteModal(false)}>

@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '../config';
+import PasswordStrength from '@/components/PasswordStrength';
 
 export default function Index() {
   const [email, setEmail] = useState('');
@@ -124,6 +125,9 @@ export default function Index() {
                     />
                   </Pressable>
                 </View>
+
+                <PasswordStrength password={password} />
+
               </View>
               <Pressable
                 style={({ pressed }) => [
@@ -169,8 +173,7 @@ const getStyles = (colorScheme: any) => {
           muted: '#94A3B8',
           shadow: 0,
           link: '#93C5FD',
-        }
-      : {
+        } : {
           background: '#EEF2FF',
           card: '#FFFFFF',
           border: '#E2E8F0',

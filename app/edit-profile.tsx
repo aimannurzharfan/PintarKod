@@ -20,8 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from '../config';
-
+import { API_URL } from '../config';import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 /* ------------------------- Helpers ------------------------- */
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -53,6 +52,8 @@ export default function EditProfileScreen() {
   const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const isPasswordValid = useMemo(() => passwordCompliant(password), [password]);
 
   const [saving, setSaving] = useState(false);
   const [pickingAvatar, setPickingAvatar] = useState(false);
@@ -135,6 +136,11 @@ export default function EditProfileScreen() {
 
     if (password && password !== confirmPassword) {
       Alert.alert(t('edit_profile.title'), t('edit_profile.password_mismatch'));
+      return;
+    }
+
+    if (password && !isPasswordValid) {
+      Alert.alert(t('edit_profile.title'), t('common.password_requirements'));
       return;
     }
 
@@ -338,6 +344,8 @@ export default function EditProfileScreen() {
                       textContentType="newPassword"
                     />
                   </View>
+
+                  <PasswordStrength password={password} />
                 </View>
 
                 {/* Confirm Password */}
@@ -360,9 +368,9 @@ export default function EditProfileScreen() {
 
               {/* Save Button */}
               <Pressable
-                style={[styles.primaryButton, saving && styles.primaryButtonDisabled]}
+                style={[styles.primaryButton, (saving || (!!password && !isPasswordValid)) && styles.primaryButtonDisabled]}
                 onPress={handleSave}
-                disabled={saving}
+                disabled={saving || (!!password && !isPasswordValid)}
               >
                 {saving ? (
                   <>

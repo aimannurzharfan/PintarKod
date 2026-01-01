@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { generateRandomDebugChallenge, generateRandomTroubleshootingChallenge } = require('./gameGenerator');
+const { generateRandomDebugChallenge, generateRandomTroubleshootingChallenge, generateRandomLogicPuzzle } = require('./gameGenerator');
 const { generateBuildCodeQuiz } = require('./buildCodeGenerator');
 
 const app = express();
@@ -1601,25 +1601,41 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
 
     console.log('Generating quiz for user:', userId);
 
-    // Generate a pool of challenges (more than needed to ensure variety)
+    // Generate a pool of challenges first (faster approach)
     const challengePool = [];
-    const poolSize = 30; // Generate 30 challenges to ensure variety
+    const poolSize = 30; // Generate 30 to ensure variety
     
     for (let i = 0; i < poolSize; i++) {
       challengePool.push(generateRandomDebugChallenge());
     }
 
-    // Fisher-Yates shuffle algorithm
-    for (let i = challengePool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [challengePool[i], challengePool[j]] = [challengePool[j], challengePool[i]];
+    // Filter for unique challenges based on code block
+    const seenCodeBlocks = new Set();
+    const uniqueChallenges = [];
+    
+    for (const challenge of challengePool) {
+      const codeKey = challenge.codeBlock.trim();
+      if (!seenCodeBlocks.has(codeKey)) {
+        seenCodeBlocks.add(codeKey);
+        uniqueChallenges.push(challenge);
+        if (uniqueChallenges.length >= 10) break; // Stop when we have 10
+      }
     }
 
-    // Take the first 10 unique challenges
-    const challenges = challengePool.slice(0, 10);
+    // If we don't have 10 unique, fill with remaining from pool (allow some duplicates if needed)
+    if (uniqueChallenges.length < 10) {
+      const remaining = challengePool.filter(c => !seenCodeBlocks.has(c.codeBlock.trim()));
+      uniqueChallenges.push(...remaining.slice(0, 10 - uniqueChallenges.length));
+    }
+
+    // Fisher-Yates shuffle algorithm
+    for (let i = uniqueChallenges.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [uniqueChallenges[i], uniqueChallenges[j]] = [uniqueChallenges[j], uniqueChallenges[i]];
+    }
     
-    console.log('Generated', challenges.length, 'challenges');
-    res.json(challenges); // Returns an array of 10 challenges
+    console.log('Generated', uniqueChallenges.length, 'challenges');
+    res.json(uniqueChallenges.slice(0, 10)); // Return up to 10 challenges
   } catch (err) {
     console.error('Error generating quiz:', err);
     console.error('Stack:', err.stack);
@@ -1630,19 +1646,38 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
 // GET /api/games/troubleshooting/quiz - Get a 10-question troubleshooting quiz
 app.get('/api/games/troubleshooting/quiz', authMiddleware, (req, res) => {
   try {
-    const challenges = [];
+    // Generate a pool of challenges first (faster approach)
+    const challengePool = [];
+    const poolSize = 30; // Generate 30 to ensure variety
     
-    // Generate 30 random challenges, then pick 10 to avoid repetition
-    for (let i = 0; i < 30; i++) {
-      challenges.push(generateRandomTroubleshootingChallenge());
+    for (let i = 0; i < poolSize; i++) {
+      challengePool.push(generateRandomTroubleshootingChallenge());
+    }
+
+    // Filter for unique challenges based on code block
+    const seenCodeBlocks = new Set();
+    const uniqueChallenges = [];
+    
+    for (const challenge of challengePool) {
+      const codeKey = challenge.codeBlock.trim();
+      if (!seenCodeBlocks.has(codeKey)) {
+        seenCodeBlocks.add(codeKey);
+        uniqueChallenges.push(challenge);
+        if (uniqueChallenges.length >= 10) break; // Stop when we have 10
+      }
+    }
+
+    // If we don't have 10 unique, fill with remaining from pool (allow some duplicates if needed)
+    if (uniqueChallenges.length < 10) {
+      const remaining = challengePool.filter(c => !seenCodeBlocks.has(c.codeBlock.trim()));
+      uniqueChallenges.push(...remaining.slice(0, 10 - uniqueChallenges.length));
     }
     
-    // Shuffle and take first 10
-    challenges.sort(() => Math.random() - 0.5);
-    const quizChallenges = challenges.slice(0, 10);
+    // Shuffle the final challenges
+    uniqueChallenges.sort(() => Math.random() - 0.5);
     
-    console.log('Generated', quizChallenges.length, 'troubleshooting challenges');
-    res.json(quizChallenges); // Returns an array of 10 challenges
+    console.log('Generated', uniqueChallenges.length, 'troubleshooting challenges');
+    res.json(uniqueChallenges.slice(0, 10)); // Return up to 10 challenges
   } catch (err) {
     console.error('Error generating troubleshooting quiz:', err);
     console.error('Stack:', err.stack);
@@ -1663,6 +1698,56 @@ app.get('/api/games/build-a-code/quiz', authMiddleware, (req, res) => {
   }
 });
 
+// GET /api/games/logic-puzzles/quiz - Get a 10-question logic puzzles quiz
+app.get('/api/games/logic-puzzles/quiz', authMiddleware, (req, res) => {
+  try {
+    const challenges = [];
+    const seenCodeBlocks = new Set(); // Track unique code blocks to avoid duplicates
+    let attempts = 0;
+    const maxAttempts = 100; // Increased safety limit
+    
+    // Generate challenges until we have 10 unique ones
+    while (challenges.length < 10 && attempts < maxAttempts) {
+      attempts++;
+      try {
+        const challenge = generateRandomLogicPuzzle();
+        
+        if (!challenge || !challenge.codeBlock) {
+          console.warn('Invalid challenge generated, skipping');
+          continue;
+        }
+        
+        // Use code block as unique identifier
+        const codeKey = challenge.codeBlock.trim();
+        
+        // Only add if we haven't seen this code block before
+        if (!seenCodeBlocks.has(codeKey)) {
+          seenCodeBlocks.add(codeKey);
+          challenges.push(challenge);
+        }
+      } catch (genError) {
+        console.error('Error generating single challenge:', genError);
+        // Continue trying to generate more
+        continue;
+      }
+    }
+    
+    if (challenges.length === 0) {
+      return res.status(500).json({ error: 'Failed to generate any challenges' });
+    }
+    
+    // Shuffle the final challenges
+    challenges.sort(() => Math.random() - 0.5);
+    
+    console.log('Generated', challenges.length, 'unique logic puzzle challenges');
+    res.json(challenges); // Returns an array of challenges
+  } catch (err) {
+    console.error('Error generating logic puzzles quiz:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Failed to generate quiz', details: err.message });
+  }
+});
+
 // POST /api/games/submit-quiz - Submits a full 10-question quiz
 app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
   try {
@@ -1673,39 +1758,70 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     // Read lang from query string (default to 'en')
     const lang = req.query.lang || 'en';
 
-    // 'answers' is an array: [{ challenge, selectedLine }, ...]
-    if (!Array.isArray(answers) || !totalTimeMs) {
+    // 'answers' is an array: [{ challenge, selectedLine, timeMs }, ...]
+    if (!Array.isArray(answers)) {
       return res.status(400).json({ error: 'Invalid quiz submission' });
     }
 
     let totalScore = 0;
     let correctCount = 0;
-    const timePerQuestion = totalTimeMs / answers.length;
     const feedback = []; // Array to store wrong answers
 
+    // Scoring function based on time
+    const calculateScore = (timeMs, isCorrect) => {
+      if (!isCorrect) {
+        return 0; // Wrong answer = 0 points
+      }
+      
+      const timeSeconds = timeMs / 1000; // Convert to seconds
+      
+      if (timeSeconds < 15) {
+        return 500; // Under 15 seconds = 500 points
+      } else if (timeSeconds < 30) {
+        return 375; // Under 30 seconds = 375 points
+      } else {
+        return 250; // 30 seconds or more = 250 points
+      }
+    };
+
     for (const answer of answers) {
-      const { challenge, selectedLine, selectedFix } = answer;
+      const { challenge, selectedLine, selectedFix, selectedOutput, timeMs, userOrder } = answer;
+      
+      // Calculate time per question (use provided timeMs or fallback to average)
+      const questionTime = timeMs || (totalTimeMs ? totalTimeMs / answers.length : 30000);
       
       // For debugging challenges with fix options, validate both line and fix
       let isCorrect = false;
-      if (challenge.fixOptions && challenge.correctFix) {
+      if (challenge.correctOutput !== undefined) {
+        // Logic Puzzles: check if selected output matches correct output
+        isCorrect = (selectedOutput === challenge.correctOutput);
+      } else if (challenge.fixOptions && challenge.correctFix) {
         // New debugging mechanics: check both line and fix
         isCorrect = (challenge.buggyLineIndex === selectedLine) && 
                     (selectedFix === challenge.correctFix);
+      } else if (challenge.correctOrder && userOrder) {
+        // Build-a-Code: check if order matches
+        isCorrect = (JSON.stringify(userOrder) === JSON.stringify(challenge.correctOrder));
       } else {
         // Troubleshooting or old format: just check line
         isCorrect = (challenge.buggyLineIndex === selectedLine);
       }
 
+      // Calculate score based on time and correctness
+      const questionScore = calculateScore(questionTime, isCorrect);
+      totalScore += questionScore;
+
       if (isCorrect) {
         correctCount++;
-        // CONSISTENT SCORING: Same for both games - 100 points per correct answer
-        totalScore += 100;
       } else {
         // Add wrong answer to feedback array
+        const explanation = challenge.explanation 
+          ? (challenge.explanation[lang] || challenge.explanation.en || 'No explanation available')
+          : (challenge.scenario?.[lang] || challenge.scenario?.en || 'No explanation available');
+        
         feedback.push({
           title: challenge.title[lang] || challenge.title.en || 'Challenge',
-          explanation: challenge.explanation[lang] || challenge.explanation.en || 'No explanation available',
+          explanation: explanation,
         });
       }
     }

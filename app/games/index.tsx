@@ -65,6 +65,16 @@ export default function GamesIndexScreen() {
     router.push('/games/build-a-code/play' as any);
   }, [user, router]);
 
+  const onPlayLogicPuzzle = useCallback(() => {
+    if (!user?.id) {
+      router.replace('/');
+      return;
+    }
+
+    // Navigate to the logic puzzles game
+    router.push('/games/logic-puzzles/play' as any);
+  }, [user, router]);
+
   const gameCards: GameCard[] = useMemo(
     () => [
       {
@@ -102,12 +112,13 @@ export default function GamesIndexScreen() {
         title: t('game_ui.puzzle_title'),
         description: t('game_ui.puzzle_desc'),
         icon: 'grid',
-        enabled: false,
+        enabled: true,
         color: '#3B82F6', // Blue
         lightColor: 'rgba(59, 130, 246, 0.1)',
+        onPress: onPlayLogicPuzzle,
       },
     ],
-    [t, onPlayRandomChallenge, onPlayTroubleshooting, onPlayBuildCode]
+    [t, onPlayRandomChallenge, onPlayTroubleshooting, onPlayBuildCode, onPlayLogicPuzzle]
   );
 
   const onNavigateToLeaderboard = useCallback(() => {

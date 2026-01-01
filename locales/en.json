@@ -15,7 +15,9 @@
     "confirm": "Confirm",
     "reset": "Reset",
     "back": "Back",
-    "retry": "Retry"
+    "retry": "Retry",
+    "password_requirements": "Password must be at least 8 characters and include uppercase, lowercase, numbers, and symbols.",
+    "password_good": "Good password"
   },
   "login": {
     "title": "Login",
@@ -390,11 +392,11 @@
     "debugging_title": "Debugging Challenge",
     "debugging_desc": "Find the bug in the code!",
     "troubleshooting_title": "Troubleshooting",
-    "troubleshooting_desc": "Find the root cause of the problem (Coming Soon)",
+    "troubleshooting_desc": "Find the root cause of the problem",
     "programming_title": "Build-a-Code",
     "programming_desc": "Arrange code blocks to solve a problem (Coming Soon)",
     "puzzle_title": "Logic Puzzles",
-    "puzzle_desc": "Predict the output of the algorithm (Coming Soon)",
+    "puzzle_desc": "Predict the output of the algorithm",
     "submit_answer": "Submit Answer",
     "correct": "Correct!",
     "incorrect": "Incorrect!",

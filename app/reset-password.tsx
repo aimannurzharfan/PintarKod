@@ -1,6 +1,7 @@
 import { API_URL } from '@/config';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
+import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 import {
   Alert,
   Button,
@@ -23,6 +24,8 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const isPasswordValid = useMemo(() => passwordCompliant(newPassword), [newPassword]);
+
   // -------------------- Theme & Styles --------------------
   const colorScheme = useColorScheme();
   const styles = useMemo(() => getStyles(colorScheme), [colorScheme]);
@@ -42,6 +45,11 @@ export default function ResetPassword() {
 
     if (newPassword !== confirmPassword) {
       Alert.alert('Validation', 'Passwords do not match.');
+      return;
+    }
+
+    if (!isPasswordValid) {
+      Alert.alert('Validation', t('common.password_requirements'));
       return;
     }
 
@@ -92,6 +100,8 @@ export default function ResetPassword() {
         style={styles.input}
       />
 
+      <PasswordStrength password={newPassword} />
+
       <TextInput
         placeholder="Confirm Password"
         placeholderTextColor={colorScheme === 'dark' ? '#888' : '#666'}
@@ -104,7 +114,7 @@ export default function ResetPassword() {
       <Button
         title={loading ? 'Resetting...' : 'Reset Password'}
         onPress={handleSubmit}
-        disabled={loading}
+        disabled={loading || !isPasswordValid}
       />
     </View>
   );
@@ -135,4 +145,5 @@ const getStyles = (colorScheme: any) =>
       borderRadius: 8,
       padding: 10,
     },
+    hintText: { fontSize: 12, color: colorScheme === 'dark' ? '#94A3B8' : '#64748B' }
   });

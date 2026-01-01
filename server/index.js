@@ -2625,6 +2625,25 @@ app.get('/api/chat/conversation/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/chat/history - Delete all chat history for the current user
+app.delete('/api/chat/history', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Delete all chat logs for the user
+    await prisma.chatLog.deleteMany({
+      where: {
+        userId: userId,
+      },
+    });
+
+    res.json({ success: true, message: 'Chat history deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting chat history:', err);
+    res.status(500).json({ error: 'Failed to delete chat history' });
+  }
+});
+
 // Student Material Progress API Routes
 
 // GET /api/progress - Get all completed material IDs for the current user

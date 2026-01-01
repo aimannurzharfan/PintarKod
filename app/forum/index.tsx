@@ -292,7 +292,7 @@ export default function ForumScreen() {
       setShowFilterModal(false);
     } catch (err) {
       console.error('Advanced search error:', err);
-      Alert.alert('Error', 'Failed to perform advanced search');
+      Alert.alert(t('common.error'), t('forum_list.advanced_search_error'));
     }
   }, [searchFilters]);
 
@@ -730,20 +730,20 @@ export default function ForumScreen() {
               styles.filterModalTitle,
               { color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A' }
             ]}>
-              Advanced Search
+              {t('forum_list.advanced_search_title')}
             </Text>
             
             {/* Keyword Search */}
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
-                Keyword
+                {t('forum_list.advanced_search_keyword')}
               </Text>
               <TextInput
                 style={[styles.filterInput, { 
                   backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC',
                   color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A',
                 }]}
-                placeholder="Search in title or content"
+                placeholder={t('forum_list.advanced_search_keyword_placeholder')}
                 placeholderTextColor="#94A3B8"
                 value={searchFilters.keyword}
                 onChangeText={(text) => setSearchFilters(prev => ({ ...prev, keyword: text }))}
@@ -753,14 +753,14 @@ export default function ForumScreen() {
             {/* Author Search */}
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
-                Author
+                {t('forum_list.advanced_search_author')}
               </Text>
               <TextInput
                 style={[styles.filterInput, { 
                   backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F8FAFC',
                   color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A',
                 }]}
-                placeholder="Search by author username"
+                placeholder={t('forum_list.advanced_search_author_placeholder')}
                 placeholderTextColor="#94A3B8"
                 value={searchFilters.author}
                 onChangeText={(text) => setSearchFilters(prev => ({ ...prev, author: text }))}
@@ -770,7 +770,7 @@ export default function ForumScreen() {
             {/* Sort Order */}
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
-                Sort Order
+                {t('forum_list.advanced_search_sort_order')}
               </Text>
               <View style={styles.sortOptions}>
                 <Pressable
@@ -789,7 +789,7 @@ export default function ForumScreen() {
                     styles.sortOptionText,
                     { color: searchFilters.sortBy === 'latest' ? '#FFFFFF' : (colorScheme === 'dark' ? '#F8FAFC' : '#0F172A') }
                   ]}>
-                    Newest First
+                    {t('forum_list.advanced_search_newest_first')}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -808,7 +808,7 @@ export default function ForumScreen() {
                     styles.sortOptionText,
                     { color: searchFilters.sortBy === 'oldest' ? '#FFFFFF' : (colorScheme === 'dark' ? '#F8FAFC' : '#0F172A') }
                   ]}>
-                    Oldest First
+                    {t('forum_list.advanced_search_oldest_first')}
                   </Text>
                 </Pressable>
               </View>
@@ -817,7 +817,7 @@ export default function ForumScreen() {
             {/* Date Range */}
             <View style={styles.filterSection}>
               <Text style={[styles.filterLabel, { color: colorScheme === 'dark' ? '#E2E8F0' : '#1E293B' }]}>
-                Date Range
+                {t('forum_list.advanced_search_date_range')}
               </Text>
               <Pressable
                 onPress={() => setShowStartDatePicker(true)}
@@ -836,7 +836,7 @@ export default function ForumScreen() {
                     ? (colorScheme === 'dark' ? '#F8FAFC' : '#0F172A')
                     : '#94A3B8'
                 }]}>
-                  {startDateValue ? formatDateForDisplay(startDateValue) : 'Start Date'}
+                  {startDateValue ? formatDateForDisplay(startDateValue) : t('forum_list.advanced_search_start_date')}
                 </Text>
                 {startDateValue && (
                   <Pressable
@@ -878,7 +878,7 @@ export default function ForumScreen() {
                         <Text style={[styles.calendarModalTitle, {
                           color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A'
                         }]}>
-                          Select Start Date
+                          {t('forum_list.advanced_search_select_start_date')}
                         </Text>
                         <Pressable
                           onPress={() => setShowStartDatePicker(false)}
@@ -906,14 +906,14 @@ export default function ForumScreen() {
                           onPress={() => setShowStartDatePicker(false)}
                           style={styles.calendarActionButton}
                         >
-                          <Text style={styles.calendarActionButtonText}>Cancel</Text>
+                          <Text style={styles.calendarActionButtonText}>{t('common.cancel')}</Text>
                         </Pressable>
                         <Pressable
                           onPress={() => setShowStartDatePicker(false)}
                           style={[styles.calendarActionButton, styles.calendarActionButtonPrimary]}
                         >
                           <Text style={[styles.calendarActionButtonText, styles.calendarActionButtonTextPrimary]}>
-                            Done
+                            {t('forum_list.advanced_search_done')}
                           </Text>
                         </Pressable>
                       </View>
@@ -949,7 +949,7 @@ export default function ForumScreen() {
                     ? (colorScheme === 'dark' ? '#F8FAFC' : '#0F172A')
                     : '#94A3B8'
                 }]}>
-                  {endDateValue ? formatDateForDisplay(endDateValue) : 'End Date'}
+                  {endDateValue ? formatDateForDisplay(endDateValue) : t('forum_list.advanced_search_end_date')}
                 </Text>
                 {endDateValue && (
                   <Pressable
@@ -991,7 +991,7 @@ export default function ForumScreen() {
                         <Text style={[styles.calendarModalTitle, {
                           color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A'
                         }]}>
-                          Select End Date
+                          {t('forum_list.advanced_search_select_end_date')}
                         </Text>
                         <Pressable
                           onPress={() => setShowEndDatePicker(false)}
@@ -1020,14 +1020,14 @@ export default function ForumScreen() {
                           onPress={() => setShowEndDatePicker(false)}
                           style={styles.calendarActionButton}
                         >
-                          <Text style={styles.calendarActionButtonText}>Cancel</Text>
+                          <Text style={styles.calendarActionButtonText}>{t('common.cancel')}</Text>
                         </Pressable>
                         <Pressable
                           onPress={() => setShowEndDatePicker(false)}
                           style={[styles.calendarActionButton, styles.calendarActionButtonPrimary]}
                         >
                           <Text style={[styles.calendarActionButtonText, styles.calendarActionButtonTextPrimary]}>
-                            Done
+                            {t('forum_list.advanced_search_done')}
                           </Text>
                         </Pressable>
                       </View>
@@ -1055,13 +1055,13 @@ export default function ForumScreen() {
                 style={[styles.filterButtonReset]}
                 onPress={() => setShowFilterModal(false)}
               >
-                <Text style={styles.filterButtonResetText}>Close</Text>
+                <Text style={styles.filterButtonResetText}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable
                 style={[styles.filterButtonApply]}
                 onPress={performAdvancedSearch}
               >
-                <Text style={styles.filterButtonApplyText}>Apply</Text>
+                <Text style={styles.filterButtonApplyText}>{t('forum_list.advanced_search_apply')}</Text>
               </Pressable>
             </View>
           </Pressable>

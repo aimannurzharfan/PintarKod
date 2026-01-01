@@ -409,10 +409,29 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body || {};
-    if (!token || typeof token !== 'string' || !newPassword || typeof newPassword !== 'string') {
-      return res.status(400).json({ error: 'Token and new password are required' });
+    
+    console.log('Reset password request received', { 
+      hasToken: !!token, 
+      tokenLength: token?.length,
+      hasPassword: !!newPassword,
+      passwordLength: newPassword?.length 
+    });
+
+    if (!token || typeof token !== 'string') {
+      console.error('Invalid token:', typeof token, token);
+      return res.status(400).json({ error: 'Token is required' });
     }
 
+    if (!newPassword || typeof newPassword !== 'string') {
+      console.error('Invalid password:', typeof newPassword);
+      return res.status(400).json({ error: 'New password is required' });
+    }
+
+    if (newPassword.length < 1) {
+      return res.status(400).json({ error: 'Password cannot be empty' });
+    }
+
+    // Find user with matching token and non-expired token
     const user = await prisma.user.findFirst({
       where: {
         resetToken: token,
@@ -423,10 +442,23 @@ app.post('/api/auth/reset-password', async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ error: 'Invalid or expired token' });
+      console.error('User not found or token expired for token:', token.substring(0, 10) + '...');
+      // Check if token exists but expired
+      const expiredUser = await prisma.user.findFirst({
+        where: { resetToken: token },
+      });
+      if (expiredUser) {
+        return res.status(400).json({ error: 'Reset token has expired. Please request a new password reset link.' });
+      }
+      return res.status(400).json({ error: 'Invalid reset token. Please request a new password reset link.' });
     }
 
+    console.log('User found, updating password for user ID:', user.id);
+
+    // Hash the new password
     const hashed = await bcrypt.hash(newPassword, 10);
+    
+    // Update user password and clear reset token
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -436,9 +468,11 @@ app.post('/api/auth/reset-password', async (req, res) => {
       },
     });
 
-    res.json({ success: true });
+    console.log('Password successfully updated for user ID:', user.id);
+
+    res.json({ success: true, message: 'Password updated successfully' });
   } catch (err) {
-    console.error('Reset password error', err);
+    console.error('Reset password error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

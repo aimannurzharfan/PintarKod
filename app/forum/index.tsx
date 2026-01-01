@@ -1042,7 +1042,6 @@ export default function ForumScreen() {
                           display="calendar"
                           onChange={handleStartDateChange}
                           maximumDate={endDateValue || new Date()}
-                          themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
                         />
                       </View>
                       <View style={styles.calendarModalActions}>
@@ -1156,7 +1155,6 @@ export default function ForumScreen() {
                           onChange={handleEndDateChange}
                           minimumDate={startDateValue || undefined}
                           maximumDate={new Date()}
-                          themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
                         />
                       </View>
                       <View style={styles.calendarModalActions}>

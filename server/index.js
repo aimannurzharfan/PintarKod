@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const genAI = require('@google/genai');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -108,6 +110,25 @@ function saveBase64File(fileData) {
 }
 
 const prisma = new PrismaClient();
+
+// Strict system instruction for the AI (Java tutor)
+const SYSTEM_INSTRUCTION = `You are a specialized Java Programming Tutor for Sains Komputer Tingkatan 4.
+
+Source Material: Base your teaching on the provided textbook. Focus on basic syntax, Scanner class, data types (int, double, String), if-else, loops (for, while), and arrays (tatasusunan).
+
+Strict Topic Control: Only answer questions related to Java programming. If a student asks about other languages or general topics, politely say: 'I am your Java tutor, I can only help with Java questions.'
+
+Teaching Style: Use the Socratic method. Explain logic and pseudocode before providing small, helpful Java code snippets.
+
+Language: Respond in a mix of English and Bahasa Melayu to match the textbook's style.`;
+
+// Helper to return model config (keeps code flexible for SDK or REST usage)
+function getGenerativeModel(modelName, options = {}) {
+  const model = modelName || 'gemini-1.5-flash';
+  const API_KEY = process.env.AI_CHATBOT_API_KEY;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+  return { model, apiUrl, systemInstruction: options.systemInstruction };
+}
 
 // Helper function to calculate and assign badges based on game score rankings
 async function updateAllBadges() {
@@ -2574,10 +2595,29 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Message or image is required' });
     }
 
-    // Call Google Gemini API
-    // Use gemini-1.5-flash for vision capabilities (supports multimodal input)
-    const model = 'gemini-1.5-flash';
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+    // Initialize model using genAI with the corrected structure
+    // Define your prompt text first
+    const JAVA_TUTOR_PROMPT = `You are a specialized Java Programming Tutor for Sains Komputer Tingkatan 4.
+
+Source Material: Base your teaching on the provided textbook. Focus on basic syntax, Scanner class, data types (int, double, String), if-else, loops (for, while), and arrays (tatasusunan).
+
+Strict Topic Control: Only answer questions related to Java programming. If a student asks about other languages or general topics, politely say: 'I am your Java tutor, I can only help with Java questions.'
+
+Teaching Style: Use the Socratic method. Explain logic and pseudocode before providing small, helpful Java code snippets.
+
+Language: Respond in a mix of English and Bahasa Melayu to match the textbook's style.`;
+
+    // Initialize the model with the CORRECT structure
+    const modelConfig = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      systemInstruction: {
+        parts: [
+          { text: JAVA_TUTOR_PROMPT }
+        ]
+      }
+    });
+    const model = modelConfig.model || 'gemini-1.5-flash';
+    const apiUrl = modelConfig.apiUrl || (`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.AI_CHATBOT_API_KEY}`);
 
     // Build parts array for multimodal input
     const parts = [];
@@ -2660,6 +2700,11 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       }]
     };
 
+    // Attach systemInstruction (if provided) so the model receives strict guidance
+    if (modelConfig && modelConfig.systemInstruction) {
+      requestBody.systemInstruction = modelConfig.systemInstruction;
+    }
+
     // Log request for debugging (without sensitive data)
     console.log('Sending to Gemini:', {
       hasImage: !!image,
@@ -2671,7 +2716,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
     let response;
     let data;
-    
+
     try {
       response = await fetch(apiUrl, {
         method: 'POST',
@@ -2686,17 +2731,15 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       console.log('Gemini API response preview:', responseText.substring(0, 200));
 
       if (!response.ok) {
-        console.error('Gemini API error - Status:', response.status);
-        console.error('Gemini API error - Response:', responseText);
+        console.error('Server Error: API returned non-OK status', response.status, responseText);
         try {
           const errorJson = JSON.parse(responseText);
-          console.error('Gemini API error details (JSON):', JSON.stringify(errorJson, null, 2));
+          console.error('Server Error:', JSON.stringify(errorJson, null, 2));
           return res.status(response.status).json({ 
             error: 'Failed to get response from AI',
             details: errorJson.error?.message || errorJson.message || responseText
           });
         } catch (e) {
-          // Error text is not JSON
           return res.status(response.status).json({ 
             error: 'Failed to get response from AI',
             details: responseText 
@@ -2707,18 +2750,18 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('Failed to parse Gemini response as JSON:', parseError);
-        console.error('Response text:', responseText);
+        console.error('Server Error:', parseError);
+        console.error('Server Error: responseText:', responseText);
         return res.status(500).json({ 
           error: 'Invalid response from AI',
           details: 'Response was not valid JSON'
         });
       }
-    } catch (fetchError) {
-      console.error('Network error calling Gemini API:', fetchError);
+    } catch (error) {
+      console.error('Server Error:', error);
       return res.status(500).json({ 
-        error: 'Network error connecting to AI service',
-        details: fetchError.message 
+        error: 'Failed to get response from AI',
+        details: error.message || String(error)
       });
     }
     
@@ -2817,7 +2860,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     
     res.json({ text });
   } catch (err) {
-    console.error('Chat API error:', err);
+    console.error('Server Error:', err);
     res.status(500).json({ error: 'Failed to get response from AI' });
   }
 });

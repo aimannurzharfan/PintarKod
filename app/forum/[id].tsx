@@ -140,10 +140,29 @@ export default function ForumThreadScreen() {
   function handleSubmitComment() {
     if (!thread) return;
     const body = commentDraft.trim();
+    
+    // Comment validation
     if (!body) {
       Alert.alert(t('forum_thread.alert_reply_title'), t('forum_thread.alert_reply_body'));
       return;
     }
+    
+    if (body.length < 1) {
+      Alert.alert(
+        t('forum_thread.alert_comment_too_short') || 'Comment too short',
+        t('forum_thread.alert_comment_too_short_message') || 'Comment must be at least 1 character long.'
+      );
+      return;
+    }
+    
+    if (body.length > 5000) {
+      Alert.alert(
+        t('forum_thread.alert_comment_too_long') || 'Comment too long',
+        t('forum_thread.alert_comment_too_long_message') || 'Comment must not exceed 5,000 characters.'
+      );
+      return;
+    }
+    
     if (user?.id == null) {
       Alert.alert(t('forum_list.alert_signin_title'), t('forum_thread.alert_signin_reply'));
       return;
@@ -179,10 +198,29 @@ export default function ForumThreadScreen() {
   function submitCommentEdit() {
     if (!thread) return;
     const body = editingCommentText.trim();
+    
     if (!editingComment || !body) {
       Alert.alert(t('forum_thread.alert_edit_empty_title'), t('forum_thread.alert_edit_empty_body'));
       return;
     }
+    
+    // Comment validation
+    if (body.length < 1) {
+      Alert.alert(
+        t('forum_thread.alert_comment_too_short') || 'Comment too short',
+        t('forum_thread.alert_comment_too_short_message') || 'Comment must be at least 1 character long.'
+      );
+      return;
+    }
+    
+    if (body.length > 5000) {
+      Alert.alert(
+        t('forum_thread.alert_comment_too_long') || 'Comment too long',
+        t('forum_thread.alert_comment_too_long_message') || 'Comment must not exceed 5,000 characters.'
+      );
+      return;
+    }
+    
     if (user?.id == null) {
       Alert.alert(t('forum_list.alert_signin_title'), t('forum_thread.alert_signin_edit_reply'));
       return;
@@ -216,10 +254,51 @@ export default function ForumThreadScreen() {
     if (!thread) return;
     const title = threadTitle.trim();
     const content = threadContent.trim();
-    if (!title || !content) {
+    
+    // Title validation
+    if (!title) {
       Alert.alert(t('forum_thread.alert_incomplete_title'), t('forum_thread.alert_incomplete_body'));
       return;
     }
+    
+    if (title.length < 3) {
+      Alert.alert(
+        t('forum_thread.alert_title_too_short') || 'Title too short',
+        t('forum_thread.alert_title_too_short_message') || 'Title must be at least 3 characters long.'
+      );
+      return;
+    }
+    
+    if (title.length > 200) {
+      Alert.alert(
+        t('forum_thread.alert_title_too_long') || 'Title too long',
+        t('forum_thread.alert_title_too_long_message') || 'Title must not exceed 200 characters.'
+      );
+      return;
+    }
+    
+    // Content validation
+    if (!content) {
+      Alert.alert(t('forum_thread.alert_incomplete_title'), t('forum_thread.alert_incomplete_body'));
+      return;
+    }
+    
+    if (content.length < 10) {
+      Alert.alert(
+        t('forum_thread.alert_content_too_short') || 'Content too short',
+        t('forum_thread.alert_content_too_short_message') || 'Post content must be at least 10 characters long.'
+      );
+      return;
+    }
+    
+    if (content.length > 10000) {
+      Alert.alert(
+        t('forum_thread.alert_content_too_long') || 'Content too long',
+        t('forum_thread.alert_content_too_long_message') || 'Post content must not exceed 10,000 characters.'
+      );
+      return;
+    }
+    
     if (user?.id == null) {
       Alert.alert(t('forum_list.alert_signin_title'), t('forum_thread.alert_signin_edit_thread'));
       return;

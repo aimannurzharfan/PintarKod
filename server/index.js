@@ -780,11 +780,46 @@ app.get('/api/forum/search', async (req, res) => {
       endDate = ''
     } = req.query;
 
-    const searchKeyword = (keyword || '').toString().trim();
+    // Sanitize and validate keyword
+    let searchKeyword = (keyword || '').toString().trim();
+    // Remove potentially dangerous characters and limit length
+    searchKeyword = searchKeyword.replace(/[<>]/g, '').substring(0, 200);
+    
     const searchAuthor = (author || '').toString().trim();
     const sortOrder = sortBy === 'oldest' ? 'asc' : 'desc';
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate) : null;
+    
+    // Validate and parse dates
+    let start = null;
+    let end = null;
+    const now = new Date();
+    now.setHours(23, 59, 59, 999); // End of today
+    
+    if (startDate) {
+      start = new Date(startDate);
+      if (isNaN(start.getTime())) {
+        return res.status(400).json({ error: 'Invalid start date format' });
+      }
+      // Check if start date is not in the future
+      if (start > now) {
+        return res.status(400).json({ error: 'Start date cannot be in the future' });
+      }
+    }
+    
+    if (endDate) {
+      end = new Date(endDate);
+      if (isNaN(end.getTime())) {
+        return res.status(400).json({ error: 'Invalid end date format' });
+      }
+      // Check if end date is not in the future
+      if (end > now) {
+        return res.status(400).json({ error: 'End date cannot be in the future' });
+      }
+    }
+    
+    // Validate date range (start < end)
+    if (start && end && start > end) {
+      return res.status(400).json({ error: 'Start date must be before or equal to end date' });
+    }
 
     // Build dynamic where clause
     const whereConditions = [];
@@ -872,20 +907,64 @@ app.get('/api/forum/threads/:id', async (req, res) => {
 app.post('/api/forum/threads', async (req, res) => {
   try {
     const { title, content, authorId, attachment } = req.body || {};
-    if (!title || !content) {
-      return res.status(400).json({ error: 'Title and content are required' });
+    
+    // Title validation
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ error: 'Title is required and must be a string' });
     }
+    const trimmedTitle = title.trim();
+    if (trimmedTitle.length < 3 || trimmedTitle.length > 200) {
+      return res.status(400).json({ error: 'Title must be between 3 and 200 characters' });
+    }
+    
+    // Content validation
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Content is required and must be a string' });
+    }
+    const trimmedContent = content.trim();
+    if (trimmedContent.length < 10 || trimmedContent.length > 10000) {
+      return res.status(400).json({ error: 'Content must be between 10 and 10000 characters' });
+    }
+    
+    // Author ID validation
     const authorIdNum = Number(authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
     }
+    
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: authorIdNum }
+    });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Attachment validation
+    let validatedAttachment = null;
+    if (attachment && typeof attachment === 'string') {
+      if (!attachment.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Invalid image format. Only images are allowed.' });
+      }
+      
+      // Check file size (base64 encoded)
+      const base64Data = attachment.split(',')[1];
+      if (base64Data) {
+        const sizeInBytes = (base64Data.length * 3) / 4;
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (sizeInBytes > maxSize) {
+          return res.status(400).json({ error: 'Image size exceeds 5MB limit' });
+        }
+      }
+      validatedAttachment = attachment;
+    }
 
     const thread = await prisma.forumThread.create({
       data: {
-        title,
-        content,
+        title: trimmedTitle,
+        content: trimmedContent,
         authorId: authorIdNum,
-        attachment: attachment && typeof attachment === 'string' ? attachment : null
+        attachment: validatedAttachment
       },
       include: forumThreadInclude
     });
@@ -925,9 +1004,25 @@ app.put('/api/forum/threads/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid thread id' });
     }
     const { title, content, authorId, attachment } = req.body || {};
-    if (!title || !content) {
-      return res.status(400).json({ error: 'Title and content are required' });
+    
+    // Title validation
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ error: 'Title is required and must be a string' });
     }
+    const trimmedTitle = title.trim();
+    if (trimmedTitle.length < 3 || trimmedTitle.length > 200) {
+      return res.status(400).json({ error: 'Title must be between 3 and 200 characters' });
+    }
+    
+    // Content validation
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Content is required and must be a string' });
+    }
+    const trimmedContent = content.trim();
+    if (trimmedContent.length < 10 || trimmedContent.length > 10000) {
+      return res.status(400).json({ error: 'Content must be between 10 and 10000 characters' });
+    }
+    
     const authorIdNum = Number(authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
@@ -940,13 +1035,29 @@ app.put('/api/forum/threads/:id', async (req, res) => {
     }
 
     const data = {
-      title,
-      content
+      title: trimmedTitle,
+      content: trimmedContent
     };
 
     if (typeof attachment !== 'undefined') {
-      data.attachment =
-        attachment && typeof attachment === 'string' ? attachment : null;
+      if (attachment && typeof attachment === 'string') {
+        if (!attachment.startsWith('data:image/')) {
+          return res.status(400).json({ error: 'Invalid image format. Only images are allowed.' });
+        }
+        
+        // Check file size
+        const base64Data = attachment.split(',')[1];
+        if (base64Data) {
+          const sizeInBytes = (base64Data.length * 3) / 4;
+          const maxSize = 5 * 1024 * 1024; // 5MB
+          if (sizeInBytes > maxSize) {
+            return res.status(400).json({ error: 'Image size exceeds 5MB limit' });
+          }
+        }
+        data.attachment = attachment;
+      } else {
+        data.attachment = null;
+      }
     }
 
     const updated = await prisma.forumThread.update({
@@ -968,12 +1079,30 @@ app.post('/api/forum/threads/:id/comments', async (req, res) => {
       return res.status(400).json({ error: 'Invalid thread id' });
     }
     const { content, authorId } = req.body || {};
-    if (!content) {
-      return res.status(400).json({ error: 'Comment content is required' });
+    
+    // Comment validation
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Comment content is required and must be a string' });
     }
+    const trimmedContent = content.trim();
+    if (trimmedContent.length < 1) {
+      return res.status(400).json({ error: 'Comment must be at least 1 character long' });
+    }
+    if (trimmedContent.length > 5000) {
+      return res.status(400).json({ error: 'Comment must not exceed 5000 characters' });
+    }
+    
     const authorIdNum = Number(authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
+    }
+    
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: authorIdNum }
+    });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const thread = await prisma.forumThread.findUnique({ where: { id: threadId } });
@@ -981,7 +1110,7 @@ app.post('/api/forum/threads/:id/comments', async (req, res) => {
 
     const comment = await prisma.forumComment.create({
       data: {
-        content,
+        content: trimmedContent,
         threadId,
         authorId: authorIdNum
       },
@@ -1032,9 +1161,19 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid comment id' });
     }
     const { content, authorId } = req.body || {};
-    if (!content) {
-      return res.status(400).json({ error: 'Comment content is required' });
+    
+    // Comment validation
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Comment content is required and must be a string' });
     }
+    const trimmedContent = content.trim();
+    if (trimmedContent.length < 1) {
+      return res.status(400).json({ error: 'Comment must be at least 1 character long' });
+    }
+    if (trimmedContent.length > 5000) {
+      return res.status(400).json({ error: 'Comment must not exceed 5000 characters' });
+    }
+    
     const authorIdNum = Number(authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
@@ -1052,7 +1191,7 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
 
     const updated = await prisma.forumComment.update({
       where: { id: commentId },
-      data: { content },
+      data: { content: trimmedContent },
       include: {
         author: { select: { id: true, username: true, email: true, role: true } }
       }

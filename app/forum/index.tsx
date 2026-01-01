@@ -167,12 +167,48 @@ export default function ForumScreen() {
   function submitThread() {
     const title = formTitle.trim();
     const content = formContent.trim();
+    
+    // Title validation
     if (!title) {
       Alert.alert(t('forum_list.alert_missing_title'), t('forum_list.alert_missing_title_message'));
       return;
     }
+    
+    if (title.length < 3) {
+      Alert.alert(
+        t('forum_list.alert_title_too_short') || 'Title too short',
+        t('forum_list.alert_title_too_short_message') || 'Title must be at least 3 characters long.'
+      );
+      return;
+    }
+    
+    if (title.length > 200) {
+      Alert.alert(
+        t('forum_list.alert_title_too_long') || 'Title too long',
+        t('forum_list.alert_title_too_long_message') || 'Title must not exceed 200 characters.'
+      );
+      return;
+    }
+    
+    // Content validation
     if (!content) {
       Alert.alert(t('forum_list.alert_missing_title'), t('forum_list.alert_missing_content'));
+      return;
+    }
+    
+    if (content.length < 10) {
+      Alert.alert(
+        t('forum_list.alert_content_too_short') || 'Content too short',
+        t('forum_list.alert_content_too_short_message') || 'Post content must be at least 10 characters long.'
+      );
+      return;
+    }
+    
+    if (content.length > 10000) {
+      Alert.alert(
+        t('forum_list.alert_content_too_long') || 'Content too long',
+        t('forum_list.alert_content_too_long_message') || 'Post content must not exceed 10,000 characters.'
+      );
       return;
     }
 

@@ -149,6 +149,9 @@ export default function DeleteAccountScreen() {
     try {
       const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(username)}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
       });
       const data = await res.json();
 
@@ -276,9 +279,6 @@ export default function DeleteAccountScreen() {
           <View style={styles.header}>
             <Text style={styles.headerTitle}>
               {t('delete_student.title') || 'Delete Account'}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {t('delete_student.subtitle') || 'Search and delete student accounts'}
             </Text>
           </View>
 

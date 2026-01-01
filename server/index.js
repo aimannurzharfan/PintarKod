@@ -485,7 +485,7 @@ app.get('/api/users/search', async (req, res) => {
     const searchTerm = typeof q === 'string' ? q.trim() : '';
     const roleFilter = typeof role === 'string' ? role.trim() : '';
 
-    const whereClause: any = {};
+    const whereClause = {};
 
     if (roleFilter) {
       whereClause.role = roleFilter;
@@ -631,16 +631,52 @@ app.put('/api/users/:username/avatar', async (req, res) => {
   }
 });
 
-// Delete account by username
-app.delete('/api/users/:username', async (req, res) => {
+// Delete account by username (teacher-only, safe cleanup of related records)
+app.delete('/api/users/:username', authMiddleware, async (req, res) => {
   try {
     const { username } = req.params;
     if (!username) return res.status(400).json({ error: 'Invalid username' });
 
+    // Only teachers are allowed to delete student accounts from the teacher UI
+    if (req.user?.role !== 'Teacher') {
+      return res.status(403).json({ error: 'Forbidden - Only teachers can delete student accounts' });
+    }
+
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    await prisma.user.delete({ where: { username } });
+    // Prevent deleting teachers via this endpoint
+    if (user.role === 'Teacher') {
+      return res.status(400).json({ error: 'Cannot delete a teacher account' });
+    }
+
+    const userId = user.id;
+
+    // Delete forum comments authored by the user
+    await prisma.forumComment.deleteMany({ where: { authorId: userId } });
+
+    // Find threads authored by the user and delete their comments first
+    const userThreads = await prisma.forumThread.findMany({ where: { authorId: userId }, select: { id: true } });
+    const threadIds = userThreads.map((t) => t.id);
+    if (threadIds.length > 0) {
+      await prisma.forumComment.deleteMany({ where: { threadId: { in: threadIds } } });
+    }
+
+    // Delete threads authored by the user
+    await prisma.forumThread.deleteMany({ where: { authorId: userId } });
+
+    // Delete learning materials authored by the user (will cascade progress entries where configured)
+    await prisma.learningMaterial.deleteMany({ where: { authorId: userId } });
+
+    // Delete other dependent records
+    await prisma.gameScore.deleteMany({ where: { userId } });
+    await prisma.chatLog.deleteMany({ where: { userId } });
+    await prisma.notification.deleteMany({ where: { userId } });
+    await prisma.studentMaterialProgress.deleteMany({ where: { studentId: userId } });
+
+    // Finally delete the user
+    await prisma.user.delete({ where: { id: userId } });
+
     res.json({ success: true });
   } catch (err) {
     console.error('Delete user error', err);

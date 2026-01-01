@@ -25,12 +25,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  const setUser = (u: AuthUser, newToken?: string) => {
+  const setUser = (u: AuthUser, newToken?: string | null) => {
     setUserState(u);
-    if (newToken) {
+    // Only update token when an explicit value is provided.
+    // Avoid clearing the existing token when callers pass no token.
+    if (newToken !== undefined) {
       setToken(newToken);
-    } else {
-      setToken(null);
     }
   };
 

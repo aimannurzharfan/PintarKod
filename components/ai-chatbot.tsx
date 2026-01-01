@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
@@ -22,7 +21,6 @@ import {
 import Markdown from 'react-native-markdown-display';
 import { API_URL } from '../config';
 import { IconSymbol } from './ui/icon-symbol';
-import { Feather } from '@expo/vector-icons';
 
 export type Role = 'user' | 'gemini';
 
@@ -53,7 +51,6 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isConversationLoaded, setIsConversationLoaded] = useState(false);
-  const [deletingHistory, setDeletingHistory] = useState(false);
   const messagesListRef = useRef<FlatList>(null);
   const colorScheme = useColorScheme();
   const { token } = useAuth();
@@ -172,58 +169,6 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     }
   };
 
-  const handleDeleteChatHistory = async () => {
-    Alert.alert(
-      'Delete Chat History',
-      'Are you sure you want to delete all your chat history? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingHistory(true);
-            try {
-              const response = await fetch(`${API_URL}/api/chat/history`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-              });
-
-              if (response.ok) {
-                setChatHistory([]);
-                setMessages([
-                  {
-                    role: 'gemini',
-                    text: "Hello! Saya adalah KP Bot. Sila Bertanya!",
-                    timestamp: new Date(),
-                  },
-                ]);
-                setIsConversationLoaded(false);
-                setInput('');
-                setError(null);
-                Alert.alert('Success', 'Chat history deleted successfully.');
-              } else {
-                const data = await response.json();
-                Alert.alert('Error', data.error || 'Failed to delete chat history.');
-              }
-            } catch (e) {
-              console.error('Failed to delete chat history:', e);
-              Alert.alert('Error', 'Failed to delete chat history. Please try again.');
-            } finally {
-              setDeletingHistory(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -240,7 +185,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     setError(null);
     
     // Auto-scroll to bottom when user sends message
-     setTimeout(() => {
+    setTimeout(() => {
       messagesListRef.current?.scrollToEnd({ animated: true });
     }, 100);
 
@@ -258,29 +203,15 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
       });
 
       if (!response.ok) {
-        let errorMessage = 'Failed to get response from AI';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.details || errorMessage;
-          console.error('API Error:', errorData);
-        } catch (e) {
-          const errorText = await response.text();
-          errorMessage = errorText || errorMessage;
-          console.error('API Error (text):', errorText);
-        }
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get response from AI');
       }
 
       const data = await response.json();
       
-      if (!data.text) {
-        console.error('No text in response:', data);
-        throw new Error('AI did not return a valid response');
-      }
-      
       const botMessage: Message = {
         role: 'gemini',
-        text: data.text,
+        text: data.text || 'Sorry, I could not generate a response.',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, botMessage]);
@@ -333,11 +264,9 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             !isUser && { borderColor: colorScheme === 'dark' ? '#444' : '#E0E0E0' },
           ]}
         >
-          {item.text && (
-            <Markdown style={{ body: { color: isUser ? '#FFFFFF' : (colorScheme === 'dark' ? '#FFFFFF' : '#000000'), fontSize: 16 } }}>
+           <Markdown style={{ body: { color: isUser ? '#FFFFFF' : (colorScheme === 'dark' ? '#FFFFFF' : '#000000'), fontSize: 16 } }}>
               {item.text}
-            </Markdown>
-          )}
+           </Markdown>
         </View>
       </View>
     );
@@ -389,17 +318,6 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             <View style={[styles.historySidebar, { width: historyWidth, backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#FFFFFF', borderRightColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
               <View style={[styles.historyHeader, { borderBottomColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
                 <Text style={[styles.historyTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Chat History</Text>
-                <TouchableOpacity
-                  onPress={handleDeleteChatHistory}
-                  style={styles.deleteHistoryButton}
-                  disabled={deletingHistory || chatHistory.length === 0}
-                >
-                  {deletingHistory ? (
-                    <ActivityIndicator size="small" color="#FF3B30" />
-                  ) : (
-                    <Feather name="trash-2" size={22} color="#FF3B30" />
-                  )}
-                </TouchableOpacity>
               </View>
               <ScrollView style={styles.historyList}>
                 {loadingHistory ? (
@@ -601,11 +519,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     height: 56,
     minHeight: 56,
-  },
-  deleteHistoryButton: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   historyTitle: {
     fontSize: 18,

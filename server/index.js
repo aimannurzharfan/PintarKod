@@ -121,19 +121,40 @@ async function updateAllBadges() {
         gameScores: {
           select: {
             score: true,
+            gameType: true,
           },
         },
       },
     });
 
-    // Calculate best score for each student
+    // Calculate total best score for each student (sum of best scores from all game types)
     const studentScores = students.map((student) => {
-      const bestScore = student.gameScores.length > 0
-        ? Math.max(...student.gameScores.map((s) => s.score))
-        : 0;
+      if (student.gameScores.length === 0) {
+        return {
+          id: student.id,
+          bestScore: 0,
+        };
+      }
+      
+      // Group scores by gameType and get the best score for each game type
+      const scoresByGameType = {};
+      for (const score of student.gameScores) {
+        // Since we now only store one score per gameType, we can just sum all scores
+        // But to be safe, we'll still use Math.max per gameType in case of old data
+        if (!scoresByGameType[score.gameType]) {
+          scoresByGameType[score.gameType] = [];
+        }
+        scoresByGameType[score.gameType].push(score.score);
+      }
+      
+      // Sum the best score from each game type
+      const totalBestScore = Object.values(scoresByGameType).reduce((sum, scores) => {
+        return sum + Math.max(...scores);
+      }, 0);
+      
       return {
         id: student.id,
-        bestScore: bestScore,
+        bestScore: totalBestScore,
       };
     });
 
@@ -2064,14 +2085,39 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     // Determine game type (allow client to specify, fallback to debugging)
     const gameType = (req.body && typeof req.body.gameType === 'string') ? req.body.gameType : 'DEBUGGING_QUIZ';
 
-    // Save ONE record for the entire quiz
-    await prisma.gameScore.create({
-      data: {
+    // Find the best existing score for this user and game type
+    const existingScores = await prisma.gameScore.findMany({
+      where: {
         userId: userId,
-        score: totalScore,
         gameType: gameType,
       },
+      orderBy: {
+        score: 'desc',
+      },
+      take: 1,
     });
+
+    const bestExistingScore = existingScores.length > 0 ? existingScores[0].score : 0;
+
+    // Only save if this is a new best score (higher than previous best)
+    if (totalScore > bestExistingScore) {
+      // Delete all previous scores for this user+gameType (we only keep the best)
+      await prisma.gameScore.deleteMany({
+        where: {
+          userId: userId,
+          gameType: gameType,
+        },
+      });
+
+      // Save the new best score
+      await prisma.gameScore.create({
+        data: {
+          userId: userId,
+          score: totalScore,
+          gameType: gameType,
+        },
+      });
+    }
 
     // Update all badges after new score is submitted
     await updateAllBadges();

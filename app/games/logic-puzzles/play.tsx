@@ -239,8 +239,19 @@ export default function LogicPuzzlesGame() {
       setSelectedOutput(null);
       setQuestionStartTime(Date.now()); // Start timer for next question
     } else {
-      // Submit quiz
+      // Submit quiz - include the last answer directly
       try {
+        // Calculate the last answer
+        const timeForQuestion = Date.now() - questionStartTime;
+        const lastAnswer = {
+          challenge,
+          selectedOutput: selectedOutput!,
+          timeMs: timeForQuestion,
+        };
+        
+        // Include all previous answers plus the last one
+        const allAnswers = [...userAnswers, lastAnswer];
+        
         const response = await fetch(`${API_URL}/api/games/submit-quiz`, {
           method: 'POST',
           headers: {
@@ -248,7 +259,7 @@ export default function LogicPuzzlesGame() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            answers: userAnswers, // All answers with timeMs
+            answers: allAnswers, // Now includes the last answer
             totalTimeMs: elapsedTime * 1000, // Convert to milliseconds (for backward compatibility)
             gameType: 'LOGIC_PUZZLES_QUIZ',
           }),
@@ -264,7 +275,7 @@ export default function LogicPuzzlesGame() {
         setShowResults(true);
       }
     }
-  }, [currentQuestionIndex, challenges.length, userAnswers, token, elapsedTime]);
+  }, [currentQuestionIndex, challenges.length, userAnswers, challenge, selectedOutput, questionStartTime, token, elapsedTime]);
 
   // Attempt leave helper (shows confirm when mid-quiz)
   const attemptLeave = useCallback(() => {

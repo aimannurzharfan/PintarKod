@@ -280,8 +280,20 @@ export default function BuildACodeGame() {
       setCurrentQuestionIndex(prev => prev + 1);
       setQuestionStartTime(Date.now()); // Start timer for next question
     } else {
-      // Submit final quiz results
+      // Submit final quiz results - include the last answer directly
       try {
+        // Calculate the last answer
+        const timeForQuestion = Date.now() - questionStartTime;
+        const userOrder = arrangedBlocks.map(b => b.id);
+        const lastAnswer = {
+          challenge,
+          userOrder,
+          timeMs: timeForQuestion,
+        };
+        
+        // Include all previous answers plus the last one
+        const allAnswers = [...userAnswers, lastAnswer];
+        
         const response = await fetch(`${API_URL}/api/games/submit-quiz`, {
           method: 'POST',
           headers: {
@@ -289,7 +301,7 @@ export default function BuildACodeGame() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            answers: userAnswers.map(a => ({
+            answers: allAnswers.map(a => ({
               challenge: a.challenge,
               userOrder: a.userOrder,
               timeMs: a.timeMs, // Include time per question
@@ -310,7 +322,7 @@ export default function BuildACodeGame() {
         setShowResults(true);
       }
     }
-  }, [currentQuestionIndex, challenges.length, userAnswers, token, startTime]);
+  }, [currentQuestionIndex, challenges.length, userAnswers, challenge, arrangedBlocks, questionStartTime, token, startTime]);
 
   if (isLoading) {
     return (

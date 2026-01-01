@@ -213,8 +213,19 @@ export default function TroubleshootingGame() {
       setSelectedLine(null);
       setQuestionStartTime(Date.now()); // Start timer for next question
     } else {
-      // Submit quiz - userAnswers now has all answers
+      // Submit quiz - include the last answer directly
       try {
+        // Calculate the last answer
+        const timeForQuestion = Date.now() - questionStartTime;
+        const lastAnswer = {
+          challenge,
+          selectedLine: selectedLine!,
+          timeMs: timeForQuestion,
+        };
+        
+        // Include all previous answers plus the last one
+        const allAnswers = [...userAnswers, lastAnswer];
+        
         const response = await fetch(`${API_URL}/api/games/submit-quiz`, {
           method: 'POST',
           headers: {
@@ -222,7 +233,7 @@ export default function TroubleshootingGame() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            answers: userAnswers, // All answers included with timeMs
+            answers: allAnswers, // Now includes the last answer
             totalTimeMs: elapsedTime * 1000, // Convert to milliseconds (for backward compatibility)
             gameType: 'TROUBLESHOOTING_QUIZ',
           }),
@@ -240,7 +251,7 @@ export default function TroubleshootingGame() {
         setShowResults(true);
       }
     }
-  }, [currentQuestionIndex, challenges.length, userAnswers, token, elapsedTime]);
+  }, [currentQuestionIndex, challenges.length, userAnswers, challenge, selectedLine, questionStartTime, token, elapsedTime]);
 
   if (isLoading) {
     return (

@@ -52,6 +52,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isConversationLoaded, setIsConversationLoaded] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const messagesListRef = useRef<FlatList>(null);
   const colorScheme = useColorScheme();
   const { token } = useAuth();
@@ -84,6 +85,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
       // Don't reset messages immediately - keep them for seamless continuation
       // Only reset when user explicitly wants to start new chat
       setInput('');
+      setEditingIndex(null);
       setShowHistory(false);
       setError(null);
     }
@@ -295,18 +297,44 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     }
   };
 
+  const handleEditMessage = (index: number) => {
+    const message = messages[index];
+    if (message && message.role === 'user') {
+      setInput(message.text);
+      setEditingIndex(index);
+      // Scroll to input area
+      setTimeout(() => {
+        messagesListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    const currentInput = input;
+    const isEditing = editingIndex !== null;
+
+    // If editing, remove the old message and all subsequent messages
+    if (isEditing && editingIndex !== null) {
+      setMessages(prev => prev.slice(0, editingIndex));
+    }
+
     const userMessage: Message = {
       role: 'user',
-      text: input,
+      text: currentInput,
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    const currentInput = input;
+    // If editing, replace the message at editingIndex, otherwise append
+    if (isEditing && editingIndex !== null) {
+      setMessages(prev => [...prev, userMessage]);
+    } else {
+      setMessages(prev => [...prev, userMessage]);
+    }
+
     setInput('');
+    setEditingIndex(null);
     setIsLoading(true);
     setError(null);
     
@@ -366,7 +394,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isUser = item.role === 'user';
     return (
       <View
@@ -382,17 +411,33 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             contentFit="contain"
           />
         )}
-        <View
-          style={[
-            styles.messageBubble,
-            isUser ? styles.userMessageBubble : styles.geminiMessageBubble,
-            { backgroundColor: isUser ? '#007AFF' : (colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF') },
-            !isUser && { borderColor: colorScheme === 'dark' ? '#444' : '#E0E0E0' },
-          ]}
-        >
-           <Markdown style={{ body: { color: isUser ? '#FFFFFF' : (colorScheme === 'dark' ? '#FFFFFF' : '#000000'), fontSize: 16 } }}>
-              {item.text}
-           </Markdown>
+        <View style={isUser ? styles.userMessageWrapper : undefined}>
+          {isUser && (
+            <Pressable
+              onPress={() => handleEditMessage(index)}
+              style={styles.editButton}
+            >
+              <IconSymbol 
+                name="pencil" 
+                size={14} 
+                color={colorScheme === 'dark' ? '#999' : '#666'} 
+              />
+            </Pressable>
+          )}
+          <View
+            style={[
+              styles.messageBubble,
+              isUser ? styles.userMessageBubble : styles.geminiMessageBubble,
+              { backgroundColor: isUser ? '#007AFF' : (colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF') },
+              !isUser && { borderColor: colorScheme === 'dark' ? '#444' : '#E0E0E0' },
+            ]}
+          >
+            {item.text && (
+              <Markdown style={{ body: { color: isUser ? '#FFFFFF' : (colorScheme === 'dark' ? '#FFFFFF' : '#000000'), fontSize: 16 } }}>
+                {item.text}
+              </Markdown>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -425,6 +470,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                   ]);
                   setIsConversationLoaded(false);
                   setInput('');
+                  setEditingIndex(null);
                   setError(null);
                 }} 
                 style={styles.newChatButton}
@@ -473,19 +519,19 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                     >
                       <TouchableOpacity
                         style={styles.historyItemContent}
-                        onPress={() => loadConversation(item.id)}
+                      onPress={() => loadConversation(item.id)}
                         activeOpacity={0.7}
                       >
                         <View style={styles.historyItemText}>
-                          <Text
-                            style={[styles.historyPreview, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
-                            numberOfLines={2}
-                          >
-                            {item.message || 'No message'}
-                          </Text>
-                          <Text style={[styles.historyDate, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-                            {formatHistoryDate(new Date(item.createdAt).toDateString())}
-                          </Text>
+                      <Text
+                        style={[styles.historyPreview, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
+                        numberOfLines={2}
+                      >
+                        {item.message || 'No message'}
+                      </Text>
+                      <Text style={[styles.historyDate, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                        {formatHistoryDate(new Date(item.createdAt).toDateString())}
+                      </Text>
                         </View>
                       </TouchableOpacity>
                       <TouchableOpacity
@@ -494,7 +540,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                         activeOpacity={0.7}
                       >
                         <IconSymbol name="trash" size={18} color={colorScheme === 'dark' ? '#000000' : '#000000'} />
-                      </TouchableOpacity>
+                    </TouchableOpacity>
                     </View>
                   ))
                 )}
@@ -543,7 +589,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
           <FlatList
             ref={messagesListRef}
             data={messages}
-            renderItem={renderMessage}
+            renderItem={({ item, index }) => renderMessage({ item, index })}
             keyExtractor={(item, index) => `${item.role}-${index}`}
             style={styles.messageList}
             contentContainerStyle={{ paddingBottom: 10 }}
@@ -558,10 +604,21 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
               style={[styles.input, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F0F0F0', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
               value={input}
               onChangeText={setInput}
-              placeholder="Type your message..."
+              placeholder={editingIndex !== null ? "Edit your message..." : "Type your message..."}
               placeholderTextColor={colorScheme === 'dark' ? '#999' : '#999'}
               editable={!isLoading}
             />
+            {editingIndex !== null && (
+              <TouchableOpacity
+                onPress={() => {
+                  setInput('');
+                  setEditingIndex(null);
+                }}
+                style={styles.cancelButton}
+              >
+                <IconSymbol name="xmark" size={18} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={handleSend}
               style={[styles.sendButton, (isLoading || !input.trim()) && styles.disabledButton]}
@@ -570,7 +627,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
               {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                  <Text style={styles.sendButtonText}>Send</Text>
+                  <Text style={styles.sendButtonText}>{editingIndex !== null ? 'Update' : 'Send'}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -741,11 +798,28 @@ const styles = StyleSheet.create({
   userMessageContainer: {
     alignSelf: 'flex-end',
   },
+  userMessageWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   geminiMessageContainer: {
     alignSelf: 'flex-start',
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  editButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.7,
+  },
+  cancelButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
   },
   messageRobotAvatar: {
     width: 60,
@@ -767,6 +841,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 10,
     borderTopWidth: 1,
+    alignItems: 'center',
+    gap: 8,
   },
   input: {
     flex: 1,

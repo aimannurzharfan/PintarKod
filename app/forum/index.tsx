@@ -175,18 +175,12 @@ export default function ForumScreen() {
     }
     
     if (title.length < 3) {
-      Alert.alert(
-        t('forum_list.alert_title_too_short') || 'Title too short',
-        t('forum_list.alert_title_too_short_message') || 'Title must be at least 3 characters long.'
-      );
+      Alert.alert('Title too short', 'Title must be at least 3 characters.');
       return;
     }
     
     if (title.length > 200) {
-      Alert.alert(
-        t('forum_list.alert_title_too_long') || 'Title too long',
-        t('forum_list.alert_title_too_long_message') || 'Title must not exceed 200 characters.'
-      );
+      Alert.alert('Title too long', 'Title must not exceed 200 characters.');
       return;
     }
     
@@ -197,18 +191,12 @@ export default function ForumScreen() {
     }
     
     if (content.length < 10) {
-      Alert.alert(
-        t('forum_list.alert_content_too_short') || 'Content too short',
-        t('forum_list.alert_content_too_short_message') || 'Post content must be at least 10 characters long.'
-      );
+      Alert.alert('Content too short', 'Post must be at least 10 characters.');
       return;
     }
     
     if (content.length > 10000) {
-      Alert.alert(
-        t('forum_list.alert_content_too_long') || 'Content too long',
-        t('forum_list.alert_content_too_long_message') || 'Post content must not exceed 10,000 characters.'
-      );
+      Alert.alert('Content too long', 'Post must not exceed 10,000 characters.');
       return;
     }
 
@@ -731,39 +719,44 @@ export default function ForumScreen() {
                   </Pressable>
                 </View>
               ) : (
-                <Pressable
-                  style={[
-                    styles.attachmentPicker,
-                    {
-                      borderColor:
-                        colorScheme === 'dark'
-                          ? 'rgba(147, 197, 253, 0.45)'
-                          : 'rgba(37, 99, 235, 0.3)',
-                      backgroundColor:
-                        colorScheme === 'dark'
-                          ? 'rgba(37, 99, 235, 0.22)'
-                          : 'rgba(59,130,246,0.08)',
-                    },
-                  ]}
-                  onPress={pickAttachment}
-                  disabled={pickingAttachment}
-                >
-                  <IconSymbol
-                    name="photo.on.rectangle"
-                    size={20}
-                    color="#2563EB"
-                  />
-                  <Text
+                <>
+                  <Pressable
                     style={[
-                      styles.attachmentPickerText,
-                      { color: colorScheme === 'dark' ? '#DBEAFE' : '#1D4ED8' },
+                      styles.attachmentPicker,
+                      {
+                        borderColor:
+                          colorScheme === 'dark'
+                            ? 'rgba(147, 197, 253, 0.45)'
+                            : 'rgba(37, 99, 235, 0.3)',
+                        backgroundColor:
+                          colorScheme === 'dark'
+                            ? 'rgba(37, 99, 235, 0.22)'
+                            : 'rgba(59,130,246,0.08)',
+                      },
                     ]}
+                    onPress={pickAttachment}
+                    disabled={pickingAttachment}
                   >
-                      {pickingAttachment
-                        ? t('forum_list.attachment_loading')
-                        : t('forum_list.attachment_button')}
+                    <IconSymbol
+                      name="photo.on.rectangle"
+                      size={20}
+                      color="#2563EB"
+                    />
+                    <Text
+                      style={[
+                        styles.attachmentPickerText,
+                        { color: colorScheme === 'dark' ? '#DBEAFE' : '#1D4ED8' },
+                      ]}
+                    >
+                        {pickingAttachment
+                          ? t('forum_list.attachment_loading')
+                          : t('forum_list.attachment_button')}
+                    </Text>
+                  </Pressable>
+                  <Text style={styles.attachmentHint}>
+                    Maximum 5MB
                   </Text>
-                </Pressable>
+                </>
               )}
             </View>
             <View style={styles.modalActions}>
@@ -1626,6 +1619,13 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '600',
     fontSize: 13,
+  },
+  attachmentHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    marginTop: 4,
+    paddingHorizontal: 4,
   },
   modalActions: {
     flexDirection: 'row',

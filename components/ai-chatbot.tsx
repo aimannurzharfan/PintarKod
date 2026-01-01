@@ -161,6 +161,81 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     );
   };
 
+  const deleteSingleChat = async (chatId: number) => {
+    Alert.alert(
+      'Delete Chat',
+      'Are you sure you want to delete this chat? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('Deleting chat with ID:', chatId);
+              const response = await fetch(`${API_URL}/api/chat/history/${chatId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+              });
+
+              console.log('Delete response status:', response.status);
+
+              if (response.ok) {
+                const data = await response.json();
+                console.log('Delete successful:', data);
+                
+                // Remove from local state immediately
+                setChatHistory(prev => prev.filter(item => item.id !== chatId));
+                
+                // Refresh chat history from server to ensure consistency
+                await fetchChatHistory();
+                
+                // If the deleted chat was currently loaded, reset to greeting
+                const wasCurrentChat = chatHistory.find(item => item.id === chatId);
+                if (wasCurrentChat && isConversationLoaded) {
+                  setMessages([
+                    {
+                      role: 'gemini',
+                      text: "Hello! Saya adalah KP Bot. Sila Bertanya!",
+                      timestamp: new Date(),
+                    },
+                  ]);
+                  setIsConversationLoaded(false);
+                }
+              } else {
+                // Try to parse JSON, but handle non-JSON responses
+                let errorMessage = 'Failed to delete chat';
+                try {
+                  const contentType = response.headers.get('content-type');
+                  if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                  } else {
+                    const text = await response.text();
+                    errorMessage = text || errorMessage;
+                  }
+                } catch (parseError) {
+                  errorMessage = `Failed to delete chat (Status: ${response.status})`;
+                }
+                console.error('Delete failed:', errorMessage);
+                Alert.alert('Error', errorMessage);
+              }
+            } catch (e) {
+              console.error('Failed to delete chat:', e);
+              Alert.alert('Error', 'Failed to delete chat. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const loadConversation = async (chatId: number) => {
     setIsLoading(true);
     try {
@@ -354,7 +429,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                 }} 
                 style={styles.newChatButton}
               >
-                <IconSymbol name="pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+                <IconSymbol name="square.and.pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
               </Pressable>
               <Pressable onPress={onClose} style={styles.closeButton}>
                 <IconSymbol name="xmark" size={24} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
@@ -389,24 +464,38 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                   </View>
                 ) : (
                   chatHistory.map((item) => (
-                    <TouchableOpacity
+                    <View
                       key={item.id}
                       style={[styles.historyItem, { 
                         backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F5F5F5',
                         borderBottomColor: colorScheme === 'dark' ? '#333' : '#E0E0E0'
                       }]}
-                      onPress={() => loadConversation(item.id)}
                     >
-                      <Text
-                        style={[styles.historyPreview, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
-                        numberOfLines={2}
+                      <TouchableOpacity
+                        style={styles.historyItemContent}
+                        onPress={() => loadConversation(item.id)}
+                        activeOpacity={0.7}
                       >
-                        {item.message || 'No message'}
-                      </Text>
-                      <Text style={[styles.historyDate, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-                        {formatHistoryDate(new Date(item.createdAt).toDateString())}
-                      </Text>
-                    </TouchableOpacity>
+                        <View style={styles.historyItemText}>
+                          <Text
+                            style={[styles.historyPreview, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
+                            numberOfLines={2}
+                          >
+                            {item.message || 'No message'}
+                          </Text>
+                          <Text style={[styles.historyDate, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                            {formatHistoryDate(new Date(item.createdAt).toDateString())}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => deleteSingleChat(item.id)}
+                        style={styles.historyItemDeleteButton}
+                        activeOpacity={0.7}
+                      >
+                        <IconSymbol name="trash" size={18} color={colorScheme === 'dark' ? '#000000' : '#000000'} />
+                      </TouchableOpacity>
+                    </View>
                   ))
                 )}
               </ScrollView>
@@ -437,7 +526,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                     }} 
                     style={styles.newChatButton}
                   >
-                    <IconSymbol name="pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+                    <IconSymbol name="square.and.pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
                   </Pressable>
                   <Pressable onPress={onClose} style={styles.closeButton}>
                     <IconSymbol name="xmark" size={24} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
@@ -608,8 +697,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
+  },
+  historyItemContent: {
+    flex: 1,
+  },
+  historyItemText: {
+    flex: 1,
+  },
+  historyItemDeleteButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   historyPreview: {
     fontSize: 15,

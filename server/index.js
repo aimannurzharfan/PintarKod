@@ -2712,6 +2712,57 @@ app.get('/api/chat/conversation/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/chat/history/:id - Delete a single chat history item (MUST come before /api/chat/history)
+app.delete('/api/chat/history/:id', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chatId = parseInt(req.params.id, 10);
+    
+    if (isNaN(chatId)) {
+      return res.status(400).json({ error: 'Invalid chat ID' });
+    }
+
+    // Verify the chat belongs to the user before deleting
+    const chatLog = await prisma.chatLog.findFirst({
+      where: {
+        id: chatId,
+        userId: userId,
+      },
+    });
+
+    if (!chatLog) {
+      console.log(`Chat ${chatId} not found or unauthorized for user ${userId}`);
+      return res.status(404).json({ error: 'Chat not found or unauthorized' });
+    }
+
+    console.log(`Deleting chat ${chatId} for user ${userId}`);
+
+    // Delete the specific chat log permanently from database
+    await prisma.chatLog.delete({
+      where: {
+        id: chatId,
+      },
+    });
+
+    console.log(`Chat ${chatId} successfully deleted from database`);
+
+    // Verify deletion by checking if it still exists
+    const verifyDelete = await prisma.chatLog.findUnique({
+      where: { id: chatId },
+    });
+
+    if (verifyDelete) {
+      console.error(`WARNING: Chat ${chatId} still exists after deletion attempt!`);
+      return res.status(500).json({ error: 'Failed to delete chat from database' });
+    }
+
+    res.json({ success: true, message: 'Chat deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting chat:', err);
+    res.status(500).json({ error: 'Failed to delete chat' });
+  }
+});
+
 // DELETE /api/chat/history - Delete all chat history for the current user
 app.delete('/api/chat/history', authMiddleware, async (req, res) => {
   try {

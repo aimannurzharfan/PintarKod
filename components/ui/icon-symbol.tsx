@@ -24,6 +24,7 @@ const MAPPING = {
   'person.2.fill': 'people',
   'pencil': 'edit',
   'text.bubble.fill': 'forum',
+  'square.and.pencil': 'edit-note',
   'clock.fill': 'schedule',
   'photo.on.rectangle': 'photo-library',
   'xmark.circle.fill': 'cancel',

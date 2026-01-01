@@ -86,6 +86,12 @@ export default function RootLayout() {
         options={{ headerShown: false }}
       />
       
+      {/* Reset password page - no header */}
+      <Stack.Screen
+        name="reset-password"
+        options={{ headerShown: false }}
+      />
+      
       {/* This is the main app (tabs). It will also hide its header. */}
       <Stack.Screen 
         name="(tabs)" 

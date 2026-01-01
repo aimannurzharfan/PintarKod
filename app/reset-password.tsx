@@ -2,6 +2,7 @@ import { API_URL } from '@/config';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Button,
@@ -16,6 +17,7 @@ export default function ResetPassword() {
   // -------------------- Router & Params --------------------
   const router = useRouter();
   const { token } = useLocalSearchParams<{ token?: string | string[] }>();
+  const { t } = useTranslation();
 
   const resetToken = Array.isArray(token) ? token[0] : token ?? '';
 

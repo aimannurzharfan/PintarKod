@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { API_URL } from '../config';
-import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 
 /* ======================= Register Screen ======================= */
 export default function RegisterScreen() {
@@ -35,8 +34,6 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
-
-  const isPasswordValid = useMemo(() => passwordCompliant(password), [password]);
 
   const [role, setRole] = useState('Student');
   const [className, setClassName] = useState('');
@@ -65,11 +62,6 @@ export default function RegisterScreen() {
   async function handleRegister() {
     if (!username.trim() || !email.trim() || !password.trim()) {
       Alert.alert(t('register.title'), t('register.validation'));
-      return;
-    }
-
-    if (!isPasswordValid) {
-      Alert.alert(t('register.title'), t('common.password_requirements'));
       return;
     }
 
@@ -214,12 +206,6 @@ export default function RegisterScreen() {
                     />
                   </Pressable>
                 </View>
-
-                {/* strength */}
-                <View>
-                  <PasswordStrength password={password} />
-                </View>
-
               </View>
 
               {/* Teacher-only fields */}
@@ -261,10 +247,10 @@ export default function RegisterScreen() {
               <Pressable
                 style={[
                   styles.primaryButton,
-                  (loading || !isPasswordValid) && styles.primaryButtonDisabled,
+                  loading && styles.primaryButtonDisabled,
                 ]}
                 onPress={handleRegister}
-                disabled={loading || !isPasswordValid}
+                disabled={loading}
               >
                 {loading ? (
                   <>

@@ -59,6 +59,8 @@ export default function LogicPuzzlesGame() {
   
   // Exit confirmation state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  // Allow navigating away after user confirmed leave
+  const [allowExit, setAllowExit] = useState(false);
   
   // Sound effects
   const [soundCorrect, setSoundCorrect] = useState<Audio.Sound | null>(null);
@@ -264,6 +266,28 @@ export default function LogicPuzzlesGame() {
     }
   }, [currentQuestionIndex, challenges.length, userAnswers, token, elapsedTime]);
 
+  // Attempt leave helper (shows confirm when mid-quiz)
+  const attemptLeave = useCallback(() => {
+    if (showResults || showFeedbackReview) {
+      router.back();
+      return;
+    }
+    setShowExitConfirm(true);
+  }, [router, showResults, showFeedbackReview]);
+
+  // Intercept header/back navigation (top-left back button)
+  useEffect(() => {
+    const beforeRemove = (e: any) => {
+      if (allowExit) return; // already confirmed
+      if (showResults || showFeedbackReview) return;
+      e.preventDefault();
+      setShowExitConfirm(true);
+    };
+
+    const unsub = navigation.addListener('beforeRemove', beforeRemove as any);
+    return () => unsub && unsub();
+  }, [navigation, showResults, showFeedbackReview, allowExit]);
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC' }]}>
@@ -468,8 +492,8 @@ export default function LogicPuzzlesGame() {
                 </Text>
               </Pressable>
             )}
-            <Pressable style={styles.closeButton} onPress={() => router.back()}>
-              <Text style={styles.closeButtonText}>Back to Games</Text>
+            <Pressable style={styles.closeButton} onPress={attemptLeave}>
+              <Text style={styles.closeButtonText}>{t('game_ui.close_game')}</Text>
             </Pressable>
           </View>
         </View>
@@ -508,17 +532,17 @@ export default function LogicPuzzlesGame() {
           <View style={[styles.exitConfirmModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
             <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#F59E0B" />
             <Text style={[styles.exitConfirmTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-              Leave Game?
+              {t('game_ui.exit_confirm_title')}
             </Text>
             <Text style={[styles.exitConfirmText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
-              Your progress will be lost. Are you sure you want to exit?
+              {t('game_ui.exit_confirm_message')}
             </Text>
             <View style={styles.exitConfirmButtons}>
               <Pressable style={styles.exitStayButton} onPress={() => setShowExitConfirm(false)}>
-                <Text style={styles.exitStayButtonText}>Stay</Text>
+                <Text style={styles.exitStayButtonText}>{t('game_ui.exit_confirm_stay')}</Text>
               </Pressable>
-              <Pressable style={styles.exitLeaveButton} onPress={() => { setShowExitConfirm(false); router.back(); }}>
-                <Text style={styles.exitLeaveButtonText}>Exit</Text>
+              <Pressable style={styles.exitLeaveButton} onPress={() => { setAllowExit(true); setShowExitConfirm(false); router.replace('/games'); }}>
+                <Text style={styles.exitLeaveButtonText}>{t('game_ui.exit_confirm_leave')}</Text>
               </Pressable>
             </View>
           </View>

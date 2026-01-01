@@ -421,6 +421,11 @@
     "leaderboard_desc": "See your rank among other students!",
     "build_code_title": "Build-a-Code",
     "build_code_desc": "Arrange blocks to build Java programs"
+    ,
+    "exit_confirm_title": "Exit Game",
+    "exit_confirm_message": "Exiting now may lose your progress and points. Do you want to leave?",
+    "exit_confirm_stay": "Stay",
+    "exit_confirm_leave": "Leave"
   },
   "headers": {
     "mainpage": "Main Page",

@@ -421,6 +421,11 @@
     "leaderboard_desc": "Lihat kedudukan anda antara pelajar lain!",
     "build_code_title": "Bina-Kod",
     "build_code_desc": "Susun blok untuk bina program Java"
+    ,
+    "exit_confirm_title": "Keluar Permainan",
+    "exit_confirm_message": "Keluar sekarang mungkin akan menyebabkan kehilangan kemajuan dan mata anda. Adakah anda mahu keluar?",
+    "exit_confirm_stay": "Tinggal",
+    "exit_confirm_leave": "Keluar"
   },
   "headers": {
     "mainpage": "Laman Utama",

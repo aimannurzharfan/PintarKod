@@ -404,6 +404,7 @@ const getStyles = (colorScheme: any) => {
       borderRadius: 18,
       paddingVertical: 14,
       alignItems: 'center',
+      justifyContent: 'center',
       flexDirection: 'row',
       gap: 10,
     },

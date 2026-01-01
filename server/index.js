@@ -477,7 +477,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// Search users (supports role and partial username match)
+// Search users (supports role and partial username/email match)
 app.get('/api/users/search', async (req, res) => {
   try {
     const { q = '', role } = req.query;
@@ -485,16 +485,26 @@ app.get('/api/users/search', async (req, res) => {
     const searchTerm = typeof q === 'string' ? q.trim() : '';
     const roleFilter = typeof role === 'string' ? role.trim() : '';
 
-    const whereClause = {};
+    const whereClause: any = {};
 
     if (roleFilter) {
       whereClause.role = roleFilter;
     }
 
     if (searchTerm) {
-      whereClause.username = {
-        contains: searchTerm,
-      };
+      // Search in both username and email (case-insensitive)
+      whereClause.OR = [
+        {
+          username: {
+            contains: searchTerm,
+          },
+        },
+        {
+          email: {
+            contains: searchTerm,
+          },
+        },
+      ];
     }
 
     const users = await prisma.user.findMany({

@@ -28,6 +28,7 @@ const MAPPING = {
   'photo.on.rectangle': 'photo-library',
   'xmark.circle.fill': 'cancel',
   'person.badge.plus': 'person-add',
+  'trash': 'delete',
   'trash.circle.fill': 'delete',
   'line.3.horizontal': 'menu',
   'plus': 'add',

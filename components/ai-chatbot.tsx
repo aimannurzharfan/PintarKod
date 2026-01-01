@@ -1,8 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
@@ -108,6 +108,56 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const clearChatHistory = async () => {
+    // Show confirmation dialog
+    Alert.alert(
+      'Clear Chat History',
+      'Are you sure you want to delete all chat history? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_URL}/api/chat/history`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+              });
+
+              if (response.ok) {
+                // Clear local state
+                setChatHistory([]);
+                setMessages([
+                  {
+                    role: 'gemini',
+                    text: "Hello! Saya adalah KP Bot. Sila Bertanya!",
+                    timestamp: new Date(),
+                  },
+                ]);
+                setIsConversationLoaded(false);
+                // Show success message
+                Alert.alert('Success', 'Chat history has been cleared.');
+              } else {
+                const errorData = await response.json();
+                Alert.alert('Error', errorData.error || 'Failed to clear chat history');
+              }
+            } catch (e) {
+              console.error('Failed to clear chat history:', e);
+              Alert.alert('Error', 'Failed to clear chat history. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const loadConversation = async (chatId: number) => {
@@ -249,13 +299,6 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
           isUser ? styles.userMessageContainer : styles.geminiMessageContainer,
         ]}
       >
-        {!isUser && (
-          <Image 
-            source={require('@/assets/images/robot.png')} 
-            style={styles.messageRobotAvatar}
-            contentFit="contain"
-          />
-        )}
         <View
           style={[
             styles.messageBubble,
@@ -317,7 +360,13 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
           {showHistory && (
             <View style={[styles.historySidebar, { width: historyWidth, backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#FFFFFF', borderRightColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
               <View style={[styles.historyHeader, { borderBottomColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
-                <Text style={[styles.historyTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Chat History</Text>
+                <Text style={[styles.historyTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Sejarah Perbincangan</Text>
+                <Pressable 
+                  onPress={clearChatHistory}
+                  style={styles.deleteButton}
+                >
+                  <IconSymbol name="trash" size={20} color={colorScheme === 'dark' ? '#FF3B30' : '#FF3B30'} />
+                </Pressable>
               </View>
               <ScrollView style={styles.historyList}>
                 {loadingHistory ? (
@@ -523,6 +572,13 @@ const styles = StyleSheet.create({
   historyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    flex: 1,
+  },
+  deleteButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   historyList: {
     flex: 1,
@@ -579,11 +635,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 8,
-  },
-  messageRobotAvatar: {
-    width: 60,
-    height: 60,
-    marginBottom: 4,
   },
   messageBubble: {
     padding: 12,

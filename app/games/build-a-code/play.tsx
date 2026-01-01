@@ -605,7 +605,19 @@ export default function BuildACodeGame() {
               <Pressable style={styles.exitStayButton} onPress={() => setShowExitConfirm(false)}>
                 <Text style={styles.exitStayButtonText}>{t('game_ui.exit_confirm_stay')}</Text>
               </Pressable>
-              <Pressable style={styles.exitLeaveButton} onPress={() => { setAllowExit(true); setShowExitConfirm(false); router.replace('/games'); }}>
+              <Pressable
+                style={styles.exitLeaveButton}
+                onPress={() => {
+                  setAllowExit(true);
+                  setShowExitConfirm(false);
+                  // avoid calling navigation.reset synchronously (can trigger
+                  // unhandled navigation actions). Close modal then replace
+                  // route shortly after to allow state to settle.
+                  setTimeout(() => {
+                    router.replace('/mainpage');
+                  }, 50);
+                }}
+              >
                 <Text style={styles.exitLeaveButtonText}>{t('game_ui.exit_confirm_leave')}</Text>
               </Pressable>
             </View>

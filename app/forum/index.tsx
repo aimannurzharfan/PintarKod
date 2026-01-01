@@ -815,7 +815,7 @@ export default function ForumScreen() {
                       style={[styles.authorTextInput, { 
                         color: colorScheme === 'dark' ? '#F8FAFC' : '#0F172A',
                       }]}
-                      placeholder={t('forum_list.advanced_search_author_placeholder')}
+                      placeholder={selectedAuthors.length > 0 ? '' : t('forum_list.advanced_search_author_placeholder')}
                       placeholderTextColor="#94A3B8"
                       value={searchFilters.author}
                       onChangeText={(text) => {

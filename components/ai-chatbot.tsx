@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -309,6 +310,19 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     }
   };
 
+  const handleCopyMessage = async (index: number) => {
+    const message = messages[index];
+    if (message && message.role === 'user' && message.text) {
+      try {
+        await Clipboard.setStringAsync(message.text);
+        Alert.alert('Copied', 'Message copied to clipboard');
+      } catch (error) {
+        console.error('Failed to copy:', error);
+        Alert.alert('Error', 'Failed to copy message');
+      }
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -413,16 +427,28 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
         )}
         <View style={isUser ? styles.userMessageWrapper : undefined}>
           {isUser && (
-            <Pressable
-              onPress={() => handleEditMessage(index)}
-              style={styles.editButton}
-            >
-              <IconSymbol 
-                name="pencil" 
-                size={14} 
-                color={colorScheme === 'dark' ? '#999' : '#666'} 
-              />
-            </Pressable>
+            <>
+              <Pressable
+                onPress={() => handleCopyMessage(index)}
+                style={styles.copyButton}
+              >
+                <IconSymbol 
+                  name="doc.on.doc" 
+                  size={14} 
+                  color={colorScheme === 'dark' ? '#999' : '#666'} 
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => handleEditMessage(index)}
+                style={styles.editButton}
+              >
+                <IconSymbol 
+                  name="pencil" 
+                  size={14} 
+                  color={colorScheme === 'dark' ? '#999' : '#666'} 
+                />
+              </Pressable>
+            </>
           )}
           <View
             style={[
@@ -808,6 +834,12 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  copyButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.7,
   },
   editButton: {
     padding: 4,

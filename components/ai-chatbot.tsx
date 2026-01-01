@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -299,6 +300,13 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
           isUser ? styles.userMessageContainer : styles.geminiMessageContainer,
         ]}
       >
+        {!isUser && (
+          <Image 
+            source={require('@/assets/images/robot.png')} 
+            style={styles.messageRobotAvatar}
+            contentFit="contain"
+          />
+        )}
         <View
           style={[
             styles.messageBubble,
@@ -635,6 +643,11 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  messageRobotAvatar: {
+    width: 60,
+    height: 60,
+    marginBottom: 4,
   },
   messageBubble: {
     padding: 12,

@@ -1,3 +1,4 @@
+import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { Feather } from '@expo/vector-icons';
@@ -5,22 +6,22 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useColorScheme,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+    useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { API_URL } from '../config';import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
+import { API_URL } from '../config';
 /* ------------------------- Helpers ------------------------- */
 const resolveAvatarUri = (profileImage?: string | null, avatarUrl?: string | null) => {
   if (profileImage) {
@@ -309,7 +310,10 @@ export default function EditProfileScreen() {
 
               {/* Email */}
               <View style={styles.field}>
-                <Text style={styles.label}>{t('edit_profile.email')}</Text>
+                <Text style={styles.label}>
+                  {t('edit_profile.email')}
+                  <Text style={{ color: '#EF4444' }}> *</Text>
+                </Text>
                 <View style={styles.inputWrapper}>
                   <Feather name="mail" size={18} color={placeholderColor} />
                   <TextInput
@@ -331,7 +335,10 @@ export default function EditProfileScreen() {
 
                 {/* New Password */}
                 <View style={styles.field}>
-                  <Text style={styles.label}>{t('edit_profile.new_password')}</Text>
+                  <Text style={styles.label}>
+                    {t('edit_profile.new_password')}
+                    <Text style={{ color: '#EF4444' }}> *</Text>
+                  </Text>
                   <View style={styles.inputWrapper}>
                     <Feather name="lock" size={18} color={placeholderColor} />
                     <TextInput

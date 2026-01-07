@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
@@ -54,8 +55,10 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isConversationLoaded, setIsConversationLoaded] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [showWrongMessage, setShowWrongMessage] = useState(false);
   const messagesListRef = useRef<FlatList>(null);
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const { token } = useAuth();
   
   const screenWidth = Dimensions.get('window').width;
@@ -324,7 +327,14 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if (isLoading) return;
+
+    // Validate input - check if it's empty or only contains spaces
+    const trimmedInput = input.trim();
+    if (!trimmedInput || trimmedInput.length === 0) {
+      setShowWrongMessage(true);
+      return;
+    }
 
     const currentInput = input;
     const isEditing = editingIndex !== null;
@@ -647,8 +657,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             )}
             <TouchableOpacity
               onPress={handleSend}
-              style={[styles.sendButton, (isLoading || !input.trim()) && styles.disabledButton]}
-              disabled={isLoading || !input.trim()}
+              style={[styles.sendButton, isLoading && styles.disabledButton]}
+              disabled={isLoading}
             >
               {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -660,6 +670,29 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             </KeyboardAvoidingView>
           </View>
         </View>
+
+        {/* Wrong Message Modal */}
+        <Modal visible={showWrongMessage} animationType="fade" transparent={true}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.feedbackModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+              <MaterialCommunityIcons name="close-circle" size={64} color="#EF4444" />
+              <Text style={[styles.feedbackTitle, { color: '#EF4444' }]}>
+                Wrong!
+              </Text>
+              <Text style={[styles.feedbackText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                Sila masukkan mesej yang sah. Mesej tidak boleh kosong atau hanya mengandungi ruang.
+              </Text>
+              <Pressable 
+                style={[styles.continueButton, { backgroundColor: '#EF4444' }]} 
+                onPress={() => setShowWrongMessage(false)}
+              >
+                <Text style={styles.continueButtonText}>
+                  OK
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </Modal>
   );
@@ -899,6 +932,48 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#A9A9A9',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  feedbackModal: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  feedbackTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  feedbackText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  continueButton: {
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    width: '100%',
+    marginTop: 8,
+  },
+  continueButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
 

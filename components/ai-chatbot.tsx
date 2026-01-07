@@ -120,47 +120,29 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   const clearChatHistory = async () => {
     // Show confirmation dialog
     Alert.alert(
-      'Clear Chat History',
-      'Are you sure you want to delete all chat history? This action cannot be undone.',
+      'Kosongkan Sejarah Perbincangan',
+      'Adakah anda pasti mahu mengosongkan semua sejarah perbincangan dari paparan? Data dalam pangkalan data tidak akan dipadam.',
       [
         {
-          text: 'Cancel',
+          text: 'Batal',
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: 'Kosongkan',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await fetch(`${API_URL}/api/chat/history`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-              });
-
-              if (response.ok) {
-                // Clear local state
-                setChatHistory([]);
-                setMessages([
-                  {
-                    role: 'gemini',
-                    text: "Hello! Saya adalah KP Bot. Sila Bertanya!",
-                    timestamp: new Date(),
-                  },
-                ]);
-                setIsConversationLoaded(false);
-                // Show success message
-                Alert.alert('Success', 'Chat history has been cleared.');
-              } else {
-                const errorData = await response.json();
-                Alert.alert('Error', errorData.error || 'Failed to clear chat history');
-              }
-            } catch (e) {
-              console.error('Failed to clear chat history:', e);
-              Alert.alert('Error', 'Failed to clear chat history. Please try again.');
-            }
+          onPress: () => {
+            // Clear local state only - do NOT delete from database
+            setChatHistory([]);
+            setMessages([
+              {
+                role: 'gemini',
+                text: "Hello! Saya adalah KP Bot. Sila Bertanya!",
+                timestamp: new Date(),
+              },
+            ]);
+            setIsConversationLoaded(false);
+            // Show success message
+            Alert.alert('Berjaya', 'Sejarah perbincangan telah dikosongkan dari paparan.');
           },
         },
       ]
@@ -169,15 +151,15 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
 
   const deleteSingleChat = async (chatId: number) => {
     Alert.alert(
-      'Delete Chat',
-      'Are you sure you want to delete this chat? This action cannot be undone.',
+      'Padam Perbincangan',
+      'Adakah anda pasti mahu memadam perbincangan ini? Tindakan ini tidak boleh dibatalkan dan akan dipadam dari pangkalan data.',
       [
         {
-          text: 'Cancel',
+          text: 'Batal',
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: 'Padam',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -230,11 +212,11 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                   errorMessage = `Failed to delete chat (Status: ${response.status})`;
                 }
                 console.error('Delete failed:', errorMessage);
-                Alert.alert('Error', errorMessage);
+                Alert.alert('Ralat', errorMessage);
               }
             } catch (e) {
               console.error('Failed to delete chat:', e);
-              Alert.alert('Error', 'Failed to delete chat. Please try again.');
+              Alert.alert('Ralat', 'Gagal memadam perbincangan. Sila cuba lagi.');
             }
           },
         },

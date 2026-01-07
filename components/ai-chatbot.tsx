@@ -389,7 +389,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
       
       const botMessage: Message = {
         role: 'gemini',
-        text: data.text || 'Sorry, I could not generate a response.',
+        text: data.text || 'Maaf, saya tidak dapat menjana respons.',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, botMessage]);
@@ -404,12 +404,12 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
 
     } catch (e) {
       console.error('Failed to send message:', e);
-      const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-      setError(`Sorry, something went wrong: ${errorMessage}`);
+      const errorMessage = e instanceof Error ? e.message : 'Ralat tidak diketahui berlaku.';
+      setError(`Maaf, sesuatu telah berlaku: ${errorMessage}`);
       // Optionally add an error message to the chat
       const errorBotMessage: Message = {
         role: 'gemini',
-        text: `Error: Could not get a response. Please try again.`,
+        text: `Ralat: Tidak dapat mendapatkan respons. Sila cuba lagi.`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorBotMessage]);

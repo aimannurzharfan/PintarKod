@@ -2579,15 +2579,26 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     const model = 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
+    // System instruction to ensure responses are in Bahasa Melayu only
+    const systemInstruction = "Anda adalah KP Bot, pembantu AI untuk Kod Pintar. Sila jawab SEMUA soalan dan respons dalam Bahasa Melayu SAHAJA. Jangan gunakan bahasa Inggeris atau bahasa lain. Pastikan semua jawapan anda dalam Bahasa Melayu.";
+    
+    // Prepend language instruction to user message for better consistency
+    const messageWithInstruction = `Sila jawab dalam Bahasa Melayu SAHAJA. ${message}`;
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        systemInstruction: {
+          parts: [{
+            text: systemInstruction
+          }]
+        },
         contents: [{
           parts: [{
-            text: message
+            text: messageWithInstruction
           }]
         }]
       })

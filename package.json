@@ -25,7 +25,6 @@
     "expo-image": "~3.0.10",
     "expo-image-picker": "~15.0.7",
     "expo-linking": "~8.0.8",
-    "expo-media-library": "~18.2.0",
     "expo-router": "~6.0.13",
     "expo-sharing": "~14.0.7",
     "expo-splash-screen": "~31.0.10",

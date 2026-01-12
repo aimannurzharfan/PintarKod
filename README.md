@@ -1,20 +1,20 @@
 # PintarKod
-
 PintarKod is a gamified mobile learning application designed to help Form 4 Computer Science students master programming concepts. By combining interactive debugging challenges with an AI-powered tutor, PintarKod makes learning to code engaging and accessible.
 
 ## Download & Demo
 The latest version of the application is available for Android.
 
-*   **Download APK**: [Available here](https://expo.dev/accounts/nurzharfan/projects/PintarKod/builds/5304bb79-e5b4-479d-865d-03f8ac52144b)
+*   **Download APK**: [https://github.com/nurzharfan/PintarKod/releases](https://github.com/nurzharfan/PintarKod/releases)
 *   **Live Backend**: [https://pintarkod-api.onrender.com](https://pintarkod-api.onrender.com)
 *   **Database**: Aiven Cloud (MySQL)
 
 ### Test Credentials
 For evaluation purposes, use the following credentials to access the Teacher Dashboard and full feature set:
+
 *   **Email**: `teacher@pintarkod.com`
 *   **Password**: `teacher123`
 
-> **Note**: Students may register their own accounts freely via the sign-up screen.
+> **Note**: Students cannot self-register. Student accounts must be created by the Teacher via the Dashboard.
 
 ## Key Features
 *   **AI Chatbot Tutor**: Integrated with Google Gemini API to answer coding questions in real-time.
@@ -29,7 +29,7 @@ For evaluation purposes, use the following credentials to access the Teacher Das
 *   **Framework**: React Native (Expo)
 *   **Language**: TypeScript
 *   **Navigation**: Expo Router
-*   **Styling**: NativeWind (TailwindCSS) / Custom Styles
+*   **Styling**: NativeWind (TailwindCSS)
 
 ### Backend (API)
 *   **Server**: Node.js & Express

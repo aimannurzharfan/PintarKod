@@ -5,7 +5,6 @@ PintarKod is a gamified mobile learning application designed to help Form 4 Comp
 The latest version of the application is available for Android.
 
 * **Download APK**: [Click here to Download](https://expo.dev/accounts/nurzharfan/projects/PintarKod/builds/d57a6ccf-27a5-463b-883f-2f36d3be7d4f)
-* **Live Backend**: [https://pintarkod-api.onrender.com](https://pintarkod-api.onrender.com)
 * **Database**: Aiven Cloud (MySQL)
 
 ### Test Credentials

@@ -367,7 +367,20 @@
     "notifications_material": "New learning materials",
     "notifications_material_hint": "Alert me when teachers upload new resources",
     "notifications_reply": "Replies to my discussions",
-    "notifications_reply_hint": "Alert me when someone replies to my forum thread"
+    "notifications_reply_hint": "Alert me when someone replies to my forum thread",
+    "support_title": "Support",
+    "faq": "FAQ & Help"
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "q1": "What is PintarKod?",
+    "a1": "PintarKod is a mobile learning application designed to help students master computer science topics through interactive lessons and games.",
+    "q2": "How do I reset my password?",
+    "a2": "You can reset your password from the login screen by clicking 'Forgot Password?' or in your Profile settings if you are already logged in.",
+    "q3": "Can I access materials offline?",
+    "a3": "Currently, an internet connection is required to access learning materials and the forum to ensure you have the latest content.",
+    "q4": "How do I contact support?",
+    "a4": "You can contact your teacher directly through the app or email support@pintarkod.com."
   },
   "teacher_ui": {
     "dashboard": "Teacher Dashboard",

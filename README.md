@@ -4,39 +4,39 @@ PintarKod is a gamified mobile learning application designed to help Form 4 Comp
 ## Download & Demo
 The latest version of the application is available for Android.
 
-*   **Download APK**: [https://github.com/nurzharfan/PintarKod/releases](https://github.com/nurzharfan/PintarKod/releases)
-*   **Live Backend**: [https://pintarkod-api.onrender.com](https://pintarkod-api.onrender.com)
-*   **Database**: Aiven Cloud (MySQL)
+- **Download APK**: [INSERT EXPO BUILD ARTIFACT LINK HERE]
+- **Live Backend**: https://pintarkod-api.onrender.com
+- **Database**: Aiven Cloud (MySQL)
 
 ### Test Credentials
 For evaluation purposes, use the following credentials to access the Teacher Dashboard and full feature set:
 
-*   **Email**: `teacher@pintarkod.com`
-*   **Password**: `teacher123`
+- **Email**: `teacher@pintarkod.com`
+- **Password**: `teacher123`
 
 > **Note**: Students cannot self-register. Student accounts must be created by the Teacher via the Dashboard.
 
 ## Key Features
-*   **AI Chatbot Tutor**: Integrated with Google Gemini API to answer coding questions in real-time.
-*   **Debugging Challenges**: Interactive code-fixing exercises to test logic and syntax skills.
-*   **Gamification System**: Experience points (XP), leaderboards, and progress tracking.
-*   **Community Forum**: A discussion platform for students to share knowledge.
-*   **Teacher Dashboard**: Dedicated interface for monitoring student progress and managing content.
+- **AI Chatbot Tutor**: Integrated with Google Gemini API to answer coding questions in real-time.
+- **Debugging Challenges**: Interactive code-fixing exercises to test logic and syntax skills.
+- **Gamification System**: Experience points (XP), leaderboards, and progress tracking.
+- **Community Forum**: A discussion platform for students to share knowledge.
+- **Teacher Dashboard**: Dedicated interface for monitoring student progress and managing content.
 
 ## Technical Architecture
 
 ### Frontend (Mobile)
-*   **Framework**: React Native (Expo)
-*   **Language**: TypeScript
-*   **Navigation**: Expo Router
-*   **Styling**: NativeWind (TailwindCSS)
+- **Framework**: React Native (Expo)
+- **Language**: TypeScript
+- **Navigation**: Expo Router
+- **Styling**: NativeWind (TailwindCSS)
 
 ### Backend (API)
-*   **Server**: Node.js & Express
-*   **Database**: MySQL (Hosted on Aiven)
-*   **ORM**: Prisma
-*   **Authentication**: JWT (JSON Web Tokens)
-*   **AI Engine**: Google Gemini API
+- **Server**: Node.js & Express
+- **Database**: MySQL (Hosted on Aiven)
+- **ORM**: Prisma
+- **Authentication**: JWT (JSON Web Tokens)
+- **AI Engine**: Google Gemini API
 
 ## Installation & Local Setup
 To run this project locally for development or testing:
@@ -54,6 +54,7 @@ npm install
 
 ### 3. Environment Configuration
 Create a `.env` file in the root directory with the following keys:
+
 ```env
 DATABASE_URL="your_mysql_connection_string"
 JWT_SECRET="your_secret_key"
@@ -70,14 +71,16 @@ npm run db:seed
 
 ### 5. Launch Application
 Start the backend server:
+
 ```bash
 npm run start:server
 ```
 
 Start the mobile client:
+
 ```bash
 npx expo start
 ```
 
 ## Cloud Storage Notice
-> **Important**: This project is currently hosted on the **Render Free Tier**. The file system is ephemeral, meaning uploaded files (such as avatars or forum attachments) **will not persist** after a server restart. For a production environment, this would be replaced with persistent object storage (e.g., AWS S3).
+> **Important**: This project is currently hosted on the Render Free Tier. The file system is ephemeral, meaning uploaded files (such as avatars or forum attachments) will not persist after a server restart. For a production environment, this would be replaced with persistent object storage (e.g., AWS S3).

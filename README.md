@@ -1,141 +1,83 @@
-# Welcome to PintarKod
+# PintarKod
 
-This is a full-stack mobile learning application built with **React Native (Expo)** and a **Node.js (Express)** backend.
+PintarKod is a gamified mobile learning application designed to help Form 4 Computer Science students master programming concepts. By combining interactive debugging challenges with an AI-powered tutor, PintarKod makes learning to code engaging and accessible.
 
----
+## Download & Demo
+The latest version of the application is available for Android.
 
-## Pre-requisites
+*   **Download APK**: [Available here](https://expo.dev/accounts/nurzharfan/projects/PintarKod/builds/5304bb79-e5b4-479d-865d-03f8ac52144b)
+*   **Live Backend**: [https://pintarkod-api.onrender.com](https://pintarkod-api.onrender.com)
+*   **Database**: Aiven Cloud (MySQL)
 
-Before you begin, ensure you have the following tools installed on your system. These are required to run the app successfully.
+### Test Credentials
+For evaluation purposes, use the following credentials to access the Teacher Dashboard and full feature set:
+*   **Email**: `teacher@pintarkod.com`
+*   **Password**: `teacher123`
 
-- **Node.js (v18 or higher, LTS recommended)**  
-  [Download Node.js](https://nodejs.org/en)
+> **Note**: Students may register their own accounts freely via the sign-up screen.
 
-- **MySQL Server & Workbench (v8.0 or higher)**  
-  [Download MySQL](https://dev.mysql.com/downloads/workbench/)
+## Key Features
+*   **AI Chatbot Tutor**: Integrated with Google Gemini API to answer coding questions in real-time.
+*   **Debugging Challenges**: Interactive code-fixing exercises to test logic and syntax skills.
+*   **Gamification System**: Experience points (XP), leaderboards, and progress tracking.
+*   **Community Forum**: A discussion platform for students to share knowledge.
+*   **Teacher Dashboard**: Dedicated interface for monitoring student progress and managing content.
 
-- **Android Studio (Required for Android Emulator)**  
-  [Download Android Studio](https://developer.android.com/studio)
+## Technical Architecture
 
----
+### Frontend (Mobile)
+*   **Framework**: React Native (Expo)
+*   **Language**: TypeScript
+*   **Navigation**: Expo Router
+*   **Styling**: NativeWind (TailwindCSS) / Custom Styles
 
-## Quick Start: How to Run
+### Backend (API)
+*   **Server**: Node.js & Express
+*   **Database**: MySQL (Hosted on Aiven)
+*   **ORM**: Prisma
+*   **Authentication**: JWT (JSON Web Tokens)
+*   **AI Engine**: Google Gemini API
 
-Follow these steps exactly to get the project running without errors.
+## Installation & Local Setup
+To run this project locally for development or testing:
 
----
-
-## 1. Get the Code
-
-Clone this repository to your local machine:
-
+### 1. Clone the Repository
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/nurzharfan/PintarKod.git
 cd PintarKod
 ```
 
----
-
-## 2. Install Dependencies
-
-Install all required packages for both backend and frontend. 
-
-> [!IMPORTANT]
-> **Crucial Step**: You must run the `prisma generate` command immediately after installing to configure the database client for your system.
-
+### 2. Install Dependencies
 ```bash
 npm install
-npx prisma generate
 ```
 
----
-
-## 3. Set Up Your Environment (.env)
-
-This is the most important step for database connectivity.
-
-Create a file named **`.env`** in the project root. Copy the content below and **update the password**:
-
+### 3. Environment Configuration
+Create a `.env` file in the root directory with the following keys:
 ```env
-# Database Connection
-# REPLACE 'YOUR_MYSQL_PASSWORD_HERE' WITH YOUR ACTUAL ROOT PASSWORD
-DATABASE_URL="mysql://root:YOUR_MYSQL_PASSWORD_HERE@localhost:3306/pintarkod"
-
-# AI Chatbot API Key
-AI_CHATBOT_API_KEY="YOUR_SECRET_KEY_GOES_HERE"
+DATABASE_URL="your_mysql_connection_string"
+JWT_SECRET="your_secret_key"
+AI_CHATBOT_API_KEY="your_google_gemini_key"
+PORT=4000
 ```
 
----
-
-## 4. Create the Database
-
-Open **MySQL Workbench** and run this SQL command to create the empty database:
-
-```sql
-CREATE DATABASE pintarkod;
-```
-
----
-
-## 5. Sync the Database
-
-Push the schema structure into your newly created database:
-
+### 4. Database Initialization
 ```bash
+npx prisma generate
 npx prisma db push
-```
-
----
-
-## 6. Seed the Database (Creates Teacher Account)
-
-You **must** run this command to populate the database with initial data, including the default login account:
-
-```bash
 npm run db:seed
 ```
 
----
-
-## 7. Run the Project
-
-You need to run the backend and frontend in parallel. Open **two separate terminals**.
-
-### Terminal 1 - Start Backend Server
-This runs the Express API on port 4000.
-
+### 5. Launch Application
+Start the backend server:
 ```bash
 npm run start:server
 ```
 
-> **Note**: If you see `Server listening on http://localhost:4000`, it's working!
-
-### Terminal 2 - Start Frontend (Expo)
-This launches the Expo development app.
-
+Start the mobile client:
 ```bash
-npm run start
+npx expo start
 ```
 
----
-
-## Default Login
-
-Use these credentials to log in to the app after seeding the database:
-
-- **Username:** `teacher`  
-- **Password:** `teacher123`
-
----
-
-## Troubleshooting
-
-- **`ERR_INVALID_PACKAGE_CONFIG`**: If you see this error, it means the Prisma client wasn't generated correctly. Run `npx prisma generate` to fix it.
-- **`P1001: Can't reach database server`**: Double-check your `.env` password and make sure MySQL Server is running.
-
----
-
-## Learn More
-
-- [Expo Documentation](https://docs.expo.dev/)
-- [Prisma Documentation](https://www.prisma.io/docs)
+## Cloud Storage Notice
+> **Important**: This project is currently hosted on the **Render Free Tier**. The file system is ephemeral, meaning uploaded files (such as avatars or forum attachments) **will not persist** after a server restart. For a production environment, this would be replaced with persistent object storage (e.g., AWS S3).

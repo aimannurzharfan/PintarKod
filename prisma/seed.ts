@@ -27,6 +27,26 @@ async function main() {
     console.log(`Teacher account already exists: ${existingTeacher.username}`);
   }
 
+  // Create or get a seeded Student account (student5)
+  const existingStudent5 = await prisma.user.findUnique({
+    where: { email: 'student5@student.pintarkod' },
+  });
+
+  if (!existingStudent5) {
+    const hashedPassword = await bcryptjs.hash('student123', 10);
+    const student5 = await prisma.user.create({
+      data: {
+        username: 'student5',
+        email: 'student5@student.pintarkod',
+        password: hashedPassword,
+        role: 'Student',
+      },
+    });
+    console.log(`Created student account: ${student5.username}`);
+  } else {
+    console.log(`Student account already exists: ${existingStudent5.username}`);
+  }
+
   // Debugging challenges are now dynamically generated, no need to seed
   console.log('Note: Debugging challenges are now dynamically generated');
   console.log('Seeding finished.');

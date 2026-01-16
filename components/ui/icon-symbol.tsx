@@ -23,15 +23,18 @@ const MAPPING = {
   'person.fill': 'person',
   'person.2.fill': 'people',
   'pencil': 'edit',
+  'square.and.pencil': 'edit-note',
   'text.bubble.fill': 'forum',
   'clock.fill': 'schedule',
   'photo.on.rectangle': 'photo-library',
   'xmark.circle.fill': 'cancel',
   'person.badge.plus': 'person-add',
+  'trash': 'delete',
   'trash.circle.fill': 'delete',
   'line.3.horizontal': 'menu',
   'plus': 'add',
   'plus.circle.fill': 'add-circle',
+  'doc.on.doc': 'content-copy',
 } as IconMapping;
 
 /**

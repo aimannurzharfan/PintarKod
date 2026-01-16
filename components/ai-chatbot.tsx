@@ -1,4 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -22,7 +24,6 @@ import {
 import Markdown from 'react-native-markdown-display';
 import { API_URL } from '../config';
 import { IconSymbol } from './ui/icon-symbol';
-import { Feather } from '@expo/vector-icons';
 
 export type Role = 'user' | 'gemini';
 
@@ -53,9 +54,11 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isConversationLoaded, setIsConversationLoaded] = useState(false);
-  const [deletingHistory, setDeletingHistory] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [showWrongMessage, setShowWrongMessage] = useState(false);
   const messagesListRef = useRef<FlatList>(null);
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const { token } = useAuth();
   
   const screenWidth = Dimensions.get('window').width;
@@ -86,6 +89,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
       // Don't reset messages immediately - keep them for seamless continuation
       // Only reset when user explicitly wants to start new chat
       setInput('');
+      setEditingIndex(null);
       setShowHistory(false);
       setError(null);
     }
@@ -111,6 +115,113 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const clearChatHistory = async () => {
+    // Show confirmation dialog
+    Alert.alert(
+      'Kosongkan Sejarah Perbincangan',
+      'Adakah anda pasti mahu mengosongkan semua sejarah perbincangan dari paparan? Data dalam pangkalan data tidak akan dipadam.',
+      [
+        {
+          text: 'Batal',
+          style: 'cancel',
+        },
+        {
+          text: 'Kosongkan',
+          style: 'destructive',
+          onPress: () => {
+            // Clear local state only - do NOT delete from database
+            setChatHistory([]);
+            setMessages([
+              {
+                role: 'gemini',
+                text: "Hello! Saya adalah KP Bot. Sila Bertanya!",
+                timestamp: new Date(),
+              },
+            ]);
+            setIsConversationLoaded(false);
+            // Show success message
+            Alert.alert('Berjaya', 'Sejarah perbincangan telah dikosongkan dari paparan.');
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteSingleChat = async (chatId: number) => {
+    Alert.alert(
+      'Padam Perbincangan',
+      'Adakah anda pasti mahu memadam perbincangan ini? Tindakan ini tidak boleh dibatalkan dan akan dipadam dari pangkalan data.',
+      [
+        {
+          text: 'Batal',
+          style: 'cancel',
+        },
+        {
+          text: 'Padam',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('Deleting chat with ID:', chatId);
+              const response = await fetch(`${API_URL}/api/chat/history/${chatId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+              });
+
+              console.log('Delete response status:', response.status);
+
+              if (response.ok) {
+                const data = await response.json();
+                console.log('Delete successful:', data);
+                
+                // Remove from local state immediately
+                setChatHistory(prev => prev.filter(item => item.id !== chatId));
+                
+                // Refresh chat history from server to ensure consistency
+                await fetchChatHistory();
+                
+                // If the deleted chat was currently loaded, reset to greeting
+                const wasCurrentChat = chatHistory.find(item => item.id === chatId);
+                if (wasCurrentChat && isConversationLoaded) {
+                  setMessages([
+                    {
+                      role: 'gemini',
+                      text: "Hello! Saya adalah KP Bot. Sila Bertanya!",
+                      timestamp: new Date(),
+                    },
+                  ]);
+                  setIsConversationLoaded(false);
+                }
+              } else {
+                // Try to parse JSON, but handle non-JSON responses
+                let errorMessage = 'Failed to delete chat';
+                try {
+                  const contentType = response.headers.get('content-type');
+                  if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                  } else {
+                    const text = await response.text();
+                    errorMessage = text || errorMessage;
+                  }
+                } catch (parseError) {
+                  errorMessage = `Failed to delete chat (Status: ${response.status})`;
+                }
+                console.error('Delete failed:', errorMessage);
+                Alert.alert('Ralat', errorMessage);
+              }
+            } catch (e) {
+              console.error('Failed to delete chat:', e);
+              Alert.alert('Ralat', 'Gagal memadam perbincangan. Sila cuba lagi.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const loadConversation = async (chatId: number) => {
@@ -172,75 +283,69 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     }
   };
 
-  const handleDeleteChatHistory = async () => {
-    Alert.alert(
-      'Delete Chat History',
-      'Are you sure you want to delete all your chat history? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingHistory(true);
-            try {
-              const response = await fetch(`${API_URL}/api/chat/history`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-              });
+  const handleEditMessage = (index: number) => {
+    const message = messages[index];
+    if (message && message.role === 'user') {
+      setInput(message.text);
+      setEditingIndex(index);
+      // Scroll to input area
+      setTimeout(() => {
+        messagesListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
 
-              if (response.ok) {
-                setChatHistory([]);
-                setMessages([
-                  {
-                    role: 'gemini',
-                    text: "Hello! Saya adalah KP Bot. Sila Bertanya!",
-                    timestamp: new Date(),
-                  },
-                ]);
-                setIsConversationLoaded(false);
-                setInput('');
-                setError(null);
-                Alert.alert('Success', 'Chat history deleted successfully.');
-              } else {
-                const data = await response.json();
-                Alert.alert('Error', data.error || 'Failed to delete chat history.');
-              }
-            } catch (e) {
-              console.error('Failed to delete chat history:', e);
-              Alert.alert('Error', 'Failed to delete chat history. Please try again.');
-            } finally {
-              setDeletingHistory(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleCopyMessage = async (index: number) => {
+    const message = messages[index];
+    if (message && message.role === 'user' && message.text) {
+      try {
+        await Clipboard.setStringAsync(message.text);
+        Alert.alert('Copied', 'Message copied to clipboard');
+      } catch (error) {
+        console.error('Failed to copy:', error);
+        Alert.alert('Error', 'Failed to copy message');
+      }
+    }
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if (isLoading) return;
+
+    // Validate input - check if it's empty or only contains spaces
+    const trimmedInput = input.trim();
+    if (!trimmedInput || trimmedInput.length === 0) {
+      setShowWrongMessage(true);
+      return;
+    }
+
+    const currentInput = input;
+    const isEditing = editingIndex !== null;
+
+    // If editing, remove the old message and all subsequent messages
+    if (isEditing && editingIndex !== null) {
+      setMessages(prev => prev.slice(0, editingIndex));
+    }
 
     const userMessage: Message = {
       role: 'user',
-      text: input,
+      text: currentInput,
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    const currentInput = input;
+    // If editing, replace the message at editingIndex, otherwise append
+    if (isEditing && editingIndex !== null) {
+      setMessages(prev => [...prev, userMessage]);
+    } else {
+      setMessages(prev => [...prev, userMessage]);
+    }
+
     setInput('');
+    setEditingIndex(null);
     setIsLoading(true);
     setError(null);
     
     // Auto-scroll to bottom when user sends message
-     setTimeout(() => {
+    setTimeout(() => {
       messagesListRef.current?.scrollToEnd({ animated: true });
     }, 100);
 
@@ -258,29 +363,15 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
       });
 
       if (!response.ok) {
-        let errorMessage = 'Failed to get response from AI';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.details || errorMessage;
-          console.error('API Error:', errorData);
-        } catch (e) {
-          const errorText = await response.text();
-          errorMessage = errorText || errorMessage;
-          console.error('API Error (text):', errorText);
-        }
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get response from AI');
       }
 
       const data = await response.json();
       
-      if (!data.text) {
-        console.error('No text in response:', data);
-        throw new Error('AI did not return a valid response');
-      }
-      
       const botMessage: Message = {
         role: 'gemini',
-        text: data.text,
+        text: data.text || 'Maaf, saya tidak dapat menjana respons.',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, botMessage]);
@@ -295,12 +386,12 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
 
     } catch (e) {
       console.error('Failed to send message:', e);
-      const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-      setError(`Sorry, something went wrong: ${errorMessage}`);
+      const errorMessage = e instanceof Error ? e.message : 'Ralat tidak diketahui berlaku.';
+      setError(`Maaf, sesuatu telah berlaku: ${errorMessage}`);
       // Optionally add an error message to the chat
       const errorBotMessage: Message = {
         role: 'gemini',
-        text: `Error: Could not get a response. Please try again.`,
+        text: `Ralat: Tidak dapat mendapatkan respons. Sila cuba lagi.`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorBotMessage]);
@@ -309,7 +400,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isUser = item.role === 'user';
     return (
       <View
@@ -325,19 +417,45 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             contentFit="contain"
           />
         )}
-        <View
-          style={[
-            styles.messageBubble,
-            isUser ? styles.userMessageBubble : styles.geminiMessageBubble,
-            { backgroundColor: isUser ? '#007AFF' : (colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF') },
-            !isUser && { borderColor: colorScheme === 'dark' ? '#444' : '#E0E0E0' },
-          ]}
-        >
-          {item.text && (
-            <Markdown style={{ body: { color: isUser ? '#FFFFFF' : (colorScheme === 'dark' ? '#FFFFFF' : '#000000'), fontSize: 16 } }}>
-              {item.text}
-            </Markdown>
+        <View style={isUser ? styles.userMessageWrapper : undefined}>
+          {isUser && (
+            <>
+              <Pressable
+                onPress={() => handleCopyMessage(index)}
+                style={styles.copyButton}
+              >
+                <IconSymbol 
+                  name="doc.on.doc" 
+                  size={14} 
+                  color={colorScheme === 'dark' ? '#999' : '#666'} 
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => handleEditMessage(index)}
+                style={styles.editButton}
+              >
+                <IconSymbol 
+                  name="pencil" 
+                  size={14} 
+                  color={colorScheme === 'dark' ? '#999' : '#666'} 
+                />
+              </Pressable>
+            </>
           )}
+          <View
+            style={[
+              styles.messageBubble,
+              isUser ? styles.userMessageBubble : styles.geminiMessageBubble,
+              { backgroundColor: isUser ? '#007AFF' : (colorScheme === 'dark' ? '#2C2C2E' : '#FFFFFF') },
+              !isUser && { borderColor: colorScheme === 'dark' ? '#444' : '#E0E0E0' },
+            ]}
+          >
+            {item.text && (
+              <Markdown style={{ body: { color: isUser ? '#FFFFFF' : (colorScheme === 'dark' ? '#FFFFFF' : '#000000'), fontSize: 16 } }}>
+                {item.text}
+              </Markdown>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -370,11 +488,12 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                   ]);
                   setIsConversationLoaded(false);
                   setInput('');
+                  setEditingIndex(null);
                   setError(null);
                 }} 
                 style={styles.newChatButton}
               >
-                <IconSymbol name="pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+                <IconSymbol name="square.and.pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
               </Pressable>
               <Pressable onPress={onClose} style={styles.closeButton}>
                 <IconSymbol name="xmark" size={24} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
@@ -388,18 +507,13 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
           {showHistory && (
             <View style={[styles.historySidebar, { width: historyWidth, backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#FFFFFF', borderRightColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
               <View style={[styles.historyHeader, { borderBottomColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
-                <Text style={[styles.historyTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Chat History</Text>
-                <TouchableOpacity
-                  onPress={handleDeleteChatHistory}
-                  style={styles.deleteHistoryButton}
-                  disabled={deletingHistory || chatHistory.length === 0}
+                <Text style={[styles.historyTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Sejarah Perbincangan</Text>
+                <Pressable 
+                  onPress={clearChatHistory}
+                  style={styles.deleteButton}
                 >
-                  {deletingHistory ? (
-                    <ActivityIndicator size="small" color="#FF3B30" />
-                  ) : (
-                    <Feather name="trash-2" size={22} color="#FF3B30" />
-                  )}
-                </TouchableOpacity>
+                  <IconSymbol name="trash" size={20} color={colorScheme === 'dark' ? '#FF3B30' : '#FF3B30'} />
+                </Pressable>
               </View>
               <ScrollView style={styles.historyList}>
                 {loadingHistory ? (
@@ -414,14 +528,19 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                   </View>
                 ) : (
                   chatHistory.map((item) => (
-                    <TouchableOpacity
+                    <View
                       key={item.id}
                       style={[styles.historyItem, { 
                         backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F5F5F5',
                         borderBottomColor: colorScheme === 'dark' ? '#333' : '#E0E0E0'
                       }]}
-                      onPress={() => loadConversation(item.id)}
                     >
+                      <TouchableOpacity
+                        style={styles.historyItemContent}
+                      onPress={() => loadConversation(item.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.historyItemText}>
                       <Text
                         style={[styles.historyPreview, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
                         numberOfLines={2}
@@ -431,7 +550,16 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                       <Text style={[styles.historyDate, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
                         {formatHistoryDate(new Date(item.createdAt).toDateString())}
                       </Text>
+                        </View>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => deleteSingleChat(item.id)}
+                        style={styles.historyItemDeleteButton}
+                        activeOpacity={0.7}
+                      >
+                        <IconSymbol name="trash" size={18} color={colorScheme === 'dark' ? '#000000' : '#000000'} />
                     </TouchableOpacity>
+                    </View>
                   ))
                 )}
               </ScrollView>
@@ -462,7 +590,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                     }} 
                     style={styles.newChatButton}
                   >
-                    <IconSymbol name="pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+                    <IconSymbol name="square.and.pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
                   </Pressable>
                   <Pressable onPress={onClose} style={styles.closeButton}>
                     <IconSymbol name="xmark" size={24} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
@@ -479,7 +607,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
           <FlatList
             ref={messagesListRef}
             data={messages}
-            renderItem={renderMessage}
+            renderItem={({ item, index }) => renderMessage({ item, index })}
             keyExtractor={(item, index) => `${item.role}-${index}`}
             style={styles.messageList}
             contentContainerStyle={{ paddingBottom: 10 }}
@@ -494,25 +622,59 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
               style={[styles.input, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F0F0F0', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
               value={input}
               onChangeText={setInput}
-              placeholder="Type your message..."
+              placeholder={editingIndex !== null ? "Edit your message..." : "Type your message..."}
               placeholderTextColor={colorScheme === 'dark' ? '#999' : '#999'}
               editable={!isLoading}
             />
+            {editingIndex !== null && (
+              <TouchableOpacity
+                onPress={() => {
+                  setInput('');
+                  setEditingIndex(null);
+                }}
+                style={styles.cancelButton}
+              >
+                <IconSymbol name="xmark" size={18} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={handleSend}
-              style={[styles.sendButton, (isLoading || !input.trim()) && styles.disabledButton]}
-              disabled={isLoading || !input.trim()}
+              style={[styles.sendButton, isLoading && styles.disabledButton]}
+              disabled={isLoading}
             >
               {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                  <Text style={styles.sendButtonText}>Send</Text>
+                  <Text style={styles.sendButtonText}>{editingIndex !== null ? 'Update' : 'Send'}</Text>
               )}
             </TouchableOpacity>
           </View>
             </KeyboardAvoidingView>
           </View>
         </View>
+
+        {/* Wrong Message Modal */}
+        <Modal visible={showWrongMessage} animationType="fade" transparent={true}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.feedbackModal, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+              <MaterialCommunityIcons name="close-circle" size={64} color="#EF4444" />
+              <Text style={[styles.feedbackTitle, { color: '#EF4444' }]}>
+                Wrong!
+              </Text>
+              <Text style={[styles.feedbackText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                Sila masukkan mesej yang sah. Mesej tidak boleh kosong atau hanya mengandungi ruang.
+              </Text>
+              <Pressable 
+                style={[styles.continueButton, { backgroundColor: '#EF4444' }]} 
+                onPress={() => setShowWrongMessage(false)}
+              >
+                <Text style={styles.continueButtonText}>
+                  OK
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </Modal>
   );
@@ -602,14 +764,16 @@ const styles = StyleSheet.create({
     height: 56,
     minHeight: 56,
   },
-  deleteHistoryButton: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   historyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    flex: 1,
+  },
+  deleteButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   historyList: {
     flex: 1,
@@ -631,8 +795,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
+  },
+  historyItemContent: {
+    flex: 1,
+  },
+  historyItemText: {
+    flex: 1,
+  },
+  historyItemDeleteButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   historyPreview: {
     fontSize: 15,
@@ -661,11 +839,34 @@ const styles = StyleSheet.create({
   userMessageContainer: {
     alignSelf: 'flex-end',
   },
+  userMessageWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   geminiMessageContainer: {
     alignSelf: 'flex-start',
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  copyButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.7,
+  },
+  editButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.7,
+  },
+  cancelButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
   },
   messageRobotAvatar: {
     width: 60,
@@ -687,6 +888,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 10,
     borderTopWidth: 1,
+    alignItems: 'center',
+    gap: 8,
   },
   input: {
     flex: 1,
@@ -711,6 +914,48 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#A9A9A9',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  feedbackModal: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  feedbackTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  feedbackText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  continueButton: {
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    width: '100%',
+    marginTop: 8,
+  },
+  continueButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
 

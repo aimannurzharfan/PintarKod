@@ -135,7 +135,7 @@ async function updateAllBadges() {
           bestScore: 0,
         };
       }
-      
+
       // Group scores by gameType and get the best score for each game type
       const scoresByGameType = {};
       for (const score of student.gameScores) {
@@ -146,12 +146,12 @@ async function updateAllBadges() {
         }
         scoresByGameType[score.gameType].push(score.score);
       }
-      
+
       // Sum the best score from each game type
       const totalBestScore = Object.values(scoresByGameType).reduce((sum, scores) => {
         return sum + Math.max(...scores);
       }, 0);
-      
+
       return {
         id: student.id,
         bestScore: totalBestScore,
@@ -170,7 +170,7 @@ async function updateAllBadges() {
     for (let i = 0; i < studentScores.length; i++) {
       const student = studentScores[i];
       let badgeType;
-      
+
       if (student.bestScore === 0) {
         // No scores yet - Student badge
         badgeType = 'Student';
@@ -236,24 +236,24 @@ const authMiddleware = async (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized - No token provided' });
     }
-    
+
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    
+
     try {
       // Verify JWT token
       const decoded = jwt.verify(token, JWT_SECRET);
-      
+
       // Get user from database
       const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-      
+
       if (!user) {
         return res.status(401).json({ error: 'Unauthorized - User not found' });
       }
-      
+
       // Attach user to request object
       req.user = user;
       next();
@@ -292,7 +292,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/register', async (req, res) => {
   try {
     const { username, email, password, role, className } = req.body;
-    
+
     // Debug logging
     console.log('Registration request received:');
     console.log('  username:', username);
@@ -301,7 +301,7 @@ app.post('/api/register', async (req, res) => {
     console.log('  className:', className);
     console.log('  role type:', typeof role);
     console.log('  role value:', JSON.stringify(role));
-    
+
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'username, email and password are required' });
     }
@@ -348,7 +348,7 @@ app.post('/api/register', async (req, res) => {
     }
 
     console.log('  Creating user with data:', JSON.stringify(userData, null, 2));
-    
+
     const user = await prisma.user.create({
       data: userData,
       include: { class: true }
@@ -430,12 +430,12 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body || {};
-    
-    console.log('Reset password request received', { 
-      hasToken: !!token, 
+
+    console.log('Reset password request received', {
+      hasToken: !!token,
       tokenLength: token?.length,
       hasPassword: !!newPassword,
-      passwordLength: newPassword?.length 
+      passwordLength: newPassword?.length
     });
 
     if (!token || typeof token !== 'string') {
@@ -478,7 +478,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
     // Hash the new password
     const hashed = await bcrypt.hash(newPassword, 10);
-    
+
     // Update user password and clear reset token
     await prisma.user.update({
       where: { id: user.id },
@@ -498,7 +498,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// Search users (supports role and partial username/email match)
+// Search users (supports role and partial username match)
 app.get('/api/users/search', async (req, res) => {
   try {
     const { q = '', role } = req.query;
@@ -763,18 +763,18 @@ app.get('/api/forum/threads', async (req, res) => {
     const searchTerm = typeof q === 'string' ? q.trim() : '';
     const whereClause = searchTerm
       ? {
-          OR: [
-            { title: { contains: searchTerm } },
-            { content: { contains: searchTerm } },
-            {
-              comments: {
-                some: {
-                  content: { contains: searchTerm }
-                }
+        OR: [
+          { title: { contains: searchTerm } },
+          { content: { contains: searchTerm } },
+          {
+            comments: {
+              some: {
+                content: { contains: searchTerm }
               }
             }
-          ]
-        }
+          }
+        ]
+      }
       : undefined;
 
     const threads = await prisma.forumThread.findMany({
@@ -792,9 +792,9 @@ app.get('/api/forum/threads', async (req, res) => {
 // Advanced search endpoint
 app.get('/api/forum/search', async (req, res) => {
   try {
-    const { 
-      keyword = '', 
-      author = '', 
+    const {
+      keyword = '',
+      author = '',
       authorId = '',
       sortBy = 'latest',
       startDate = '',
@@ -805,16 +805,16 @@ app.get('/api/forum/search', async (req, res) => {
     let searchKeyword = (keyword || '').toString().trim();
     // Remove potentially dangerous characters and limit length
     searchKeyword = searchKeyword.replace(/[<>]/g, '').substring(0, 200);
-    
+
     const searchAuthor = (author || '').toString().trim();
     const sortOrder = sortBy === 'oldest' ? 'asc' : 'desc';
-    
+
     // Validate and parse dates
     let start = null;
     let end = null;
     const now = new Date();
     now.setHours(23, 59, 59, 999); // End of today
-    
+
     if (startDate) {
       start = new Date(startDate);
       if (isNaN(start.getTime())) {
@@ -825,7 +825,7 @@ app.get('/api/forum/search', async (req, res) => {
         return res.status(400).json({ error: 'Start date cannot be in the future' });
       }
     }
-    
+
     if (endDate) {
       end = new Date(endDate);
       if (isNaN(end.getTime())) {
@@ -836,7 +836,7 @@ app.get('/api/forum/search', async (req, res) => {
         return res.status(400).json({ error: 'End date cannot be in the future' });
       }
     }
-    
+
     // Validate date range (start < end)
     if (start && end && start > end) {
       return res.status(400).json({ error: 'Start date must be before or equal to end date' });
@@ -928,7 +928,7 @@ app.get('/api/forum/threads/:id', async (req, res) => {
 app.post('/api/forum/threads', async (req, res) => {
   try {
     const { title, content, authorId, attachment } = req.body || {};
-    
+
     // Title validation
     if (!title || typeof title !== 'string') {
       return res.status(400).json({ error: 'Title is required and must be a string' });
@@ -937,7 +937,7 @@ app.post('/api/forum/threads', async (req, res) => {
     if (trimmedTitle.length < 3 || trimmedTitle.length > 200) {
       return res.status(400).json({ error: 'Title must be between 3 and 200 characters' });
     }
-    
+
     // Content validation
     if (!content || typeof content !== 'string') {
       return res.status(400).json({ error: 'Content is required and must be a string' });
@@ -946,13 +946,13 @@ app.post('/api/forum/threads', async (req, res) => {
     if (trimmedContent.length < 10 || trimmedContent.length > 10000) {
       return res.status(400).json({ error: 'Content must be between 10 and 10000 characters' });
     }
-    
+
     // Author ID validation
     const authorIdNum = Number(authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
     }
-    
+
     // Check if user exists
     const user = await prisma.user.findUnique({
       where: { id: authorIdNum }
@@ -960,14 +960,14 @@ app.post('/api/forum/threads', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Attachment validation
     let validatedAttachment = null;
     if (attachment && typeof attachment === 'string') {
       if (!attachment.startsWith('data:image/')) {
         return res.status(400).json({ error: 'Invalid image format. Only images are allowed.' });
       }
-      
+
       // Check file size (base64 encoded)
       const base64Data = attachment.split(',')[1];
       if (base64Data) {
@@ -1025,7 +1025,7 @@ app.put('/api/forum/threads/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid thread id' });
     }
     const { title, content, authorId, attachment } = req.body || {};
-    
+
     // Title validation
     if (!title || typeof title !== 'string') {
       return res.status(400).json({ error: 'Title is required and must be a string' });
@@ -1034,7 +1034,7 @@ app.put('/api/forum/threads/:id', async (req, res) => {
     if (trimmedTitle.length < 3 || trimmedTitle.length > 200) {
       return res.status(400).json({ error: 'Title must be between 3 and 200 characters' });
     }
-    
+
     // Content validation
     if (!content || typeof content !== 'string') {
       return res.status(400).json({ error: 'Content is required and must be a string' });
@@ -1043,7 +1043,7 @@ app.put('/api/forum/threads/:id', async (req, res) => {
     if (trimmedContent.length < 10 || trimmedContent.length > 10000) {
       return res.status(400).json({ error: 'Content must be between 10 and 10000 characters' });
     }
-    
+
     const authorIdNum = Number(authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
@@ -1065,7 +1065,7 @@ app.put('/api/forum/threads/:id', async (req, res) => {
         if (!attachment.startsWith('data:image/')) {
           return res.status(400).json({ error: 'Invalid image format. Only images are allowed.' });
         }
-        
+
         // Check file size
         const base64Data = attachment.split(',')[1];
         if (base64Data) {
@@ -1100,7 +1100,7 @@ app.post('/api/forum/threads/:id/comments', async (req, res) => {
       return res.status(400).json({ error: 'Invalid thread id' });
     }
     const { content, authorId } = req.body || {};
-    
+
     // Comment validation
     if (!content || typeof content !== 'string') {
       return res.status(400).json({ error: 'Comment content is required and must be a string' });
@@ -1112,12 +1112,12 @@ app.post('/api/forum/threads/:id/comments', async (req, res) => {
     if (trimmedContent.length > 5000) {
       return res.status(400).json({ error: 'Comment must not exceed 5000 characters' });
     }
-    
+
     const authorIdNum = Number(authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
     }
-    
+
     // Check if user exists
     const user = await prisma.user.findUnique({
       where: { id: authorIdNum }
@@ -1182,7 +1182,7 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid comment id' });
     }
     const { content, authorId } = req.body || {};
-    
+
     // Comment validation
     if (!content || typeof content !== 'string') {
       return res.status(400).json({ error: 'Comment content is required and must be a string' });
@@ -1194,7 +1194,7 @@ app.put('/api/forum/comments/:commentId', async (req, res) => {
     if (trimmedContent.length > 5000) {
       return res.status(400).json({ error: 'Comment must not exceed 5000 characters' });
     }
-    
+
     const authorIdNum = Number(authorId);
     if (!Number.isInteger(authorIdNum)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
@@ -1238,8 +1238,8 @@ app.delete('/api/forum/threads/:id', async (req, res) => {
     if (!Number.isInteger(actorId)) {
       return res.status(400).json({ error: 'Valid authorId is required' });
     }
-    
-    const thread = await prisma.forumThread.findUnique({ 
+
+    const thread = await prisma.forumThread.findUnique({
       where: { id },
       include: {
         author: { select: { id: true, role: true } },
@@ -1248,7 +1248,7 @@ app.delete('/api/forum/threads/:id', async (req, res) => {
     if (!thread) return res.status(404).json({ error: 'Thread not found' });
 
     const isOwner = Number(thread.authorId) === Number(actorId);
-    
+
     // Check if actor is a teacher trying to delete a student's thread
     let hasPermission = isOwner;
     if (!isOwner) {
@@ -1271,7 +1271,7 @@ app.delete('/api/forum/threads/:id', async (req, res) => {
 
     // Delete all comments first (to handle foreign key constraints)
     await prisma.forumComment.deleteMany({ where: { threadId: id } });
-    
+
     // Then delete the thread
     await prisma.forumThread.delete({ where: { id } });
     return res.json({ success: true });
@@ -1390,11 +1390,11 @@ app.get('/api/learning-materials', async (req, res) => {
 
     const filtered = searchTerm
       ? normalized.filter((material) => {
-          const query = searchTerm.toLowerCase();
-          const title = material.title?.toLowerCase() ?? '';
-          const description = material.description?.toLowerCase() ?? '';
-          return title.includes(query) || description.includes(query);
-        })
+        const query = searchTerm.toLowerCase();
+        const title = material.title?.toLowerCase() ?? '';
+        const description = material.description?.toLowerCase() ?? '';
+        return title.includes(query) || description.includes(query);
+      })
       : normalized;
 
     res.json(filtered);
@@ -1720,7 +1720,7 @@ app.post('/api/notifications/:id/mark-read', async (req, res) => {
     const notificationId = Number(req.params.id);
     const { userId } = req.body || {};
     const userIdNum = Number(userId);
-    
+
     if (!Number.isInteger(notificationId)) {
       return res.status(400).json({ error: 'Invalid notification id' });
     }
@@ -1744,7 +1744,7 @@ app.post('/api/notifications/:id/mark-read', async (req, res) => {
       where: { id: notificationId },
       data: { isRead: true },
     });
-    
+
     res.json({ success: true });
   } catch (err) {
     console.error('Mark notification read error', err);
@@ -1757,7 +1757,7 @@ app.delete('/api/notifications/:id', async (req, res) => {
     const notificationId = Number(req.params.id);
     const { userId } = req.body || {};
     const userIdNum = Number(userId);
-    
+
     if (!Number.isInteger(notificationId)) {
       return res.status(400).json({ error: 'Invalid notification id' });
     }
@@ -1780,7 +1780,7 @@ app.delete('/api/notifications/:id', async (req, res) => {
     await prisma.notification.delete({
       where: { id: notificationId },
     });
-    
+
     res.json({ success: true });
   } catch (err) {
     console.error('Delete notification error', err);
@@ -1850,7 +1850,7 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
   try {
     // Get the user ID from the middleware
     const userId = req.user?.id;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -1860,7 +1860,7 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
     // Generate a pool of challenges first (faster approach)
     const challengePool = [];
     const poolSize = 30; // Generate 30 to ensure variety
-    
+
     for (let i = 0; i < poolSize; i++) {
       challengePool.push(generateRandomDebugChallenge());
     }
@@ -1868,7 +1868,7 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
     // Filter for unique challenges based on code block
     const seenCodeBlocks = new Set();
     const uniqueChallenges = [];
-    
+
     for (const challenge of challengePool) {
       const codeKey = challenge.codeBlock.trim();
       if (!seenCodeBlocks.has(codeKey)) {
@@ -1889,7 +1889,7 @@ app.get('/api/games/debugging/quiz', authMiddleware, async (req, res) => {
       const j = Math.floor(Math.random() * (i + 1));
       [uniqueChallenges[i], uniqueChallenges[j]] = [uniqueChallenges[j], uniqueChallenges[i]];
     }
-    
+
     console.log('Generated', uniqueChallenges.length, 'challenges');
     res.json(uniqueChallenges.slice(0, 10)); // Return up to 10 challenges
   } catch (err) {
@@ -1905,7 +1905,7 @@ app.get('/api/games/troubleshooting/quiz', authMiddleware, (req, res) => {
     // Generate a pool of challenges first (faster approach)
     const challengePool = [];
     const poolSize = 30; // Generate 30 to ensure variety
-    
+
     for (let i = 0; i < poolSize; i++) {
       challengePool.push(generateRandomTroubleshootingChallenge());
     }
@@ -1913,7 +1913,7 @@ app.get('/api/games/troubleshooting/quiz', authMiddleware, (req, res) => {
     // Filter for unique challenges based on code block
     const seenCodeBlocks = new Set();
     const uniqueChallenges = [];
-    
+
     for (const challenge of challengePool) {
       const codeKey = challenge.codeBlock.trim();
       if (!seenCodeBlocks.has(codeKey)) {
@@ -1928,10 +1928,10 @@ app.get('/api/games/troubleshooting/quiz', authMiddleware, (req, res) => {
       const remaining = challengePool.filter(c => !seenCodeBlocks.has(c.codeBlock.trim()));
       uniqueChallenges.push(...remaining.slice(0, 10 - uniqueChallenges.length));
     }
-    
+
     // Shuffle the final challenges
     uniqueChallenges.sort(() => Math.random() - 0.5);
-    
+
     console.log('Generated', uniqueChallenges.length, 'troubleshooting challenges');
     res.json(uniqueChallenges.slice(0, 10)); // Return up to 10 challenges
   } catch (err) {
@@ -1961,21 +1961,21 @@ app.get('/api/games/logic-puzzles/quiz', authMiddleware, (req, res) => {
     const seenCodeBlocks = new Set(); // Track unique code blocks to avoid duplicates
     let attempts = 0;
     const maxAttempts = 100; // Increased safety limit
-    
+
     // Generate challenges until we have 10 unique ones
     while (challenges.length < 10 && attempts < maxAttempts) {
       attempts++;
       try {
         const challenge = generateRandomLogicPuzzle();
-        
+
         if (!challenge || !challenge.codeBlock) {
           console.warn('Invalid challenge generated, skipping');
           continue;
         }
-        
+
         // Use code block as unique identifier
         const codeKey = challenge.codeBlock.trim();
-        
+
         // Only add if we haven't seen this code block before
         if (!seenCodeBlocks.has(codeKey)) {
           seenCodeBlocks.add(codeKey);
@@ -1987,14 +1987,14 @@ app.get('/api/games/logic-puzzles/quiz', authMiddleware, (req, res) => {
         continue;
       }
     }
-    
+
     if (challenges.length === 0) {
       return res.status(500).json({ error: 'Failed to generate any challenges' });
     }
-    
+
     // Shuffle the final challenges
     challenges.sort(() => Math.random() - 0.5);
-    
+
     console.log('Generated', challenges.length, 'unique logic puzzle challenges');
     res.json(challenges); // Returns an array of challenges
   } catch (err) {
@@ -2010,7 +2010,7 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
     // Get the user ID from the middleware
     const userId = req.user.id;
     const { answers, totalTimeMs } = req.body || {};
-    
+
     // Read lang from query string (default to 'en')
     const lang = req.query.lang || 'en';
 
@@ -2028,9 +2028,9 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
       if (!isCorrect) {
         return 0; // Wrong answer = 0 points
       }
-      
+
       const timeSeconds = timeMs / 1000; // Convert to seconds
-      
+
       if (timeSeconds < 15) {
         return 500; // Under 15 seconds = 500 points
       } else if (timeSeconds < 30) {
@@ -2042,10 +2042,10 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
 
     for (const answer of answers) {
       const { challenge, selectedLine, selectedFix, selectedOutput, timeMs, userOrder } = answer;
-      
+
       // Calculate time per question (use provided timeMs or fallback to average)
       const questionTime = timeMs || (totalTimeMs ? totalTimeMs / answers.length : 30000);
-      
+
       // For debugging challenges with fix options, validate both line and fix
       let isCorrect = false;
       if (challenge.correctOutput !== undefined) {
@@ -2053,8 +2053,8 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
         isCorrect = (selectedOutput === challenge.correctOutput);
       } else if (challenge.fixOptions && challenge.correctFix) {
         // New debugging mechanics: check both line and fix
-        isCorrect = (challenge.buggyLineIndex === selectedLine) && 
-                    (selectedFix === challenge.correctFix);
+        isCorrect = (challenge.buggyLineIndex === selectedLine) &&
+          (selectedFix === challenge.correctFix);
       } else if (challenge.correctOrder && userOrder) {
         // Build-a-Code: check if order matches
         isCorrect = (JSON.stringify(userOrder) === JSON.stringify(challenge.correctOrder));
@@ -2071,10 +2071,10 @@ app.post('/api/games/submit-quiz', authMiddleware, async (req, res) => {
         correctCount++;
       } else {
         // Add wrong answer to feedback array
-        const explanation = challenge.explanation 
+        const explanation = challenge.explanation
           ? (challenge.explanation[lang] || challenge.explanation.en || 'No explanation available')
           : (challenge.scenario?.[lang] || challenge.scenario?.en || 'No explanation available');
-        
+
         feedback.push({
           title: challenge.title[lang] || challenge.title.en || 'Challenge',
           explanation: explanation,
@@ -2447,8 +2447,8 @@ app.get('/api/teacher/students/:id/details', authMiddleware, async (req, res) =>
     // Get total materials count
     const totalMaterials = await prisma.learningMaterial.count();
     const completedCount = materialProgress.length;
-    const progressPercentage = totalMaterials > 0 
-      ? Math.round((completedCount / totalMaterials) * 100) 
+    const progressPercentage = totalMaterials > 0
+      ? Math.round((completedCount / totalMaterials) * 100)
       : 0;
 
     // Fetch chat logs (last 50)
@@ -2503,7 +2503,7 @@ app.get('/api/teacher/students/:id/details', authMiddleware, async (req, res) =>
   } catch (err) {
     console.error('Error fetching student details:', err);
     console.error('Error stack:', err.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch student details',
       details: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -2563,258 +2563,82 @@ app.get('/api/teacher/students/:id/logs', authMiddleware, async (req, res) => {
 // AI Chatbot Proxy Endpoint
 app.post('/api/chat', authMiddleware, async (req, res) => {
   try {
-    const { message, image } = req.body;
+    const { message } = req.body;
     const API_KEY = process.env.AI_CHATBOT_API_KEY;
 
     if (!API_KEY) {
       return res.status(500).json({ error: 'AI Chatbot API key not configured' });
     }
 
-    if ((!message || typeof message !== 'string') && !image) {
-      return res.status(400).json({ error: 'Message or image is required' });
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message is required' });
     }
 
     // Call Google Gemini API
-    // Use gemini-1.5-flash for vision capabilities (supports multimodal input)
-    const model = 'gemini-1.5-flash';
+    // The model name from the frontend is 'gemini-2.5-flash'
+    const model = 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
-    // Build parts array for multimodal input
-    const parts = [];
-    
-    // Add image part first if image exists (Gemini works better with image before text)
-    if (image && typeof image === 'string') {
-      // Extract base64 data from data URI if present
-      let cleanBase64 = image;
-      let mimeType = 'image/png'; // Default fallback for PNG (screenshots)
-      
-      // Extract real MIME type and data if it has the data URI prefix
-      if (image.startsWith('data:')) {
-        const matches = image.match(/^data:([^;]+);base64,(.+)$/);
-        if (matches) {
-          mimeType = matches[1]; // Use the actual MIME type from data URI
-          cleanBase64 = matches[2]; // The raw base64 data Gemini needs
-        } else {
-          // Fallback: try to extract just base64 if format is slightly different
-          const base64Match = image.match(/base64,(.+)$/);
-          if (base64Match) {
-            cleanBase64 = base64Match[1];
-          }
-        }
-      }
-      
-      // Validate that we have base64 data
-      if (!cleanBase64 || cleanBase64.length === 0) {
-        console.error('Invalid image data: empty base64 string');
-        return res.status(400).json({ error: 'Invalid image data: empty base64 string' });
-      }
-      
-      // Validate image size (Gemini has a 20MB limit, but base64 is ~33% larger)
-      // Approximate: base64 size / 1.33 = original size
-      const estimatedSizeMB = (cleanBase64.length * 3) / 4 / (1024 * 1024);
-      if (estimatedSizeMB > 15) {
-        console.error('Image too large:', estimatedSizeMB, 'MB');
-        return res.status(400).json({ 
-          error: `Image is too large (${estimatedSizeMB.toFixed(2)}MB). Please use a smaller image (max 15MB).` 
-        });
-      }
-      
-      // Validate MIME type (Gemini supports: image/jpeg, image/png, image/gif, image/webp)
-      const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!supportedTypes.includes(mimeType)) {
-        console.warn('Unsupported MIME type:', mimeType, '- defaulting to image/png');
-        mimeType = 'image/png';
-      }
-      
-      console.log('Adding image to Gemini request:', {
-        mimeType: mimeType,
-        base64Length: cleanBase64.length,
-        estimatedSizeMB: estimatedSizeMB.toFixed(2)
-      });
-      
-      parts.push({
-        inline_data: {
-          mime_type: mimeType,
-          data: cleanBase64
-        }
-      });
-    }
-    
-    // Add text part - if no message provided with image, ask AI to analyze the image
-    const textMessage = message && typeof message === 'string' && message.trim() 
-      ? message 
-      : (image ? 'Please analyze this image and describe what you see. If there is any text in the image, please read it and explain the content.' : '');
-    
-    if (textMessage) {
-      parts.push({ text: textMessage });
-    }
+    // System instruction to ensure responses are in Bahasa Melayu only
+    const systemInstruction = `Anda adalah KP Bot, pembantu AI untuk pelajar Sains Komputer Tingkatan 4. 
 
-    // Ensure we have at least one part (text or image)
-    if (parts.length === 0) {
-      return res.status(400).json({ error: 'Message or image is required' });
-    }
+PERATURAN PENTING:
+1. KONTEKS: Hanya jawab soalan berkaitan topik pengaturcaraan Java yang terdapat dalam silabus sekolah. Jika pengguna bertanya tentang bahasa lain (seperti Python/C++) atau topik umum yang tidak berkaitan, tolak dengan sopan dan bimbing mereka semula ke Java.
+2. BAHASA: Gunakan Bahasa Melayu (Malaysia) yang baku. Dilarang sama sekali menggunakan kosa kata Bahasa Indonesia.
+   - JANGAN GUNA: 'unduh', 'tautan', 'berkas', 'gampang', 'bisa' (untuk maksud 'boleh').
+   - GUNA: 'muat turun', 'pautan', 'fail', 'mudah', 'boleh'.
+3. NADA: Sentiasa memberi galakan, membantu, dan sesuai untuk pelajar Tingkatan 4.`;
 
-    const requestBody = {
-      contents: [{
-        parts: parts
-      }]
-    };
+    // Prepend language instruction to user message for better consistency
+    const messageWithInstruction = `Sila jawab dalam Bahasa Melayu SAHAJA. ${message}`;
 
-    // Log request for debugging (without sensitive data)
-    console.log('Sending to Gemini:', {
-      hasImage: !!image,
-      hasText: !!textMessage,
-      partsCount: parts.length,
-      model: model,
-      partsTypes: parts.map(p => p.text ? 'text' : 'image')
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{
+            text: systemInstruction
+          }]
+        },
+        contents: [{
+          parts: [{
+            text: messageWithInstruction
+          }]
+        }]
+      })
     });
 
-    let response;
-    let data;
-    
-    try {
-      response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      const responseText = await response.text();
-      console.log('Gemini API response status:', response.status);
-      console.log('Gemini API response preview:', responseText.substring(0, 200));
-
-      if (!response.ok) {
-        console.error('Gemini API error - Status:', response.status);
-        console.error('Gemini API error - Response:', responseText);
-        try {
-          const errorJson = JSON.parse(responseText);
-          console.error('Gemini API error details (JSON):', JSON.stringify(errorJson, null, 2));
-          return res.status(response.status).json({ 
-            error: 'Failed to get response from AI',
-            details: errorJson.error?.message || errorJson.message || responseText
-          });
-        } catch (e) {
-          // Error text is not JSON
-          return res.status(response.status).json({ 
-            error: 'Failed to get response from AI',
-            details: responseText 
-          });
-        }
-      }
-
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse Gemini response as JSON:', parseError);
-        console.error('Response text:', responseText);
-        return res.status(500).json({ 
-          error: 'Invalid response from AI',
-          details: 'Response was not valid JSON'
-        });
-      }
-    } catch (fetchError) {
-      console.error('Network error calling Gemini API:', fetchError);
-      return res.status(500).json({ 
-        error: 'Network error connecting to AI service',
-        details: fetchError.message 
-      });
-    }
-    
-    // Check for API errors (common in React Native dev or API issues)
-    if (data.error) {
-      console.error('Gemini API Error:', data.error);
-      const errorMessage = data.error.message || data.error.details || JSON.stringify(data.error);
-      return res.status(500).json({ 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error:', response.status, errorText);
+      return res.status(response.status).json({
         error: 'Failed to get response from AI',
-        details: errorMessage
+        details: errorText
       });
     }
-    
+
+    const data = await response.json();
+
     // Extract the text from Gemini's response format
-    let text = 'Sorry, I could not generate a response.';
-    
-    if (!data || typeof data !== 'object') {
-      console.error('Invalid Gemini response data:', data);
-      return res.status(500).json({ 
-        error: 'Invalid response from AI',
-        details: 'Response data is not valid'
-      });
-    }
-    
-    if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
-      const candidate = data.candidates[0];
-      
-      // Check for finish reason issues
-      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-        console.warn('Gemini finish reason:', candidate.finishReason);
-        if (candidate.safetyRatings) {
-          console.warn('Safety ratings:', JSON.stringify(candidate.safetyRatings, null, 2));
-        }
-        
-        // Handle blocked content
-        if (candidate.finishReason === 'SAFETY') {
-          return res.status(400).json({ 
-            error: 'Content was blocked by safety filters. Please try a different image.',
-            details: candidate.safetyRatings
-          });
-        }
-        
-        // Handle other finish reasons
-        if (candidate.finishReason === 'MAX_TOKENS') {
-          return res.status(400).json({ 
-            error: 'Response was too long. Please try with a simpler question.',
-          });
-        }
-      }
-      
-      // Extract text from response
-      if (candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts)) {
-        const textPart = candidate.content.parts.find(part => part && part.text);
-        if (textPart && textPart.text && typeof textPart.text === 'string') {
-          text = textPart.text;
-        } else {
-          console.error('No valid text part found in candidate:', JSON.stringify(candidate.content.parts, null, 2));
-        }
-      } else {
-        console.error('Invalid candidate content structure:', JSON.stringify(candidate, null, 2));
-      }
-      
-      // If no text found, log the full candidate for debugging
-      if (text === 'Sorry, I could not generate a response.') {
-        console.error('No text extracted from Gemini response. Full candidate:', JSON.stringify(candidate, null, 2));
-        return res.status(500).json({ 
-          error: 'AI response did not contain text',
-          details: 'The AI response was received but did not contain readable text. Please try again.'
-        });
-      }
-    } else {
-      console.error('No candidates in Gemini response. Full response:', JSON.stringify(data, null, 2));
-      return res.status(500).json({ 
-        error: 'No response candidates from AI',
-        details: 'The AI service did not return any response candidates. Please try again.'
-      });
-    }
-    
-    // Log successful response
-    console.log('Gemini response received successfully, text length:', text.length);
-    
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+
     // Save the chat log to database
     try {
       await prisma.chatLog.create({
         data: {
           userId: req.user.id,
-          message: message || (image ? '[Image]' : ''),
+          message: message,
           response: text,
-          imageData: image || null, // Store the image data (base64 data URI)
         },
       });
     } catch (logError) {
       // Log error but don't fail the request
       console.error('Error saving chat log:', logError);
     }
-    
+
     res.json({ text });
   } catch (err) {
     console.error('Chat API error:', err);
@@ -2828,7 +2652,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 app.get('/api/chat/history', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Get all chat logs for the user, ordered by date (newest first)
     // Return individual entries, not grouped
     const chatLogs = await prisma.chatLog.findMany({
@@ -2906,11 +2730,62 @@ app.get('/api/chat/conversation/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/chat/history/:id - Delete a single chat history item (MUST come before /api/chat/history)
+app.delete('/api/chat/history/:id', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chatId = parseInt(req.params.id, 10);
+
+    if (isNaN(chatId)) {
+      return res.status(400).json({ error: 'Invalid chat ID' });
+    }
+
+    // Verify the chat belongs to the user before deleting
+    const chatLog = await prisma.chatLog.findFirst({
+      where: {
+        id: chatId,
+        userId: userId,
+      },
+    });
+
+    if (!chatLog) {
+      console.log(`Chat ${chatId} not found or unauthorized for user ${userId}`);
+      return res.status(404).json({ error: 'Chat not found or unauthorized' });
+    }
+
+    console.log(`Deleting chat ${chatId} for user ${userId}`);
+
+    // Delete the specific chat log permanently from database
+    await prisma.chatLog.delete({
+      where: {
+        id: chatId,
+      },
+    });
+
+    console.log(`Chat ${chatId} successfully deleted from database`);
+
+    // Verify deletion by checking if it still exists
+    const verifyDelete = await prisma.chatLog.findUnique({
+      where: { id: chatId },
+    });
+
+    if (verifyDelete) {
+      console.error(`WARNING: Chat ${chatId} still exists after deletion attempt!`);
+      return res.status(500).json({ error: 'Failed to delete chat from database' });
+    }
+
+    res.json({ success: true, message: 'Chat deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting chat:', err);
+    res.status(500).json({ error: 'Failed to delete chat' });
+  }
+});
+
 // DELETE /api/chat/history - Delete all chat history for the current user
 app.delete('/api/chat/history', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Delete all chat logs for the user
     await prisma.chatLog.deleteMany({
       where: {

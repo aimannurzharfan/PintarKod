@@ -367,7 +367,20 @@
     "notifications_material": "Bahan pembelajaran baharu",
     "notifications_material_hint": "Maklumkan saya apabila guru memuat naik bahan baharu",
     "notifications_reply": "Balasan pada perbincangan saya",
-    "notifications_reply_hint": "Maklumkan saya apabila seseorang membalas thread forum saya"
+    "notifications_reply_hint": "Maklumkan saya apabila seseorang membalas thread forum saya",
+    "support_title": "Sokongan",
+    "faq": "Soalan Lazim & Bantuan"
+  },
+  "faq": {
+    "title": "Soalan Lazim",
+    "q1": "Apa itu PintarKod?",
+    "a1": "PintarKod adalah aplikasi pembelajaran mudah alih yang direka untuk membantu pelajar menguasai topik sains komputer melalui pelajaran interaktif dan permainan.",
+    "q2": "Bagaimana saya menetapkan semula kata laluan?",
+    "a2": "Anda boleh menetapkan semula kata laluan dari skrin log masuk dengan menekan 'Lupa Kata Laluan?' atau dalam tetapan Profil jika anda sudah log masuk.",
+    "q3": "Bolehkah saya akses bahan secara luar talian?",
+    "a3": "Buat masa ini, sambungan internet diperlukan untuk mengakses bahan pembelajaran dan forum bagi memastikan anda mendapat kandungan terkini.",
+    "q4": "Bagaimana untuk hubungi sokongan?",
+    "a4": "Anda boleh menghubungi guru anda terus melalui aplikasi atau e-mel support@pintarkod.com."
   },
   "teacher_ui": {
     "dashboard": "Papan Pemuka Guru",

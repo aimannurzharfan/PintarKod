@@ -1,6 +1,12 @@
+import {
+  useNotifications,
+  type NotificationPreferences,
+} from '@/contexts/NotificationContext';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Pressable,
   ScrollView,
@@ -11,12 +17,6 @@ import {
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-
-import {
-  useNotifications,
-  type NotificationPreferences,
-} from '@/contexts/NotificationContext';
 
 export default function SettingsScreen() {
   const { i18n, t } = useTranslation();
@@ -190,6 +190,35 @@ export default function SettingsScreen() {
             </Text>
           )}
         </View>
+
+        {/* -------------------- Support / FAQ -------------------- */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>{t('settings.support_title')}</Text>
+          </View>
+
+          <Pressable
+            onPress={() => router.push('/faq')}
+            style={({ pressed }) => [
+              styles.menuItem,
+              pressed && styles.menuItemPressed,
+            ]}
+          >
+            <View style={styles.menuItemContent}>
+              <Ionicons
+                name="help-circle-outline"
+                size={22}
+                color={styles.menuIcon.color}
+              />
+              <Text style={styles.menuItemText}>{t('settings.faq')}</Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={styles.menuChevron.color}
+            />
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -203,6 +232,7 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       flex: 1,
       backgroundColor: isDark ? '#020617' : '#EEF2FF',
     },
+    // ... existing header styles ...
     header: {
       paddingHorizontal: 24,
       paddingVertical: 20,
@@ -249,6 +279,7 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
       fontSize: 13,
       color: isDark ? '#94A3B8' : '#64748B',
     },
+    // ... language buttons ...
     languageRow: {
       flexDirection: 'row',
       gap: 12,
@@ -277,6 +308,7 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     languageButtonTextActive: {
       color: '#2563EB',
     },
+    // ... preference rows ...
     preferenceRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -295,6 +327,32 @@ const createStyles = (colorScheme: 'light' | 'dark' | null) => {
     preferenceSubtitle: {
       fontSize: 13,
       color: isDark ? '#94A3B8' : '#64748B',
+    },
+    // New styles for menu items
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 4,
+    },
+    menuItemPressed: {
+      opacity: 0.7,
+    },
+    menuItemContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    menuItemText: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: isDark ? '#F1F5F9' : '#1E293B',
+    },
+    menuIcon: {
+      color: isDark ? '#94A3B8' : '#64748B',
+    },
+    menuChevron: {
+      color: isDark ? '#64748B' : '#94A3B8',
     },
   });
 };

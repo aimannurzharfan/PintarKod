@@ -1,138 +1,85 @@
-# Welcome to PintarKod
+# PintarKod
+PintarKod is a gamified mobile learning application designed to help Form 4 Computer Science students master programming concepts. By combining interactive debugging challenges with an AI-powered tutor, PintarKod makes learning to code engaging and accessible.
 
-This is a full-stack mobile learning application built with React Native (Expo) and a Node.js (Express) backend.
+## Download & Demo
+The latest version of the application is available for Android.
 
----
+* **Download APK**: [Click here to Download](https://expo.dev/accounts/nurzharfan/projects/PintarKod/builds/d57a6ccf-27a5-463b-883f-2f36d3be7d4f)
+* **Database**: Aiven Cloud (MySQL)
 
-## Pre-requisites
+### Test Credentials
+For evaluation purposes, use the following credentials to access the Teacher Dashboard and full feature set:
 
-Before you begin, ensure you have the following tools installed on your system:
+- **Email**: `teacher@pintarkod.com`
+- **Password**: `teacher123`
 
-- **Node.js (v18 or higher, LTS recommended)**  
-  https://nodejs.org/en
+> **Note**: Students cannot self-register. Student accounts must be created by the Teacher via the Dashboard.
 
-- **MySQL Server & Workbench (v8.0 or higher)**  
-  https://dev.mysql.com/downloads/workbench/
+## Key Features
+- **AI Chatbot Tutor**: Integrated with Google Gemini API to answer coding questions in real-time.
+- **Debugging Challenges**: Interactive code-fixing exercises to test logic and syntax skills.
+- **Gamification System**: Experience points (XP), leaderboards, and progress tracking.
+- **Community Forum**: A discussion platform for students to share knowledge.
+- **Teacher Dashboard**: Dedicated interface for monitoring student progress and managing content.
 
-- **Android Studio (Required for Android Emulator)**  
-  https://developer.android.com/studio
+## Technical Architecture
 
----
+### Frontend (Mobile)
+- **Framework**: React Native (Expo)
+- **Language**: TypeScript
+- **Navigation**: Expo Router
+- **Styling**: NativeWind (TailwindCSS)
 
-## Quick Start: How to Run
+### Backend (API)
+- **Server**: Node.js & Express
+- **Database**: MySQL (Hosted on Aiven)
+- **ORM**: Prisma
+- **Authentication**: JWT (JSON Web Tokens)
+- **AI Engine**: Google Gemini API
 
-Follow these steps exactly to get the project running.
+## Installation & Local Setup
+To run this project locally for development or testing:
 
----
-
-## 1. Get the Code
-
-Clone this repository to your local machine:
-
+### 1. Clone the Repository
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/nurzharfan/PintarKod.git
 cd PintarKod
 ```
 
----
-
-## 2. Install Dependencies
-
-Install all required packages for both backend and frontend:
-
+### 2. Install Dependencies
 ```bash
 npm install
 ```
 
----
-
-## 3. Set Up Your Environment (.env)
-
-This is the most important step.
-
-Create a file named **`.env`** in the project root, then paste and update these values:
+### 3. Environment Configuration
+Create a `.env` file in the root directory with the following keys:
 
 ```env
-# Database Connection
-DATABASE_URL="mysql://root:YOUR_MYSQL_PASSWORD_HERE@localhost:3306/pintarkod"
-
-# AI Chatbot API Key
-AI_CHATBOT_API_KEY="YOUR_SECRET_KEY_GOES_HERE"
+DATABASE_URL="your_mysql_connection_string"
+JWT_SECRET="your_secret_key"
+AI_CHATBOT_API_KEY="your_google_gemini_key"
+PORT=4000
 ```
 
----
-
-## 4. Create the Database
-
-Open MySQL Workbench and run:
-
-```sql
-CREATE DATABASE pintarkod;
-```
-
----
-
-## 5. Sync the Database
-
-Push schema into the database:
-
+### 4. Database Initialization
 ```bash
+npx prisma generate
 npx prisma db push
-```
-
----
-
-## 6. Seed the Database (Creates Teacher Account)
-
-You **must** do this to log in:
-
-```bash
 npm run db:seed
 ```
 
----
-
-## 7. Run the Project
-
-Open **two separate terminals**.
-
-### Terminal 1 - Start Backend Server
+### 5. Launch Application
+Start the backend server:
 
 ```bash
 npm run start:server
 ```
 
-### Terminal 2 - Start Frontend (Expo)
+Start the mobile client:
 
 ```bash
-npm run start
+npx expo start
 ```
 
----
-
-## Default Login
-
-After seeding the database:
-
-- **Username:** `teacher`  
-- **Password:** `teacher123`
-
----
-
-## Learn More
-
-- Expo documentation:  
-  https://docs.expo.dev/
-
-- Learn Expo tutorial:  
-  https://docs.expo.dev/tutorial/introduction/
-
----
-
-## Join the Community
-
-- Expo on GitHub:  
-  https://github.com/expo/expo
-
-- Discord Community:  
-  https://chat.expo.dev
+## Cloud Storage Notice
+> **Important**: This project is currently hosted on the Render Free Tier. The file system is ephemeral, meaning uploaded files (such as avatars or forum attachments) will not persist after a server restart. For a production environment, this would be replaced with persistent object storage (e.g., AWS S3).

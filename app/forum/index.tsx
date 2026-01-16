@@ -10,18 +10,18 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useColorScheme
+    Alert,
+    FlatList,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+    useColorScheme
 } from 'react-native';
 import { API_URL } from '../../config';
 
@@ -1042,7 +1042,6 @@ export default function ForumScreen() {
                           display="calendar"
                           onChange={handleStartDateChange}
                           maximumDate={endDateValue || new Date()}
-                          themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
                         />
                       </View>
                       <View style={styles.calendarModalActions}>
@@ -1156,7 +1155,6 @@ export default function ForumScreen() {
                           onChange={handleEndDateChange}
                           minimumDate={startDateValue || undefined}
                           maximumDate={new Date()}
-                          themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
                         />
                       </View>
                       <View style={styles.calendarModalActions}>

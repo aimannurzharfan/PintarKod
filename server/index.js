@@ -2947,6 +2947,11 @@ async function initializeBadges() {
   }
 }
 
+// Default root route
+app.get('/', (req, res) => {
+  res.status(200).send('Server is running!');
+});
+
 const port = process.env.PORT || 4000;
 app.listen(port, async () => {
   console.log(`Server listening on http://localhost:${port}`);

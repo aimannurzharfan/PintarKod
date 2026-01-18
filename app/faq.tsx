@@ -50,7 +50,7 @@ export default function FAQScreen() {
           title: t('faq.title'),
           headerShown: true,
           // headerBackTitleVisible is iOS only and might error on some types if strict
-          headerBackTitleVisible: false,
+          headerBackTitle: '',
           headerStyle: {
             backgroundColor: colorScheme === 'dark' ? '#020617' : '#EEF2FF',
           },

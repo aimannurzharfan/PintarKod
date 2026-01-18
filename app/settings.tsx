@@ -22,7 +22,7 @@ export default function SettingsScreen() {
   const { i18n, t } = useTranslation();
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const styles = useMemo(() => createStyles(colorScheme), [colorScheme]);
+  const styles = useMemo(() => createStyles(colorScheme ?? 'light'), [colorScheme]);
 
   /* -------------------- Notification Context -------------------- */
   const {

@@ -5,6 +5,9 @@ module.exports = function (api) {
       ['babel-preset-expo', {
         unstable_transformImportMeta: true
       }]
+    ],
+    plugins: [
+      'react-native-reanimated/plugin',
     ]
   };
 };

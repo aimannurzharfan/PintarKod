@@ -60,7 +60,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { token } = useAuth();
-  
+
   const screenWidth = Dimensions.get('window').width;
   const historyWidth = screenWidth * 0.45; // 45% of screen width
 
@@ -177,13 +177,13 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
               if (response.ok) {
                 const data = await response.json();
                 console.log('Delete successful:', data);
-                
+
                 // Remove from local state immediately
                 setChatHistory(prev => prev.filter(item => item.id !== chatId));
-                
+
                 // Refresh chat history from server to ensure consistency
                 await fetchChatHistory();
-                
+
                 // If the deleted chat was currently loaded, reset to greeting
                 const wasCurrentChat = chatHistory.find(item => item.id === chatId);
                 if (wasCurrentChat && isConversationLoaded) {
@@ -208,7 +208,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                     const text = await response.text();
                     errorMessage = text || errorMessage;
                   }
-                } catch (parseError) {
+                } catch {
                   errorMessage = `Failed to delete chat (Status: ${response.status})`;
                 }
                 console.error('Delete failed:', errorMessage);
@@ -247,7 +247,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
         setIsConversationLoaded(true); // Mark that a conversation is loaded
         setShowHistory(false);
         setError(null);
-        
+
         // Auto-scroll to bottom when conversation is loaded
         setTimeout(() => {
           messagesListRef.current?.scrollToEnd({ animated: true });
@@ -272,8 +272,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     } else {
-      const options: Intl.DateTimeFormatOptions = { 
-        month: 'short', 
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
         day: 'numeric'
       };
       if (date.getFullYear() !== today.getFullYear()) {
@@ -343,7 +343,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
     setEditingIndex(null);
     setIsLoading(true);
     setError(null);
-    
+
     // Auto-scroll to bottom when user sends message
     setTimeout(() => {
       messagesListRef.current?.scrollToEnd({ animated: true });
@@ -368,19 +368,19 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
       }
 
       const data = await response.json();
-      
+
       const botMessage: Message = {
         role: 'gemini',
         text: data.text || 'Maaf, saya tidak dapat menjana respons.',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, botMessage]);
-      
+
       // Auto-scroll to bottom after bot response
       setTimeout(() => {
         messagesListRef.current?.scrollToEnd({ animated: true });
       }, 100);
-      
+
       // Refresh chat history to include the new message
       fetchChatHistory();
 
@@ -411,8 +411,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
         ]}
       >
         {!isUser && (
-          <Image 
-            source={require('@/assets/images/robot.png')} 
+          <Image
+            source={require('@/assets/images/robot.png')}
             style={styles.messageRobotAvatar}
             contentFit="contain"
           />
@@ -424,20 +424,20 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                 onPress={() => handleCopyMessage(index)}
                 style={styles.copyButton}
               >
-                <IconSymbol 
-                  name="doc.on.doc" 
-                  size={14} 
-                  color={colorScheme === 'dark' ? '#999' : '#666'} 
+                <IconSymbol
+                  name="doc.on.doc"
+                  size={14}
+                  color={colorScheme === 'dark' ? '#999' : '#666'}
                 />
               </Pressable>
               <Pressable
                 onPress={() => handleEditMessage(index)}
                 style={styles.editButton}
               >
-                <IconSymbol 
-                  name="pencil" 
-                  size={14} 
-                  color={colorScheme === 'dark' ? '#999' : '#666'} 
+                <IconSymbol
+                  name="pencil"
+                  size={14}
+                  color={colorScheme === 'dark' ? '#999' : '#666'}
                 />
               </Pressable>
             </>
@@ -477,7 +477,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             </Pressable>
             <Text style={[styles.headerText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Kod Pintar AI</Text>
             <View style={styles.headerRightButtons}>
-              <Pressable 
+              <Pressable
                 onPress={() => {
                   setMessages([
                     {
@@ -490,7 +490,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                   setInput('');
                   setEditingIndex(null);
                   setError(null);
-                }} 
+                }}
                 style={styles.newChatButton}
               >
                 <IconSymbol name="square.and.pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
@@ -508,7 +508,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
             <View style={[styles.historySidebar, { width: historyWidth, backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#FFFFFF', borderRightColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
               <View style={[styles.historyHeader, { borderBottomColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
                 <Text style={[styles.historyTitle, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Sejarah Perbincangan</Text>
-                <Pressable 
+                <Pressable
                   onPress={clearChatHistory}
                   style={styles.deleteButton}
                 >
@@ -530,26 +530,26 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                   chatHistory.map((item) => (
                     <View
                       key={item.id}
-                      style={[styles.historyItem, { 
+                      style={[styles.historyItem, {
                         backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F5F5F5',
                         borderBottomColor: colorScheme === 'dark' ? '#333' : '#E0E0E0'
                       }]}
                     >
                       <TouchableOpacity
                         style={styles.historyItemContent}
-                      onPress={() => loadConversation(item.id)}
+                        onPress={() => loadConversation(item.id)}
                         activeOpacity={0.7}
                       >
                         <View style={styles.historyItemText}>
-                      <Text
-                        style={[styles.historyPreview, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
-                        numberOfLines={2}
-                      >
-                        {item.message || 'No message'}
-                      </Text>
-                      <Text style={[styles.historyDate, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
-                        {formatHistoryDate(new Date(item.createdAt).toDateString())}
-                      </Text>
+                          <Text
+                            style={[styles.historyPreview, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
+                            numberOfLines={2}
+                          >
+                            {item.message || 'No message'}
+                          </Text>
+                          <Text style={[styles.historyDate, { color: colorScheme === 'dark' ? '#999' : '#666' }]}>
+                            {formatHistoryDate(new Date(item.createdAt).toDateString())}
+                          </Text>
                         </View>
                       </TouchableOpacity>
                       <TouchableOpacity
@@ -558,7 +558,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                         activeOpacity={0.7}
                       >
                         <IconSymbol name="trash" size={18} color={colorScheme === 'dark' ? '#000000' : '#000000'} />
-                    </TouchableOpacity>
+                      </TouchableOpacity>
                     </View>
                   ))
                 )}
@@ -575,7 +575,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                 </Pressable>
                 <Text style={[styles.headerText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>Kod Pintar AI</Text>
                 <View style={styles.headerRightButtons}>
-                  <Pressable 
+                  <Pressable
                     onPress={() => {
                       setMessages([
                         {
@@ -587,7 +587,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                       setIsConversationLoaded(false);
                       setInput('');
                       setError(null);
-                    }} 
+                    }}
                     style={styles.newChatButton}
                   >
                     <IconSymbol name="square.and.pencil" size={20} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
@@ -598,57 +598,57 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
                 </View>
               </View>
             )}
-            
+
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.chatContainer}
               keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             >
-          <FlatList
-            ref={messagesListRef}
-            data={messages}
-            renderItem={({ item, index }) => renderMessage({ item, index })}
-            keyExtractor={(item, index) => `${item.role}-${index}`}
-            style={styles.messageList}
-            contentContainerStyle={{ paddingBottom: 10 }}
-            onContentSizeChange={() => {
-              // Auto-scroll to bottom when new content is added
-              messagesListRef.current?.scrollToEnd({ animated: true });
-            }}
-          />
-          {error && <Text style={styles.errorText}>{error}</Text>}
-          <View style={[styles.inputContainer, { backgroundColor: colorScheme === 'dark' ? '#111' : '#FFFFFF', borderTopColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
-            <TextInput
-              style={[styles.input, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F0F0F0', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
-              value={input}
-              onChangeText={setInput}
-              placeholder={editingIndex !== null ? "Edit your message..." : "Type your message..."}
-              placeholderTextColor={colorScheme === 'dark' ? '#999' : '#999'}
-              editable={!isLoading}
-            />
-            {editingIndex !== null && (
-              <TouchableOpacity
-                onPress={() => {
-                  setInput('');
-                  setEditingIndex(null);
+              <FlatList
+                ref={messagesListRef}
+                data={messages}
+                renderItem={({ item, index }) => renderMessage({ item, index })}
+                keyExtractor={(item, index) => `${item.role}-${index}`}
+                style={styles.messageList}
+                contentContainerStyle={{ paddingBottom: 10 }}
+                onContentSizeChange={() => {
+                  // Auto-scroll to bottom when new content is added
+                  messagesListRef.current?.scrollToEnd({ animated: true });
                 }}
-                style={styles.cancelButton}
-              >
-                <IconSymbol name="xmark" size={18} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={handleSend}
-              style={[styles.sendButton, isLoading && styles.disabledButton]}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                  <Text style={styles.sendButtonText}>{editingIndex !== null ? 'Update' : 'Send'}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+              />
+              {error && <Text style={styles.errorText}>{error}</Text>}
+              <View style={[styles.inputContainer, { backgroundColor: colorScheme === 'dark' ? '#111' : '#FFFFFF', borderTopColor: colorScheme === 'dark' ? '#333' : '#E0E0E0' }]}>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F0F0F0', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder={editingIndex !== null ? "Edit your message..." : "Type your message..."}
+                  placeholderTextColor={colorScheme === 'dark' ? '#999' : '#999'}
+                  editable={!isLoading}
+                />
+                {editingIndex !== null && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setInput('');
+                      setEditingIndex(null);
+                    }}
+                    style={styles.cancelButton}
+                  >
+                    <IconSymbol name="xmark" size={18} color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={handleSend}
+                  style={[styles.sendButton, isLoading && styles.disabledButton]}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.sendButtonText}>{editingIndex !== null ? 'Update' : 'Send'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </KeyboardAvoidingView>
           </View>
         </View>
@@ -664,8 +664,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ visible, onClose }) => {
               <Text style={[styles.feedbackText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
                 Sila masukkan mesej yang sah. Mesej tidak boleh kosong atau hanya mengandungi ruang.
               </Text>
-              <Pressable 
-                style={[styles.continueButton, { backgroundColor: '#EF4444' }]} 
+              <Pressable
+                style={[styles.continueButton, { backgroundColor: '#EF4444' }]}
                 onPress={() => setShowWrongMessage(false)}
               >
                 <Text style={styles.continueButtonText}>

@@ -1,18 +1,17 @@
+import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 import { API_URL } from '@/config';
+import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import PasswordStrength, { passwordCompliant } from '@/components/PasswordStrength';
 import { useTranslation } from 'react-i18next';
-import { Feather } from '@expo/vector-icons';
 import {
   Alert,
-  Button,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
-  useColorScheme,
+  useColorScheme
 } from 'react-native';
 
 export default function ResetPassword() {
@@ -89,7 +88,7 @@ export default function ResetPassword() {
       let data;
       try {
         data = await response.json();
-      } catch (parseError) {
+      } catch {
         const text = await response.text();
         console.error('Failed to parse response:', text);
         Alert.alert('Error', 'Invalid response from server. Please try again.');
@@ -109,10 +108,10 @@ export default function ResetPassword() {
       console.log('Password reset successful, redirecting...');
       setNewPassword('');
       setConfirmPassword('');
-      
+
       // Show success message and redirect
       Alert.alert(
-        'Success', 
+        'Success',
         'Password updated successfully. You will be redirected to login.',
         [
           {
@@ -131,7 +130,7 @@ export default function ResetPassword() {
         ],
         { cancelable: false }
       );
-      
+
       // Also set a timeout to redirect even if user doesn't click OK
       setTimeout(() => {
         try {
@@ -151,7 +150,7 @@ export default function ResetPassword() {
 
   // -------------------- UI --------------------
   const placeholderColor = colorScheme === 'dark' ? '#888' : '#666';
-  
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Reset Password</Text>
@@ -212,13 +211,13 @@ export default function ResetPassword() {
           {loading ? 'Resetting...' : 'Reset Password'}
         </Text>
       </Pressable>
-      
+
       {!resetToken && (
         <Text style={[styles.errorText, { color: '#FF3B30' }]}>
           No reset token found in URL. Please use the link from your email.
         </Text>
       )}
-      
+
       {resetToken && !isPasswordValid && newPassword.length > 0 && (
         <Text style={[styles.errorText, { color: '#FF3B30' }]}>
           Password must contain capital letter, lowercase letter, and number.

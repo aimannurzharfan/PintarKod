@@ -4,11 +4,8 @@ PintarKod is a gamified mobile learning application designed to help Form 4 Comp
 ## Download & Demo
 The latest version of the application is available for Android.
 
-<<<<<<< HEAD
-- **Download APK**: [Download Android App (AAB)](https://expo.dev/artifacts/eas/fQCLUfY4BMHo76xH7roCVk.aab)
-=======
-- **Download APK**: [INSERT EXPO BUILD ARTIFACT LINK HERE]
->>>>>>> 5db495e3a88b447521209d952fe5b5bb47540114
+- **Download APK**: [Download Latest Android App](https://expo.dev/accounts/nurzharfan/projects/PintarKod/builds/2b71eba0-193f-45d2-aa81-7cb92c01318e)
+- **Note**: This build fixes the "Worklets Mismatch" crash and includes the new `expo-audio` engine.
 - **Live Backend**: https://pintarkod-api.onrender.com
 - **Database**: Aiven Cloud (MySQL)
 

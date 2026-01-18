@@ -2,22 +2,21 @@
 import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Audio } from 'expo-av';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    ActivityIndicator,
-    Animated,
-    BackHandler,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Animated,
+  BackHandler,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
 } from 'react-native';
 
 interface Challenge {
@@ -36,7 +35,7 @@ export default function LogicPuzzlesGame() {
   const navigation = useNavigation();
   const { token } = useAuth();
   const colorScheme = useColorScheme();
-  
+
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOutput, setSelectedOutput] = useState<string | null>(null);
@@ -53,19 +52,20 @@ export default function LogicPuzzlesGame() {
     selectedOutput: string;
     timeMs: number;
   }>>([]);
-  
+
   // Feedback review state
   const [quizFeedback, setQuizFeedback] = useState<Array<{ title: string; explanation: string }>>([]);
   const [showFeedbackReview, setShowFeedbackReview] = useState(false);
-  
+
   // Exit confirmation state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   // Allow navigating away after user confirmed leave
   const [allowExit, setAllowExit] = useState(false);
-  
+
   // Sound effects
-  const [soundCorrect, setSoundCorrect] = useState<Audio.Sound | null>(null);
-  const [soundWrong, setSoundWrong] = useState<Audio.Sound | null>(null);
+  // Sound effects
+  const correctPlayer = useAudioPlayer(require('@/assets/sounds/correct.mp3'));
+  const wrongPlayer = useAudioPlayer(require('@/assets/sounds/wrong.mp3'));
 
   // Animation values
   const [pulseAnim] = useState(new Animated.Value(1));
@@ -118,30 +118,7 @@ export default function LogicPuzzlesGame() {
     return () => pulse.stop();
   }, [pulseAnim]);
 
-  // Load sounds
-  useEffect(() => {
-    let correct: Audio.Sound | null = null;
-    let wrong: Audio.Sound | null = null;
-
-    Audio.Sound.createAsync(require('@/assets/sounds/correct.mp3'))
-      .then(({ sound }) => {
-        correct = sound;
-        setSoundCorrect(sound);
-      })
-      .catch(() => {});
-
-    Audio.Sound.createAsync(require('@/assets/sounds/wrong.mp3'))
-      .then(({ sound }) => {
-        wrong = sound;
-        setSoundWrong(sound);
-      })
-      .catch(() => {});
-
-    return () => {
-      correct?.unloadAsync();
-      wrong?.unloadAsync();
-    };
-  }, []);
+  // Sounds loaded via hook above
 
   // Fetch quiz
   useEffect(() => {
@@ -150,14 +127,14 @@ export default function LogicPuzzlesGame() {
         const response = await fetch(`${API_URL}/api/games/logic-puzzles/quiz`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Server error:', response.status, errorText);
           setIsLoading(false);
           return;
         }
-        
+
         const data = await response.json();
         setChallenges(data);
         setIsLoading(false);
@@ -167,7 +144,7 @@ export default function LogicPuzzlesGame() {
         setIsLoading(false);
       }
     };
-    
+
     if (token) {
       fetchQuiz();
     }
@@ -183,7 +160,7 @@ export default function LogicPuzzlesGame() {
   // Handle back button press
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    
+
     const handleBackPress = () => {
       if (showResults || showFeedbackReview) {
         return false;
@@ -213,11 +190,13 @@ export default function LogicPuzzlesGame() {
     const correct = selectedOutput === challenge.correctOutput;
     setIsCorrect(correct);
     setShowFeedback(true);
-    
+
     if (correct) {
-      soundCorrect?.replayAsync()?.catch(() => {});
+      correctPlayer.seekTo(0);
+      correctPlayer.play();
     } else {
-      soundWrong?.replayAsync()?.catch(() => {});
+      wrongPlayer.seekTo(0);
+      wrongPlayer.play();
       triggerShake();
     }
 
@@ -234,7 +213,7 @@ export default function LogicPuzzlesGame() {
 
   const handleContinue = useCallback(async () => {
     setShowFeedback(false);
-    
+
     if (currentQuestionIndex < challenges.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedOutput(null);
@@ -249,10 +228,10 @@ export default function LogicPuzzlesGame() {
           selectedOutput: selectedOutput!,
           timeMs: timeForQuestion,
         };
-        
+
         // Include all previous answers plus the last one
         const allAnswers = [...userAnswers, lastAnswer];
-        
+
         const response = await fetch(`${API_URL}/api/games/submit-quiz`, {
           method: 'POST',
           headers: {
@@ -326,8 +305,8 @@ export default function LogicPuzzlesGame() {
         <View style={[styles.header, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <View style={styles.headerTop}>
             <Animated.View style={[styles.badgeContainer, { transform: [{ scale: pulseAnim }] }]}>
-                <MaterialCommunityIcons name="puzzle-outline" size={28} color={isDark ? '#E2E8F0' : '#1E293B'} />
-              </Animated.View>
+              <MaterialCommunityIcons name="puzzle-outline" size={28} color={isDark ? '#E2E8F0' : '#1E293B'} />
+            </Animated.View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={[styles.headerTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
                 Predict the Output!
@@ -337,18 +316,18 @@ export default function LogicPuzzlesGame() {
               </Text>
             </View>
             <View style={[styles.timerBadge, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)' }]}>
-                <MaterialCommunityIcons name="clock-outline" size={16} color="#3B82F6" />
-                <Text style={[styles.timerText, { color: '#3B82F6' }]}>{elapsedTime}s</Text>
-              </View>
+              <MaterialCommunityIcons name="clock-outline" size={16} color="#3B82F6" />
+              <Text style={[styles.timerText, { color: '#3B82F6' }]}>{elapsedTime}s</Text>
+            </View>
           </View>
-          
+
           {/* Progress Bar */}
           <View style={styles.progressBarContainer}>
-            <View 
+            <View
               style={[
-                styles.progressBarFill, 
+                styles.progressBarFill,
                 { width: `${((currentQuestionIndex + 1) / challenges.length) * 100}%` }
-              ]} 
+              ]}
             />
           </View>
         </View>
@@ -370,13 +349,13 @@ export default function LogicPuzzlesGame() {
           </View>
 
           {/* Code Block with interactive styling */}
-          <View style={[styles.codeContainer, { 
+          <View style={[styles.codeContainer, {
             backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
             borderColor: isDark ? '#334155' : '#E2E8F0',
           }]}>
             <View style={[styles.codeHeader, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)' }]}>
               <MaterialCommunityIcons name="file-document-outline" size={14} color={isDark ? '#94A3B8' : '#64748B'} />
-              <Text style={[styles.codeHeaderText, { color: isDark ? '#94A3B8' : '#64748B' }]}> 
+              <Text style={[styles.codeHeaderText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
                 Code to Analyze
               </Text>
             </View>
@@ -417,9 +396,9 @@ export default function LogicPuzzlesGame() {
                   <Text
                     style={[
                       styles.optionText,
-                      { 
-                        color: selectedOutput === option 
-                          ? '#FFFFFF' 
+                      {
+                        color: selectedOutput === option
+                          ? '#FFFFFF'
                           : (isDark ? '#E2E8F0' : '#1E293B'),
                         fontWeight: selectedOutput === option ? '700' : '600',
                       },
@@ -463,12 +442,12 @@ export default function LogicPuzzlesGame() {
               <Text style={[styles.correctAnswerLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>
                 Correct Output:
               </Text>
-              <Text style={[styles.correctAnswerValue, { color: '#3B82F6' }]}> 
+              <Text style={[styles.correctAnswerValue, { color: '#3B82F6' }]}>
                 {challenge?.correctOutput}
               </Text>
             </View>
-            <Pressable 
-              style={[styles.continueButton, { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }]} 
+            <Pressable
+              style={[styles.continueButton, { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }]}
               onPress={handleContinue}
             >
               <Text style={styles.continueButtonText}>
@@ -493,10 +472,10 @@ export default function LogicPuzzlesGame() {
               <Text style={[styles.scoreLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>Your Score</Text>
               <Text style={[styles.scoreValue, { color: '#3B82F6' }]}>{totalScore}</Text>
               <View style={styles.performanceBadge}>
-                <MaterialCommunityIcons 
-                  name={totalScore >= 800 ? 'star' : totalScore >= 600 ? 'heart' : 'lightning-bolt'} 
-                  size={16} 
-                  color={totalScore >= 800 ? '#FBBF24' : totalScore >= 600 ? '#EC4899' : '#F59E0B'} 
+                <MaterialCommunityIcons
+                  name={totalScore >= 800 ? 'star' : totalScore >= 600 ? 'heart' : 'lightning-bolt'}
+                  size={16}
+                  color={totalScore >= 800 ? '#FBBF24' : totalScore >= 600 ? '#EC4899' : '#F59E0B'}
                 />
                 <Text style={[styles.scoreSubtext, { color: totalScore >= 800 ? '#FBBF24' : totalScore >= 600 ? '#EC4899' : '#F59E0B' }]}>
                   {totalScore >= 800 ? 'Perfect Logic!' : totalScore >= 600 ? 'Great Thinking!' : 'Keep Practicing!'}
@@ -504,8 +483,8 @@ export default function LogicPuzzlesGame() {
               </View>
             </View>
             {quizFeedback.length > 0 && (
-              <Pressable 
-                style={[styles.feedbackButton, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]} 
+              <Pressable
+                style={[styles.feedbackButton, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]}
                 onPress={() => setShowFeedbackReview(true)}
               >
                 <Text style={[styles.feedbackButtonText, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>

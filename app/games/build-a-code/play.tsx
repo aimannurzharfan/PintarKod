@@ -2,7 +2,6 @@
 import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Audio } from 'expo-av';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -54,23 +53,23 @@ export default function BuildACodeGame() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [totalScore, setTotalScore] = useState(0);
-  
+
   // User arrangement
   const [arrangedBlocks, setArrangedBlocks] = useState<CodeBlock[]>([]);
   const [availableBlocks, setAvailableBlocks] = useState<CodeBlock[]>([]);
-  
+
   // Timer
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
-  
+
   // Feedback and exit
   const [quizFeedback, setQuizFeedback] = useState<Array<{ title: string; explanation: string }>>([]);
   const [showFeedbackReview, setShowFeedbackReview] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   // Allow navigating away after user confirmed leave
   const [allowExit, setAllowExit] = useState(false);
-  
+
   // Answer tracking
   const [userAnswers, setUserAnswers] = useState<Array<{
     challenge: Challenge;
@@ -79,8 +78,9 @@ export default function BuildACodeGame() {
   }>>([]);
 
   // Sound effects
-  const [soundCorrect, setSoundCorrect] = useState<Audio.Sound | null>(null);
-  const [soundWrong, setSoundWrong] = useState<Audio.Sound | null>(null);
+  // Sound effects
+  const correctPlayer = useAudioPlayer(require('@/assets/sounds/correct.mp3'));
+  const wrongPlayer = useAudioPlayer(require('@/assets/sounds/wrong.mp3'));
 
   const challenge = challenges[currentQuestionIndex];
 
@@ -106,30 +106,7 @@ export default function BuildACodeGame() {
     }
   }, [startTime, showResults]);
 
-  // Load sounds
-  useEffect(() => {
-    let correct: Audio.Sound | null = null;
-    let wrong: Audio.Sound | null = null;
-
-    Audio.Sound.createAsync(require('@/assets/sounds/correct.mp3'))
-      .then(({ sound }) => {
-        correct = sound;
-        setSoundCorrect(sound);
-      })
-      .catch(() => {});
-
-    Audio.Sound.createAsync(require('@/assets/sounds/wrong.mp3'))
-      .then(({ sound }) => {
-        wrong = sound;
-        setSoundWrong(sound);
-      })
-      .catch(() => {});
-
-    return () => {
-      correct?.unloadAsync();
-      wrong?.unloadAsync();
-    };
-  }, []);
+  // Sounds loaded via hook above
 
   // Fetch quiz on mount
   useEffect(() => {
@@ -148,7 +125,7 @@ export default function BuildACodeGame() {
   // Back button handler
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    
+
     const handleBackPress = () => {
       if (showResults || showFeedbackReview) {
         return false;
@@ -194,20 +171,20 @@ export default function BuildACodeGame() {
       const response = await fetch(`${API_URL}/api/games/build-a-code/quiz`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch quiz');
-      
+
       const data = await response.json();
       // Validate that challenges have required fields
-      const validChallenges = Array.isArray(data) ? data.filter(c => 
+      const validChallenges = Array.isArray(data) ? data.filter(c =>
         c && c.title && c.scenario && c.blocks && Array.isArray(c.blocks)
       ) : [];
-      
+
       if (validChallenges.length === 0) {
         console.error('No valid challenges received');
         return;
       }
-      
+
       setChallenges(validChallenges);
       setQuestionStartTime(Date.now());
     } catch (error) {
@@ -255,14 +232,16 @@ export default function BuildACodeGame() {
     const userOrder = arrangedBlocks.map(b => b.id);
     const isAnswerCorrect = JSON.stringify(userOrder) === JSON.stringify(challenge.correctOrder);
     const timeForQuestion = Date.now() - questionStartTime;
-    
+
     setIsCorrect(isAnswerCorrect);
     setShowFeedback(true);
-    
+
     if (isAnswerCorrect) {
-      soundCorrect?.replayAsync()?.catch(() => {});
+      correctPlayer.seekTo(0);
+      correctPlayer.play();
     } else {
-      soundWrong?.replayAsync()?.catch(() => {});
+      wrongPlayer.seekTo(0);
+      wrongPlayer.play();
     }
 
     // Store answer (server will calculate score based on time)
@@ -291,10 +270,10 @@ export default function BuildACodeGame() {
           userOrder,
           timeMs: timeForQuestion,
         };
-        
+
         // Include all previous answers plus the last one
         const allAnswers = [...userAnswers, lastAnswer];
-        
+
         const response = await fetch(`${API_URL}/api/games/submit-quiz`, {
           method: 'POST',
           headers: {
@@ -363,18 +342,18 @@ export default function BuildACodeGame() {
             </View>
             <View style={{ width: 40 }} />
           </View>
-          
+
           {/* Progress */}
           <View style={styles.progressSection}>
             <Text style={[styles.questionNumber, { color: '#10B981' }]}>
               Question {currentQuestionIndex + 1} of {challenges.length}
             </Text>
             <View style={styles.progressBarContainer}>
-              <View 
+              <View
                 style={[
-                  styles.progressBarFill, 
+                  styles.progressBarFill,
                   { width: `${((currentQuestionIndex + 1) / challenges.length) * 100}%` }
-                ]} 
+                ]}
               />
             </View>
           </View>
@@ -388,7 +367,7 @@ export default function BuildACodeGame() {
 
         {/* Challenge Card */}
         <View style={[styles.challengeCard, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-            <View style={styles.challengeHeader}>
+          <View style={styles.challengeHeader}>
             <View style={styles.iconWrapper}>
               <MaterialCommunityIcons name="file-document-outline" size={20} color={isDark ? '#E2E8F0' : '#1E293B'} />
             </View>
@@ -403,7 +382,7 @@ export default function BuildACodeGame() {
           </View>
 
           {/* Expected Output */}
-          <View style={[styles.outputBox, { 
+          <View style={[styles.outputBox, {
             backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
             borderColor: isDark ? '#334155' : '#E2E8F0',
           }]}>
@@ -433,30 +412,30 @@ export default function BuildACodeGame() {
               </View>
             ) : (
               arrangedBlocks.map((block, index) => (
-                <View key={block.id} style={[styles.arrangedBlock, { 
+                <View key={block.id} style={[styles.arrangedBlock, {
                   backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
                   borderColor: isDark ? '#334155' : '#E2E8F0',
                 }]}>
                   <View style={styles.blockControls}>
-                    <Pressable 
-                      onPress={() => moveBlockUp(index)} 
+                    <Pressable
+                      onPress={() => moveBlockUp(index)}
                       style={[styles.moveButton, index === 0 && styles.moveButtonDisabled]}
                       disabled={index === 0}
                     >
-                      <Text style={[styles.moveButtonText, { 
-                        color: index === 0 ? '#64748B' : '#10B981' 
+                      <Text style={[styles.moveButtonText, {
+                        color: index === 0 ? '#64748B' : '#10B981'
                       }]}>↑</Text>
                     </Pressable>
                     <Text style={[styles.blockIndex, { color: isDark ? '#94A3B8' : '#64748B' }]}>
                       {index + 1}
                     </Text>
-                    <Pressable 
+                    <Pressable
                       onPress={() => moveBlockDown(index)}
                       style={[styles.moveButton, index === arrangedBlocks.length - 1 && styles.moveButtonDisabled]}
                       disabled={index === arrangedBlocks.length - 1}
                     >
-                      <Text style={[styles.moveButtonText, { 
-                        color: index === arrangedBlocks.length - 1 ? '#64748B' : '#10B981' 
+                      <Text style={[styles.moveButtonText, {
+                        color: index === arrangedBlocks.length - 1 ? '#64748B' : '#10B981'
                       }]}>↓</Text>
                     </Pressable>
                   </View>
@@ -480,15 +459,15 @@ export default function BuildACodeGame() {
               <Text style={[styles.blocksTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Available Blocks ({availableBlocks.length})</Text>
             </View>
           </View>
-          
+
           <View style={styles.blocksContainer}>
             {availableBlocks.map((block) => (
               <Pressable
                 key={block.id}
                 style={({ pressed }) => [
-                  styles.availableBlock, 
-                  { 
-                    backgroundColor: pressed 
+                  styles.availableBlock,
+                  {
+                    backgroundColor: pressed
                       ? (isDark ? '#0F172A' : '#F1F5F9')
                       : (isDark ? '#0F172A' : '#F8FAFC'),
                     borderColor: isDark ? '#334155' : '#E2E8F0',
@@ -533,8 +512,8 @@ export default function BuildACodeGame() {
             <Text style={[styles.feedbackText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
               {challenge?.explanation ? (currentLang === 'ms' ? challenge.explanation.ms : challenge.explanation.en) : 'Keep practicing!'}
             </Text>
-            <Pressable 
-              style={[styles.continueButton, { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }]} 
+            <Pressable
+              style={[styles.continueButton, { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }]}
               onPress={handleContinue}
             >
               <Text style={styles.continueButtonText}>
@@ -559,10 +538,10 @@ export default function BuildACodeGame() {
               <Text style={[styles.scoreLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>Your Score</Text>
               <Text style={[styles.scoreValue, { color: '#8B5CF6' }]}>{totalScore}</Text>
               <View style={styles.performanceBadge}>
-                <MaterialCommunityIcons 
-                  name={totalScore >= 4000 ? 'star' : totalScore >= 3000 ? 'heart' : 'lightning-bolt'} 
-                  size={16} 
-                  color={totalScore >= 4000 ? '#FBBF24' : totalScore >= 3000 ? '#EC4899' : '#F59E0B'} 
+                <MaterialCommunityIcons
+                  name={totalScore >= 4000 ? 'star' : totalScore >= 3000 ? 'heart' : 'lightning-bolt'}
+                  size={16}
+                  color={totalScore >= 4000 ? '#FBBF24' : totalScore >= 3000 ? '#EC4899' : '#F59E0B'}
                 />
                 <Text style={[styles.scoreSubtext, { color: totalScore >= 4000 ? '#FBBF24' : totalScore >= 3000 ? '#EC4899' : '#F59E0B' }]}>
                   {totalScore >= 4000 ? 'Excellent!' : totalScore >= 3000 ? 'Great Job!' : 'Keep Practicing!'}
@@ -570,8 +549,8 @@ export default function BuildACodeGame() {
               </View>
             </View>
             {quizFeedback.length > 0 && (
-              <Pressable 
-                style={[styles.feedbackButton, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]} 
+              <Pressable
+                style={[styles.feedbackButton, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]}
                 onPress={() => setShowFeedbackReview(true)}
               >
                 <Text style={[styles.feedbackButtonText, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
@@ -659,7 +638,7 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 16, fontWeight: '600' },
   scrollView: { flex: 1 },
   scrollContent: { padding: 16, gap: 16, paddingBottom: 40 },
-  
+
   // Header
   header: { borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
@@ -670,7 +649,7 @@ const styles = StyleSheet.create({
   progressBarFill: { height: '100%', backgroundColor: '#10B981', borderRadius: 4 },
   timerBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(245, 158, 11, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, alignSelf: 'flex-start', marginTop: 12 },
   timerText: { fontSize: 14, fontWeight: '700', color: '#F59E0B', marginLeft: 4 },
-  
+
   // Challenge Card
   challengeCard: { borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, gap: 16 },
   challengeHeader: { flexDirection: 'row', gap: 12 },
@@ -681,7 +660,7 @@ const styles = StyleSheet.create({
   outputBox: { padding: 16, borderRadius: 12, borderWidth: 1, marginTop: 8 },
   outputLabel: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
   outputText: { fontSize: 16, fontFamily: 'monospace', fontWeight: '700' },
-  
+
   // Assembly Card
   assemblyCard: { borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, gap: 12 },
   assemblyHeader: { marginBottom: 8 },
@@ -698,7 +677,7 @@ const styles = StyleSheet.create({
   blockCode: { flex: 1, fontSize: 13, fontFamily: 'monospace' },
   removeButton: { padding: 8 },
   removeButtonText: { fontSize: 18, color: '#EF4444', fontWeight: '700' },
-  
+
   // Blocks Card
   blocksCard: { borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, gap: 12 },
   blocksHeader: { marginBottom: 8 },
@@ -707,12 +686,12 @@ const styles = StyleSheet.create({
   availableBlock: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 12, borderWidth: 1 },
   availableBlockCode: { flex: 1, fontSize: 13, fontFamily: 'monospace' },
   addIcon: { fontSize: 20, color: '#10B981', fontWeight: '700', marginLeft: 12 },
-  
+
   // Submit Button
   submitButton: { backgroundColor: '#10B981', borderRadius: 16, paddingVertical: 18, alignItems: 'center', shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   submitButtonDisabled: { backgroundColor: '#94A3B8', opacity: 0.5 },
   submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  
+
   // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   feedbackModal: { width: '90%', maxWidth: 400, borderRadius: 24, padding: 32, alignItems: 'center', gap: 16 },
@@ -720,7 +699,7 @@ const styles = StyleSheet.create({
   feedbackText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
   continueButton: { borderRadius: 16, paddingVertical: 16, paddingHorizontal: 32, width: '100%', marginTop: 8 },
   continueButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', textAlign: 'center' },
-  
+
   modalContent: { width: '100%', maxWidth: 420, borderRadius: 32, padding: 40, alignItems: 'center', gap: 28, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 12 },
   iconContainer: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(139, 92, 246, 0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 8, shadowColor: '#8B5CF6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
   resultsTitle: { fontSize: 32, fontWeight: '900', textAlign: 'center', letterSpacing: -0.5 },
@@ -735,7 +714,7 @@ const styles = StyleSheet.create({
   feedbackButtonText: { fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
   closeButton: { backgroundColor: '#10B981', borderRadius: 20, paddingVertical: 18, paddingHorizontal: 32, width: '100%', shadowColor: '#10B981', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6 },
   closeButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', textAlign: 'center' },
-  
+
   feedbackReviewModal: { width: '95%', maxWidth: 450, maxHeight: '80%', borderRadius: 24, padding: 24, gap: 16 },
   feedbackReviewTitle: { fontSize: 22, fontWeight: '800', textAlign: 'center' },
   feedbackReviewScroll: { maxHeight: 350 },
@@ -744,7 +723,7 @@ const styles = StyleSheet.create({
   feedbackItemExplanation: { fontSize: 13, lineHeight: 20 },
   feedbackCloseButton: { backgroundColor: '#10B981', borderRadius: 16, paddingVertical: 14, width: '100%' },
   feedbackCloseButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', textAlign: 'center' },
-  
+
   exitConfirmModal: { width: '90%', maxWidth: 380, borderRadius: 24, padding: 28, alignItems: 'center', gap: 12 },
   exitConfirmTitle: { fontSize: 24, fontWeight: '800' },
   exitConfirmText: { fontSize: 14, textAlign: 'center', lineHeight: 22 },

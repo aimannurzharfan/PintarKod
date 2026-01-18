@@ -2,7 +2,6 @@
 import { API_URL } from '@/config';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Audio } from 'expo-av';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -34,7 +33,7 @@ export default function TroubleshootingGame() {
   const navigation = useNavigation();
   const { token } = useAuth();
   const colorScheme = useColorScheme();
-  
+
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
@@ -64,19 +63,20 @@ export default function TroubleshootingGame() {
     selectedLine: number;
     timeMs: number;
   }>>([]);
-  
+
   // Feedback review state
   const [quizFeedback, setQuizFeedback] = useState<Array<{ title: string; explanation: string }>>([]);
   const [showFeedbackReview, setShowFeedbackReview] = useState(false);
-  
+
   // Exit confirmation state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   // Allow navigating away after user confirmed leave
   const [allowExit, setAllowExit] = useState(false);
-  
+
   // Sound effects
-  const [soundCorrect, setSoundCorrect] = useState<Audio.Sound | null>(null);
-  const [soundWrong, setSoundWrong] = useState<Audio.Sound | null>(null);
+  // Sound effects
+  const correctPlayer = useAudioPlayer(require('@/assets/sounds/correct.mp3'));
+  const wrongPlayer = useAudioPlayer(require('@/assets/sounds/wrong.mp3'));
 
   const isDark = colorScheme === 'dark';
   const currentLang = i18n.language?.split('-')[0] || 'en';
@@ -93,30 +93,7 @@ export default function TroubleshootingGame() {
     }
   }, [startTime, showResults]);
 
-  // Load sounds
-  useEffect(() => {
-    let correct: Audio.Sound | null = null;
-    let wrong: Audio.Sound | null = null;
-
-    Audio.Sound.createAsync(require('@/assets/sounds/correct.mp3'))
-      .then(({ sound }) => {
-        correct = sound;
-        setSoundCorrect(sound);
-      })
-      .catch(() => {});
-
-    Audio.Sound.createAsync(require('@/assets/sounds/wrong.mp3'))
-      .then(({ sound }) => {
-        wrong = sound;
-        setSoundWrong(sound);
-      })
-      .catch(() => {});
-
-    return () => {
-      correct?.unloadAsync();
-      wrong?.unloadAsync();
-    };
-  }, []);
+  // Sounds loaded via hook above
 
   // Fetch quiz
   useEffect(() => {
@@ -146,7 +123,7 @@ export default function TroubleshootingGame() {
   // Handle back button press
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    
+
     const handleBackPress = () => {
       if (showResults || showFeedbackReview) {
         // Allow normal back behavior when viewing results
@@ -188,11 +165,13 @@ export default function TroubleshootingGame() {
     const correct = selectedLine === challenge.buggyLineIndex;
     setIsCorrect(correct);
     setShowFeedback(true);
-    
+
     if (correct) {
-      soundCorrect?.replayAsync()?.catch(() => {});
+      correctPlayer.seekTo(0);
+      correctPlayer.play();
     } else {
-      soundWrong?.replayAsync()?.catch(() => {});
+      wrongPlayer.seekTo(0);
+      wrongPlayer.play();
     }
 
     // Calculate time for this question
@@ -208,7 +187,7 @@ export default function TroubleshootingGame() {
 
   const handleContinue = useCallback(async () => {
     setShowFeedback(false);
-    
+
     if (currentQuestionIndex < challenges.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedLine(null);
@@ -223,10 +202,10 @@ export default function TroubleshootingGame() {
           selectedLine: selectedLine!,
           timeMs: timeForQuestion,
         };
-        
+
         // Include all previous answers plus the last one
         const allAnswers = [...userAnswers, lastAnswer];
-        
+
         const response = await fetch(`${API_URL}/api/games/submit-quiz`, {
           method: 'POST',
           headers: {
@@ -281,18 +260,18 @@ export default function TroubleshootingGame() {
             </View>
             <View style={{ width: 40 }} />
           </View>
-          
+
           {/* Progress */}
           <View style={styles.progressSection}>
             <Text style={[styles.questionNumber, { color: '#F59E0B' }]}>
               Case {currentQuestionIndex + 1} of {challenges.length}
             </Text>
             <View style={styles.progressBarContainer}>
-              <View 
+              <View
                 style={[
-                  styles.progressBarFill, 
+                  styles.progressBarFill,
                   { width: `${((currentQuestionIndex + 1) / challenges.length) * 100}%` }
-                ]} 
+                ]}
               />
             </View>
           </View>
@@ -321,7 +300,7 @@ export default function TroubleshootingGame() {
           </View>
 
           {/* Code Block */}
-          <View style={[styles.codeContainer, { 
+          <View style={[styles.codeContainer, {
             backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
             borderColor: isDark ? '#334155' : '#E2E8F0',
           }]}>
@@ -361,7 +340,7 @@ export default function TroubleshootingGame() {
             onPress={handleSubmit}
             disabled={selectedLine === null}
           >
-              <Text style={styles.submitButtonText}>
+            <Text style={styles.submitButtonText}>
               {currentQuestionIndex < challenges.length - 1 ? 'Submit Answer' : 'Finish'}
             </Text>
           </Pressable>
@@ -402,10 +381,10 @@ export default function TroubleshootingGame() {
               <Text style={[styles.scoreLabel, { color: isDark ? '#94A3B8' : '#64748B' }]}>Your Score</Text>
               <Text style={[styles.scoreValue, { color: '#F59E0B' }]}>{totalScore}</Text>
               <View style={styles.performanceBadge}>
-                <MaterialCommunityIcons 
-                  name={totalScore >= 800 ? 'star' : totalScore >= 600 ? 'heart' : 'lightning-bolt'} 
-                  size={16} 
-                  color={totalScore >= 800 ? '#FBBF24' : totalScore >= 600 ? '#EC4899' : '#F59E0B'} 
+                <MaterialCommunityIcons
+                  name={totalScore >= 800 ? 'star' : totalScore >= 600 ? 'heart' : 'lightning-bolt'}
+                  size={16}
+                  color={totalScore >= 800 ? '#FBBF24' : totalScore >= 600 ? '#EC4899' : '#F59E0B'}
                 />
                 <Text style={[styles.scoreSubtext, { color: totalScore >= 800 ? '#FBBF24' : totalScore >= 600 ? '#EC4899' : '#F59E0B' }]}>
                   {totalScore >= 800 ? 'Master Detective!' : totalScore >= 600 ? 'Good Work!' : 'Keep Investigating!'}
@@ -413,8 +392,8 @@ export default function TroubleshootingGame() {
               </View>
             </View>
             {quizFeedback.length > 0 && (
-              <Pressable 
-                style={[styles.feedbackButton, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]} 
+              <Pressable
+                style={[styles.feedbackButton, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }]}
                 onPress={() => setShowFeedbackReview(true)}
               >
                 <Text style={[styles.feedbackButtonText, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>

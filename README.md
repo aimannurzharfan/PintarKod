@@ -64,7 +64,7 @@ Open `.env` and fill in every value:
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | MySQL connection string, e.g. `mysql://user:pass@host:port/dbname` |
-| `JWT_SECRET` | Random secret for signing JWTs — generate with `openssl rand -hex 32` |
+| `JWT_SECRET` | Random secret for signing JWTs. Generate one with `openssl rand -hex 32` |
 | `AI_CHATBOT_API_KEY` | Google Gemini API key |
 | `PORT` | Port for the Express server (default: `4000`) |
 
@@ -109,14 +109,14 @@ Press `a` for Android emulator, `i` for iOS simulator, or scan the QR code with 
 
 ## Key features
 
-- **Debugging Challenges** — find and fix the buggy line in randomly generated code snippets
-- **Build-a-Code** — assemble code blocks in the correct order
-- **Logic Puzzles** — predict the output of short programs
-- **Leaderboard & Badges** — Champion / Rising Star / Student tiers based on score ranking
-- **AI Chatbot Tutor** — Google Gemini answers coding questions in real time
-- **Community Forum** — threads, replies, image attachments, teacher moderation
-- **Learning Materials** — teachers upload notes, videos, and exercises per topic
-- **Notifications** — in-app alerts for new threads, replies, and materials
+- **Debugging Challenges:** find and fix the buggy line in randomly generated code snippets
+- **Build-a-Code:** assemble code blocks in the correct order
+- **Logic Puzzles:** predict the output of short programs
+- **Leaderboard & Badges:** Champion / Rising Star / Student tiers based on score ranking
+- **AI Chatbot Tutor:** Google Gemini answers coding questions in real time
+- **Community Forum:** threads, replies, image attachments, teacher moderation
+- **Learning Materials:** teachers upload notes, videos, and exercises per topic
+- **Notifications:** in-app alerts for new threads, replies, and materials
 
 ---
 
@@ -146,4 +146,4 @@ Press `a` for Android emulator, `i` for iOS simulator, or scan the QR code with 
 
 ## Cloud deployment notes
 
-The backend is hosted on Render Free Tier. The file system is ephemeral — uploaded files (avatars, forum attachments) are lost on restart. For production, replace local file storage with persistent object storage (e.g. AWS S3 or Cloudflare R2).
+The backend is hosted on Render Free Tier. The file system is ephemeral, so uploaded files (avatars, forum attachments) are lost on restart. For production, replace local file storage with persistent object storage (e.g. AWS S3 or Cloudflare R2).
